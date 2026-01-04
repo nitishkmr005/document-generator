@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+
+# Hugo
+content/
+themes/
+public/
+resources/
+static/
+layouts/
+assets/
+
+# Claude
+.claude/
+
+# Node
+node_modules/
+package*.json
+
+# Output (will be mounted as volume)
+src/output/*
+
+# Data (will be mounted as volume)
+src/data/*
+
+# Dev files
+dev/
+data/
+
+# Docker
+Dockerfile
+docker-compose.yaml
+.dockerignore

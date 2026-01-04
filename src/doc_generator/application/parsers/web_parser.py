@@ -1,0 +1,89 @@
+"""
+Web article parser using MarkItDown.
+
+Fetches and converts web pages to markdown.
+"""
+
+from pathlib import Path
+from typing import Tuple
+from loguru import logger
+
+from ...infrastructure.markitdown_adapter import (
+    convert_url_to_markdown,
+    is_markitdown_available
+)
+from ...domain.exceptions import ParseError
+
+
+class WebParser:
+    """
+    Parser for web articles and HTML content.
+
+    Uses Microsoft's MarkItDown library to convert HTML to markdown.
+    """
+
+    def __init__(self):
+        if not is_markitdown_available():
+            logger.warning(
+                "MarkItDown not available - web parsing will have limited functionality"
+            )
+
+    def parse(self, input_path: str | Path) -> Tuple[str, dict]:
+        """
+        Fetch and parse web article.
+
+        Args:
+            input_path: URL to web page
+
+        Returns:
+            Tuple of (markdown_content, metadata)
+
+        Raises:
+            ParseError: If fetching or parsing fails
+        """
+        url = str(input_path)
+
+        logger.info(f"Fetching web article: {url}")
+
+        try:
+            content = convert_url_to_markdown(url)
+
+            # Extract title from content (first heading)
+            title = self._extract_title_from_markdown(content)
+
+            metadata = {
+                "title": title,
+                "url": url,
+                "parser": "web",
+            }
+
+            logger.info(
+                f"Web parsing completed: {len(content)} chars, "
+                f"title='{title}'"
+            )
+
+            return content, metadata
+
+        except Exception as e:
+            logger.error(f"Web parsing failed for {url}: {e}")
+            raise ParseError(f"Failed to parse web article: {e}")
+
+    def _extract_title_from_markdown(self, content: str) -> str:
+        """
+        Extract title from markdown content (first H1 heading).
+
+        Args:
+            content: Markdown content
+
+        Returns:
+            Extracted title or default
+        """
+        import re
+
+        # Look for first H1 heading
+        match = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
+
+        if match:
+            return match.group(1).strip()
+
+        return "Web Article"

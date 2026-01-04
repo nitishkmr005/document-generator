@@ -1,0 +1,69 @@
+[project]
+name = "doc-generator"
+version = "0.1.0"
+description = "LangGraph-based document generator for PDF and PPTX (Pure Python)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # LangGraph workflow
+    "langgraph==0.2.55",
+    "langchain-core==0.3.25",
+
+    # Configuration and validation
+    "pydantic==2.10.5",
+    "pydantic-settings==2.7.1",
+
+    # Logging
+    "loguru==0.7.3",
+
+    # Document parsing (IBM Research - advanced PDF/document parsing)
+    "docling==2.66.0",
+
+    # Document conversion (Microsoft - convert any doc to markdown)
+    "markitdown[all]==0.0.1a2",
+
+    # PDF generation
+    "reportlab==4.2.5",
+    "pypdf==5.1.0",
+    "cairosvg==2.7.1",  # For SVG to PNG conversion (mermaid diagrams)
+
+    # PPTX generation (Pure Python - no Node.js required)
+    "python-pptx==1.0.2",
+    "Pillow==11.2.0",  # Image processing for PPTX
+
+    # Web parsing
+    "requests==2.32.3",
+    "beautifulsoup4==4.12.3",
+
+    # Utilities
+    "pyyaml==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-cov==6.0.0",
+    "ruff==0.8.5",
+    "mypy==1.14.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Set to false initially for rapid development
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

@@ -1,0 +1,63 @@
+# Document Generator Configuration
+
+generator:
+  # Input/output directories
+  input_dir: "src/data"
+  output_dir: "src/output"
+
+  # Default output format (pdf or pptx)
+  default_output_format: "pdf"
+
+  # Maximum retries for generation failures
+  max_retries: 3
+
+# Logging configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+
+# PDF generation settings
+pdf:
+  page_size: "letter"  # letter, a4, legal
+  margin:
+    top: 72
+    bottom: 18
+    left: 72
+    right: 72
+
+  # Color palette (from build_transformer_pdf.py)
+  palette:
+    ink: "#1C1C1C"
+    muted: "#4A4A4A"
+    paper: "#F6F1E7"
+    panel: "#FFFDF8"
+    accent: "#D76B38"
+    teal: "#1E5D5A"
+    line: "#E2D7C9"
+    code: "#F2EEE7"
+    table: "#F8F4ED"
+
+# PPTX generation settings
+pptx:
+  layout: "LAYOUT_16x9"  # 16:9 aspect ratio
+  slide_width: 960  # pixels
+  slide_height: 540  # pixels
+
+  # Default theme colors
+  theme:
+    background: "#FFFFFF"
+    text: "#1C1C1C"
+    accent: "#D76B38"
+    secondary: "#1E5D5A"
+
+# Parser settings
+parsers:
+  # Docling settings
+  docling:
+    ocr_enabled: true
+    table_structure_extraction: true
+
+  # Web parser settings
+  web:
+    timeout: 10  # seconds
+    user_agent: "doc-generator/0.1.0"
