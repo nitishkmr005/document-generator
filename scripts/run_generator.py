@@ -6,8 +6,10 @@ Usage:
     python scripts/run_generator.py input.md --output pdf
     python scripts/run_generator.py input.pdf --output pptx
     python scripts/run_generator.py https://example.com/article --output pdf
+    python scripts/run_generator.py input.md --output pptx --api-key YOUR_OPENAI_KEY
 """
 
+import os
 import sys
 from pathlib import Path
 import argparse
@@ -17,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from doc_generator.application.graph_workflow import run_workflow
 from doc_generator.infrastructure.logging_config import setup_logging
+from doc_generator.infrastructure.llm_service import get_llm_service
 
 
 def main():
@@ -29,14 +32,17 @@ Examples:
   # Markdown to PDF
   python scripts/run_generator.py src/data/article.md --output pdf
 
-  # Web article to PPTX
-  python scripts/run_generator.py https://example.com/article --output pptx
+  # Web article to PPTX (with LLM enhancement)
+  python scripts/run_generator.py https://example.com/article --output pptx --api-key YOUR_KEY
 
   # PDF to PPTX (extract and convert)
   python scripts/run_generator.py src/data/document.pdf --output pptx
 
   # With verbose logging
   python scripts/run_generator.py input.md --output pdf --verbose
+
+  # Executive-style PPTX with LLM
+  python scripts/run_generator.py input.md --output pptx --api-key YOUR_OPENAI_API_KEY
         """
     )
 
@@ -63,10 +69,26 @@ Examples:
         help="Path to log file (optional)"
     )
 
+    parser.add_argument(
+        "--api-key",
+        help="OpenAI API key for LLM-enhanced generation (or set OPENAI_API_KEY env var)"
+    )
+
     args = parser.parse_args()
 
     # Setup logging
     setup_logging(verbose=args.verbose, log_file=args.log_file)
+
+    # Initialize LLM service if API key provided
+    if args.api_key:
+        os.environ["OPENAI_API_KEY"] = args.api_key
+        llm = get_llm_service(api_key=args.api_key)
+        if llm.is_available():
+            print("🤖 LLM enhancement enabled (OpenAI)")
+    elif os.environ.get("OPENAI_API_KEY"):
+        llm = get_llm_service()
+        if llm.is_available():
+            print("🤖 LLM enhancement enabled (from environment)")
 
     # Run workflow
     result = run_workflow(

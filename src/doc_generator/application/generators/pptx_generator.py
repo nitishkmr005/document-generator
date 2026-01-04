@@ -2,6 +2,7 @@
 PPTX generator using python-pptx.
 
 Generates PowerPoint presentations from structured markdown content.
+Supports LLM-enhanced slide generation for executive presentations.
 """
 
 from pathlib import Path
@@ -13,9 +14,12 @@ from ...infrastructure.pptx_utils import (
     add_content_slide,
     add_section_header_slide,
     add_image_slide,
+    add_executive_summary_slide,
+    add_chart_slide,
     save_presentation,
 )
 from ...infrastructure.pdf_utils import parse_markdown_lines
+from ...infrastructure.svg_generator import generate_chart
 from ...domain.exceptions import GenerationError
 
 
@@ -34,8 +38,11 @@ class PPTXGenerator:
         """
         Generate PPTX from structured content.
 
+        Uses LLM-enhanced content when available for executive-quality presentations.
+
         Args:
-            content: Structured content dictionary with 'title' and 'markdown' keys
+            content: Structured content dictionary with 'title', 'markdown',
+                     and optional 'slides', 'executive_summary', 'charts' keys
             metadata: Document metadata
             output_dir: Output directory
 
@@ -62,8 +69,22 @@ class PPTXGenerator:
             if not markdown_content:
                 raise GenerationError("No content provided for PPTX generation")
 
-            # Create presentation
-            self._create_presentation(output_path, title, markdown_content, metadata)
+            # Check for LLM enhancements
+            has_llm_enhancements = any(
+                key in content for key in ["slides", "executive_summary", "charts"]
+            )
+
+            if has_llm_enhancements:
+                logger.info("Using LLM-enhanced slide generation")
+
+            # Create presentation with full structured content
+            self._create_presentation(
+                output_path,
+                title,
+                markdown_content,
+                metadata,
+                structured_content=content if has_llm_enhancements else None
+            )
 
             logger.info(f"PPTX generated successfully: {output_path}")
 
@@ -78,31 +99,110 @@ class PPTXGenerator:
         output_path: Path,
         title: str,
         markdown_content: str,
-        metadata: dict
+        metadata: dict,
+        structured_content: dict = None
     ) -> None:
         """
         Create PowerPoint presentation.
+
+        Uses LLM-generated slide structure when available for executive-quality output.
 
         Args:
             output_path: Path to output PPTX
             title: Presentation title
             markdown_content: Markdown content to convert
             metadata: Document metadata
+            structured_content: Optional structured content with LLM enhancements
         """
         # Create presentation
         prs = create_presentation()
 
         # Add title slide
-        subtitle = metadata.get("subtitle", metadata.get("url", ""))
+        subtitle = metadata.get("subtitle", metadata.get("author", ""))
         add_title_slide(prs, title, subtitle)
 
-        # Parse markdown and create slides
-        self._add_slides_from_markdown(prs, markdown_content)
+        # Check for LLM-enhanced content
+        if structured_content:
+            # Add executive summary if available
+            executive_summary = structured_content.get("executive_summary", "")
+            if executive_summary:
+                summary_points = [
+                    line.strip() for line in executive_summary.split("\n")
+                    if line.strip() and (line.strip().startswith("-") or line.strip().startswith("•"))
+                ]
+                if summary_points:
+                    add_executive_summary_slide(prs, "Executive Summary", summary_points)
+                    logger.debug("Added executive summary slide")
+
+            # Use LLM-generated slide structure if available
+            slides = structured_content.get("slides", [])
+            if slides:
+                self._add_llm_slides(prs, slides)
+            else:
+                # Fallback to markdown-based generation
+                self._add_slides_from_markdown(prs, markdown_content)
+
+            # Add chart slides if suggested
+            charts = structured_content.get("charts", [])
+            self._add_chart_slides(prs, charts, output_path.parent)
+        else:
+            # No LLM enhancement - use markdown-based generation
+            self._add_slides_from_markdown(prs, markdown_content)
 
         # Save presentation
         save_presentation(prs, output_path)
 
         logger.debug(f"Created presentation with {len(prs.slides)} slides")
+
+    def _add_llm_slides(self, prs, slides: list[dict]) -> None:
+        """
+        Add slides from LLM-generated structure.
+
+        Args:
+            prs: Presentation object
+            slides: List of slide dictionaries with title, bullets, speaker_notes
+        """
+        for slide_data in slides:
+            title = slide_data.get("title", "")
+            bullets = slide_data.get("bullets", [])
+            speaker_notes = slide_data.get("speaker_notes", "")
+
+            if title and bullets:
+                add_content_slide(
+                    prs,
+                    title,
+                    bullets,
+                    is_bullets=True,
+                    speaker_notes=speaker_notes
+                )
+
+        logger.debug(f"Added {len(slides)} LLM-generated slides")
+
+    def _add_chart_slides(self, prs, charts: list[dict], output_dir: Path) -> None:
+        """
+        Generate and add chart slides.
+
+        Args:
+            prs: Presentation object
+            charts: List of chart suggestions from LLM
+            output_dir: Directory for temporary chart files
+        """
+        for i, chart in enumerate(charts[:3]):  # Max 3 charts
+            chart_type = chart.get("chart_type", "bar")
+            title = chart.get("title", f"Chart {i+1}")
+            data = chart.get("data", [])
+
+            if not data:
+                continue
+
+            # Generate SVG
+            svg_path = output_dir / f"chart_{i}.svg"
+            try:
+                generate_chart(chart_type, data, title, svg_path)
+                add_chart_slide(prs, title, svg_path)
+                logger.debug(f"Added chart slide: {title}")
+            except Exception as e:
+                logger.warning(f"Failed to generate chart: {e}")
 
     def _add_slides_from_markdown(self, prs, markdown_content: str) -> None:
         """

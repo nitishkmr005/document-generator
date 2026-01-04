@@ -179,9 +179,10 @@ class PDFGenerator:
                     story.append(Paragraph(inline_md(content_item), self.styles["BodyCustom"]))
 
         # Build PDF
+        element_count = len(story)
         doc.build(story)
 
-        logger.debug(f"PDF document built with {len(story)} elements")
+        logger.debug(f"PDF document built with {element_count} elements")
 
     def _resolve_image_path(self, url: str) -> Path | None:
         """
