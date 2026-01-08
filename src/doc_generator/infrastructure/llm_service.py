@@ -303,6 +303,151 @@ Example format:
             logger.error(f"Failed to suggest chart data: {e}")
             return []
 
+    def suggest_concept_diagrams(self, content: str, max_diagrams: int = 3) -> list[dict]:
+        """
+        Suggest explanatory concept diagrams for blog/article content.
+
+        Analyzes content to identify key concepts that would benefit from
+        visual explanation through architecture, comparison, or flow diagrams.
+
+        Args:
+            content: Content to analyze
+            max_diagrams: Maximum number of diagrams to suggest
+
+        Returns:
+            List of diagram specifications with type, title, and components
+        """
+        if not self.is_available():
+            return []
+
+        prompt = f"""Analyze this technical article/blog content and suggest explanatory diagrams
+that would help readers understand the key concepts visually.
+
+Content:
+{content[:6000]}
+
+Create {max_diagrams} diagrams that explain the most important concepts.
+Each diagram should be educational and help readers understand complex ideas at a glance.
+
+For each diagram, provide:
+- diagram_type: One of "architecture", "comparison", or "flow"
+- title: Clear, descriptive title
+- description: Brief caption explaining what this diagram shows
+- components: Structured data for the diagram (format depends on type)
+
+Diagram type specifications:
+
+1. "architecture" - Shows system/concept components and their relationships
+   components: {{
+     "boxes": [
+       {{"id": "unique_id", "label": "Component Name", "description": "Brief description"}}
+     ],
+     "connections": [
+       {{"from": "id1", "to": "id2", "label": "relationship description"}}
+     ]
+   }}
+
+2. "comparison" - Side-by-side comparison of 2-3 concepts/approaches
+   components: {{
+     "items": [
+       {{
+         "name": "Concept A",
+         "features": ["Feature 1", "Feature 2", "Feature 3"],
+         "pros": ["Advantage 1"],
+         "cons": ["Disadvantage 1"]
+       }}
+     ]
+   }}
+
+3. "flow" - Process or data flow diagram
+   components: {{
+     "steps": [
+       {{"id": "step1", "label": "Step Name", "description": "What happens here"}}
+     ],
+     "arrows": [
+       {{"from": "step1", "to": "step2", "label": "optional label"}}
+     ]
+   }}
+
+Return JSON with a "diagrams" array. Focus on concepts that are genuinely complex
+and benefit from visual explanation.
+
+Example response:
+{{
+  "diagrams": [
+    {{
+      "diagram_type": "architecture",
+      "title": "Transformer Block Architecture",
+      "description": "Core components of a transformer block showing data flow",
+      "components": {{
+        "boxes": [
+          {{"id": "input", "label": "Input Embeddings", "description": "Token + Position"}},
+          {{"id": "attn", "label": "Multi-Head Attention", "description": "Self-attention mechanism"}},
+          {{"id": "ffn", "label": "Feed Forward", "description": "MLP layer"}},
+          {{"id": "output", "label": "Output", "description": "Next layer input"}}
+        ],
+        "connections": [
+          {{"from": "input", "to": "attn", "label": ""}},
+          {{"from": "attn", "to": "ffn", "label": "Add & Norm"}},
+          {{"from": "ffn", "to": "output", "label": "Add & Norm"}}
+        ]
+      }}
+    }}
+  ]
+}}"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a technical documentation expert who creates clear, "
+                        "educational diagrams that help readers understand complex concepts. "
+                        "Focus on accuracy and clarity. Always respond with valid JSON."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.4,
+                max_tokens=3000,
+                response_format={"type": "json_object"}
+            )
+            result = response.choices[0].message.content.strip()
+            logger.debug(f"Concept diagram raw response: {result[:300]}...")
+
+            data = json.loads(result)
+
+            # Handle various response formats
+            if isinstance(data, dict):
+                diagrams = data.get("diagrams", [])
+            elif isinstance(data, list):
+                diagrams = data
+            else:
+                diagrams = []
+
+            # Validate diagram structure
+            valid_diagrams = []
+            valid_types = {"architecture", "comparison", "flow"}
+
+            for diagram in diagrams:
+                if not isinstance(diagram, dict):
+                    continue
+                diagram_type = diagram.get("diagram_type", "")
+                if diagram_type in valid_types and diagram.get("components"):
+                    valid_diagrams.append({
+                        "diagram_type": diagram_type,
+                        "title": diagram.get("title", "Concept Diagram"),
+                        "description": diagram.get("description", ""),
+                        "components": diagram.get("components", {})
+                    })
+
+            logger.debug(f"Generated {len(valid_diagrams)} concept diagrams")
+            return valid_diagrams[:max_diagrams]
+
+        except Exception as e:
+            logger.error(f"Failed to suggest concept diagrams: {e}")
+            return []
+
 
 # Singleton instance with lazy initialization
 _llm_service: Optional[LLMService] = None
