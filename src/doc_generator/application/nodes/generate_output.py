@@ -10,6 +10,7 @@ from loguru import logger
 
 from ...domain.exceptions import GenerationError
 from ...domain.models import WorkflowState
+from ...infrastructure.settings import get_settings
 from ..generators import get_generator
 
 
@@ -42,8 +43,9 @@ def generate_output_node(state: WorkflowState) -> WorkflowState:
                 output_dir=output_dir
             )
         else:
-            # Get default output directory
-            output_dir = Path("src/output")
+            # Get default output directory from settings
+            settings = get_settings()
+            output_dir = settings.generator.output_dir
 
             # Generate output file with default naming
             output_path = generator.generate(

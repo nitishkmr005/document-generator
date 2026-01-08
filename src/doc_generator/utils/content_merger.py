@@ -11,8 +11,9 @@ from typing import Optional
 
 from loguru import logger
 
-from doc_generator.infrastructure.llm_service import LLMService
-from doc_generator.utils.content_cleaner import clean_content_for_output
+from ..infrastructure.llm_service import LLMService
+from ..infrastructure.settings import get_settings
+from .content_cleaner import clean_content_for_output
 
 
 def merge_folder_content(
@@ -125,8 +126,9 @@ def merge_folder_content(
     # Combine all sections
     merged_content = "".join(sections)
 
-    # Write to temporary file
-    temp_dir = Path("src/output/temp")
+    # Write to temporary file using settings
+    settings = get_settings()
+    temp_dir = settings.generator.temp_dir
     temp_dir.mkdir(parents=True, exist_ok=True)
 
     temp_file = temp_dir / f"{folder_name}_merged.md"

@@ -23,6 +23,8 @@ from ...infrastructure.pdf_utils import (
     parse_markdown_lines,
     rasterize_svg,
 )
+from ...infrastructure.settings import get_settings
+from ...utils.image_utils import resolve_image_path
 
 
 class PDFGenerator:
@@ -39,7 +41,8 @@ class PDFGenerator:
         Args:
             image_cache: Directory for cached images (optional)
         """
-        self.image_cache = image_cache or Path("src/output/pdf_images")
+        settings = get_settings()
+        self.image_cache = image_cache or Path(settings.pdf.image_cache_dir)
         self.styles = create_custom_styles()
 
     def generate(self, content: dict, metadata: dict, output_dir: Path) -> Path:
@@ -229,28 +232,8 @@ class PDFGenerator:
         Returns:
             Path to local image or None
         """
-        # If it's a URL, we can't resolve it locally
-        if url.startswith("http://") or url.startswith("https://"):
-            logger.warning(f"Remote image URLs not supported in PDF: {url}")
-            return None
-
-        # Try to resolve as local path
-        cleaned = url.lstrip("/")
-
-        # Check several possible locations
-        candidates = [
-            Path(url),  # Absolute path
-            Path(cleaned),  # Relative path
-            Path("static") / cleaned,  # Hugo static dir
-            Path("src/output") / cleaned,  # Output dir
-        ]
-
-        for candidate in candidates:
-            if candidate.exists() and candidate.is_file():
-                # Handle SVG files
-                if candidate.suffix.lower() == ".svg":
-                    return rasterize_svg(candidate, self.image_cache)
-                return candidate
-
-        logger.warning(f"Image not found: {url}")
-        return None
+        return resolve_image_path(
+            url,
+            image_cache=self.image_cache,
+            rasterize_func=rasterize_svg
+        )

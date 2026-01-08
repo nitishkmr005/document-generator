@@ -30,6 +30,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ..utils.markdown_utils import strip_frontmatter  # noqa: F401
+
 # Color palette (migrated from build_transformer_pdf.py lines 33-43)
 PALETTE = {
     "ink": colors.HexColor("#1C1C1C"),
@@ -42,23 +44,6 @@ PALETTE = {
     "code": colors.HexColor("#F2EEE7"),
     "table": colors.HexColor("#F8F4ED"),
 }
-
-
-def strip_frontmatter(text: str) -> str:
-    """
-    Remove YAML frontmatter from markdown text.
-
-    Args:
-        text: Markdown text potentially containing frontmatter
-
-    Returns:
-        Text with frontmatter removed
-    """
-    if text.startswith("---"):
-        parts = text.split("---", 2)
-        if len(parts) == 3:
-            return parts[2].lstrip()
-    return text
 
 
 def inline_md(text: str) -> str:

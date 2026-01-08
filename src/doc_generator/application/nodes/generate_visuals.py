@@ -5,18 +5,13 @@ Generates SVG visualizations based on content analysis.
 Works with or without LLM - parses figure references and generates diagrams automatically.
 """
 
-from pathlib import Path
-
 from loguru import logger
 
 from ...domain.models import WorkflowState
 from ...infrastructure.llm_service import get_llm_service
+from ...infrastructure.settings import get_settings
 from ...infrastructure.svg_generator import generate_visualization
-from ...utils.figure_parser import (
-    extract_figure_references,
-    generate_diagram_data,
-    map_to_visual_type
-)
+from ...utils.figure_parser import extract_figure_references, generate_diagram_data, map_to_visual_type
 
 
 def generate_visuals_node(state: WorkflowState) -> WorkflowState:
@@ -41,8 +36,9 @@ def generate_visuals_node(state: WorkflowState) -> WorkflowState:
             logger.debug("No content to analyze for visualizations")
             return state
 
-        # Get output directory for SVG files
-        output_dir = Path("src/output/visuals")
+        # Get output directory for SVG files from settings
+        settings = get_settings()
+        output_dir = settings.generator.visuals_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Try to get visualizations from LLM or parse content directly

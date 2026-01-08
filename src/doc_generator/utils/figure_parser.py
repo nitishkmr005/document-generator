@@ -7,6 +7,7 @@ appropriate SVG diagrams based on context, without requiring an LLM.
 
 import re
 from typing import Optional
+
 from loguru import logger
 
 

@@ -1,14 +1,18 @@
 # Document Generator Configuration
+# This file is loaded by the Pydantic Settings module and validated.
+# Environment variables can override these values using DOC_GENERATOR_ prefix.
 
 generator:
   # Input/output directories
   input_dir: "src/data"
   output_dir: "src/output"
+  visuals_dir: "src/output/visuals"
+  temp_dir: "src/output/temp"
 
   # Default output format (pdf or pptx)
   default_output_format: "pdf"
 
-  # Maximum retries for generation failures
+  # Maximum retries for generation failures (1-10)
   max_retries: 3
 
 # Logging configuration
@@ -19,13 +23,14 @@ logging:
 # PDF generation settings
 pdf:
   page_size: "letter"  # letter, a4, legal
+  image_cache_dir: "src/output/pdf_images"
   margin:
     top: 72
     bottom: 18
     left: 72
     right: 72
 
-  # Color palette (from build_transformer_pdf.py)
+  # Color palette for PDF styling
   palette:
     ink: "#1C1C1C"
     muted: "#4A4A4A"
@@ -43,7 +48,7 @@ pptx:
   slide_width: 960  # pixels
   slide_height: 540  # pixels
 
-  # Default theme colors
+  # Theme colors for presentations
   theme:
     background: "#FFFFFF"
     text: "#1C1C1C"
@@ -52,7 +57,7 @@ pptx:
 
 # Parser settings
 parsers:
-  # Docling settings
+  # Docling settings for PDF/document parsing
   docling:
     ocr_enabled: true
     table_structure_extraction: true
@@ -61,3 +66,34 @@ parsers:
   web:
     timeout: 10  # seconds
     user_agent: "doc-generator/0.1.0"
+
+# LLM service settings
+llm:
+  model: "gpt-4o-mini"
+  max_summary_points: 5
+  max_slides: 10
+  max_tokens_summary: 500
+  max_tokens_slides: 2000
+  temperature_summary: 0.3
+  temperature_slides: 0.4
+
+# SVG generation settings
+svg:
+  default_width: 800
+  default_height: 500
+  chart_colors:
+    - "#1E5D5A"  # Teal (primary)
+    - "#D76B38"  # Orange (accent)
+    - "#2E86AB"  # Blue
+    - "#A23B72"  # Magenta
+    - "#F18F01"  # Amber
+    - "#C73E1D"  # Red
+    - "#3A7CA5"  # Steel blue
+    - "#5C946E"  # Green
+  layer_colors:
+    frontend: "#2E86AB"
+    backend: "#1E5D5A"
+    database: "#A23B72"
+    external: "#D76B38"
+    infrastructure: "#5C946E"
+    default: "#3A7CA5"

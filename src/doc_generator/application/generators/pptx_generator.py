@@ -22,6 +22,7 @@ from ...infrastructure.pptx_utils import (
     save_presentation,
 )
 from ...infrastructure.svg_generator import generate_chart
+from ...utils.image_utils import resolve_image_path
 
 
 class PPTXGenerator:
@@ -359,25 +360,4 @@ class PPTXGenerator:
         Returns:
             Path to local image or None
         """
-        # If it's a URL, we can't resolve it locally
-        if url.startswith("http://") or url.startswith("https://"):
-            logger.warning(f"Remote image URLs not supported in PPTX: {url}")
-            return None
-
-        # Try to resolve as local path
-        cleaned = url.lstrip("/")
-
-        # Check several possible locations
-        candidates = [
-            Path(url),  # Absolute path
-            Path(cleaned),  # Relative path
-            Path("static") / cleaned,  # Hugo static dir
-            Path("src/output") / cleaned,  # Output dir
-        ]
-
-        for candidate in candidates:
-            if candidate.exists() and candidate.is_file():
-                return candidate
-
-        logger.warning(f"Image not found: {url}")
-        return None
+        return resolve_image_path(url)
