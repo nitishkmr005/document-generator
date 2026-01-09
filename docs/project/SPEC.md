@@ -141,3 +141,15 @@ Hybrid Clean Architecture:
 - [ ] Frontend, API, and Python package can generate artifacts end-to-end
 - [ ] Docker container builds and runs
 - [ ] Tests pass with >80% coverage
+
+## Future Recommendations
+- Define a clear pricing model (BYO key + usage tiers) and enforce quotas
+- Add template marketplace and curated presets to drive repeat usage
+- Introduce team workspaces with shared assets and versioned outputs
+- Provide export-ready brand themes and style packs
+- Build reliability metrics and cost observability per run
+- Offer one-click integrations (Google Drive, Notion, Slack, S3)
+- Ship a public API with SDKs and webhooks for automation
+- Improve onboarding with guided sample projects and sandbox mode
+- Add human-in-the-loop review and approval before publishing
+- Invest in security: secrets handling, audit logs, and role-based access
