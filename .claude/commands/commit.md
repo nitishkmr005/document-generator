@@ -1,7 +1,7 @@
 ---
 allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*)
 argument-hint: "[--no-verify]"
-description: Create a git commit
+description: Create a well-formatted git commit
 ---
 
 # Commit

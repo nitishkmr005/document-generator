@@ -1,58 +1,59 @@
 # Claude Code Instructions
 
+## Read Order (optimize context)
+1. `docs/project/STATUS.md` - current state
+2. `docs/project/SPEC.md` - what we're building
+3. `docs/architecture/architecture.md` - system design
+4. Code files only when needed
+
+## SPEC Format
+Keep `docs/project/SPEC.md` in this structure:
+- Project Name
+- Overview
+- Product Purpose
+- Who Is This Product For
+- Problems It Solves
+- What the Product Does
+- Functionality
+- Jobs To Be Done
+- Goals
+- Features (Input Formats, Output Formats, Advanced Features)
+- Tech Stack
+- Architecture
+- Constraints
+- Success Criteria
+
 ## Commands
 ```bash
-make setup      # First-time setup (creates venv, installs deps)
-make run        # Run the application
-make test       # Run tests
-make lint       # Format + lint check
-make all        # lint + test + build
+make setup | run | test | lint | all
 ```
 
-## Architecture
-Three-layer clean architecture: `Domain → Application → Infrastructure`
-- Domain: Zero external dependencies (pure business logic)
-- Application: Orchestrates domain (use cases)
-- Infrastructure: External connections (API, DB, LLM)
-
-## Project Layout
+## Layout
 ```
 src/{project}/domain|application|infrastructure/
-tests/           # Mirrors src/ structure
-docs/            # See docs structure below
-```
-
-## Documentation Structure
-```
 docs/
-├── architecture/architecture.md   # Diagrams, system design
+├── architecture/architecture.md
 ├── claude-code/                   # hooks, mcp-servers, skills, subagents
-├── guides/setup.md                # Setup guide
-├── learnings/YYYY-MM-session.md   # Session-date based learnings
-├── plans/YYYY-MM-DD-topic.md      # Date based plans
+├── guides/setup.md
+├── learnings/YYYY-MM-DD-session.md
+├── plans/YYYY-MM-DD-topic.md
 └── project/                       # DECISIONS, MILESTONES, SPEC, STATUS
 ```
 
-**Naming:** UPPERCASE.md for project/, lowercase for others, date prefixes for learnings/plans.
-
-## Skills (update docs automatically)
-- `/session-start` - Review STATUS.md, suggest tasks
-- `/session-end` - Update STATUS.md, optional retro
-- `/update-status` - Update docs/project/STATUS.md
-- `/retro` - Create docs/learnings/YYYY-MM-session.md
-- `/create-issues` - MILESTONES.md → GitHub issues
-- `/new-milestone` - Add to MILESTONES.md
+## Skills
+- `/session-start` - read STATUS, suggest tasks
+- `/session-end` - update STATUS, optional retro
+- `/update-status` - update STATUS.md
+- `/retro` - create learnings file
 
 ## Workflow
-1. `/session-start` at beginning
-2. Read relevant files before changes (use `file:line` references)
-3. Simplest working version first
-4. Run `make lint` after code changes
-5. Run `make test` before committing
-6. `/session-end` at end (updates STATUS.md)
+1. `/session-start`
+2. Read docs first, code only when needed
+3. `make lint` after changes
+4. `make test` before commit
+5. `/session-end`
 
 ## Principles
 - Simplicity over complexity
 - No premature abstraction
-- Delete unused code
-- Evidence before assertions (run tests, don't assume)
+- Evidence before assertions

@@ -6,6 +6,31 @@ Document Generator
 ## Overview
 LangGraph-based document generator for converting multiple input formats (PDF, Markdown, TXT, web articles) into PDF and PPTX outputs using 100% Python implementation.
 
+## Product Purpose
+Provide a reliable, Python-native way to transform mixed-source content into consistent, presentation-ready documents.
+
+## Who Is This Product For
+- Teams and individuals who need to generate PDFs/PPTX from mixed inputs
+- Developers building document pipelines that must stay Python-only
+- Technical users who want reproducible, containerized document workflows
+
+## Problems It Solves
+- Manual, time-consuming conversion from multiple formats into polished outputs
+- Inconsistent formatting across input sources
+- Hard-to-automate workflows that rely on GUI tools or non-Python stacks
+
+## What the Product Does
+- Ingests documents and URLs across common formats
+- Normalizes content into a structured representation
+- Generates PDF and PPTX outputs with consistent styling
+- Validates outputs and retries on failure
+
+## Functionality
+- Multi-format input parsing with OCR support where needed
+- Workflow orchestration with clear error handling and logging
+- PDF/PPTX generation using Python libraries
+- Dockerized execution for portability
+
 ## Goals
 1. Accept multiple input formats (PDF, Markdown, TXT, DOCX, PPTX, XLSX, URLs, images)
 2. Generate professional PDF and PPTX outputs
