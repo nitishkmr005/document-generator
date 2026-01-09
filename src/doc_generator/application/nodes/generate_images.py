@@ -2,8 +2,9 @@
 Image generation node for LangGraph workflow.
 
 Generates images for document sections using auto-detection to choose
-the best image type (infographic, decorative, diagram, chart, mermaid).
-Uses Gemini for infographics/decorative, existing SVG generators for diagrams.
+the best image type (infographic or decorative).
+Uses Gemini for image generation based on merged markdown content.
+Section IDs are synced with title numbering in the markdown file.
 """
 
 import json
@@ -351,21 +352,45 @@ class ImageTypeDetector:
         )
 
 
+def _extract_section_number(title: str) -> tuple[int | None, str]:
+    """
+    Extract section number from title if present.
+
+    Args:
+        title: Section title (e.g., "1. Introduction" or "Introduction")
+
+    Returns:
+        Tuple of (section_number or None, clean_title)
+    """
+    # Match patterns like "1. Title", "1 Title", "1: Title", "1) Title"
+    number_pattern = r'^(\d+)[\.\:\)\s]+\s*(.+)$'
+    match = re.match(number_pattern, title)
+    if match:
+        return int(match.group(1)), match.group(2).strip()
+    return None, title
+
+
 def _extract_sections(markdown: str) -> list[dict]:
     """
     Extract sections from markdown content.
+
+    Section IDs are synced with title numbering when present (e.g., "1. Introduction" → id 1).
+    If no number in title, uses sequential numbering starting from 1.
 
     Args:
         markdown: Full markdown content
 
     Returns:
-        List of section dicts with title, content, and position
+        List of section dicts with id, title, content, and position
     """
     sections = []
 
     # Match ## headers (main sections)
     section_pattern = r'^##\s+(.+?)$'
     matches = list(re.finditer(section_pattern, markdown, re.MULTILINE))
+
+    # Track the next sequential ID for sections without numbers
+    next_sequential_id = 1
 
     for i, match in enumerate(matches):
         title = match.group(1).strip()
@@ -379,9 +404,20 @@ def _extract_sections(markdown: str) -> list[dict]:
 
         content = markdown[start:end].strip()
 
+        # Extract section number from title if present
+        section_num, _ = _extract_section_number(title)
+
+        if section_num is not None:
+            section_id = section_num
+            # Update next sequential ID to be after this numbered section
+            next_sequential_id = max(next_sequential_id, section_num + 1)
+        else:
+            section_id = next_sequential_id
+            next_sequential_id += 1
+
         sections.append({
-            "id": i,
-            "title": title,
+            "id": section_id,
+            "title": title,  # Keep original title for display
             "content": content,
             "position": match.start()
         })
@@ -393,11 +429,15 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
     """
     Generate images for document sections using auto-detection.
 
+    This node runs after transform_content creates the merged markdown,
+    ensuring images are generated from the complete merged content.
+
     This node:
-    1. Extracts sections from the markdown content
-    2. Uses LLM to auto-detect the best image type for each section
-    3. Routes to appropriate generator (Gemini or SVG)
-    4. Stores images with paths and base64 data for embedding
+    1. Extracts sections from the merged markdown content
+    2. Syncs section IDs with title numbering (e.g., "1. Introduction" → id 1)
+    3. Uses content analysis to auto-detect the best image type for each section
+    4. Generates images using Gemini API (no retries - single attempt per section)
+    5. Stores images with paths and base64 data for embedding
 
     Args:
         state: Current workflow state
@@ -451,12 +491,6 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
             section_title = section["title"]
             section_content = section["content"]
 
-            # Skip sections that already have visual markers (handled by generate_visuals)
-            if "[VISUAL:" in section_content:
-                logger.debug(f"Skipping section {section_id} - has visual markers")
-                skipped_count += 1
-                continue
-
             # Auto-detect image type
             decision = detector.detect(section_title, section_content)
             logger.debug(
@@ -489,13 +523,6 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
                     )
                 else:
                     logger.debug(f"Gemini not available, skipping {decision.image_type.value}")
-
-            elif decision.image_type in (ImageType.DIAGRAM, ImageType.CHART):
-                # These are handled by generate_visuals_node with SVG
-                # We could generate a visual marker here for later processing
-                logger.debug(f"Diagram/chart for section {section_id} - handled by visuals node")
-                skipped_count += 1
-                continue
 
             elif decision.image_type == ImageType.MERMAID:
                 # Mermaid diagrams are rendered inline by PDF generator

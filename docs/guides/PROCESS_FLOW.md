@@ -1,5 +1,8 @@
 # Document Generator - Complete Process Flow
 
+> **Note**: This document reflects the **actual running configuration** with `use_claude_for_visuals=false`.  
+> SVG generation is currently disabled. Only Gemini-based PNG image generation is active.
+
 ## Overview Architecture Diagram
 
 ```mermaid
@@ -23,7 +26,7 @@ graph TB
         C1[1. detect_format<br/>Detect input type]
         C2[2. parse_content<br/>Extract content]
         C3[3. transform_content<br/>LLM enhancement]
-        C4[4. generate_visuals<br/>SVG diagrams]
+        C4[4. generate_visuals<br/>DISABLED - skipped]
         C5[5. generate_images<br/>Gemini infographics]
         C6[6. generate_output<br/>Create PDF/PPTX]
         C7[7. validate_output<br/>Check result]
@@ -39,13 +42,10 @@ graph TB
     subgraph "LLM CONTENT GENERATION"
         E1[LLMContentGenerator]
         E2[OpenAI GPT-4o<br/>Content transformation]
-        E3[Claude Sonnet<br/>Visual data]
         E4[Chunked Processing<br/>Long documents]
-        E5[Visual Markers<br/>Extraction]
     end
 
     subgraph "IMAGE GENERATION"
-        F1[SVG Generator<br/>Mermaid diagrams]
         F2[Gemini Image API<br/>Decorative headers]
         F3[Gemini Image API<br/>Infographics]
         F4[Image Cache<br/>src/output/images/]
@@ -99,12 +99,10 @@ graph TB
 
     %% LLM Processing
     C3 --> E1
-    E1 --> E2 & E3
+    E1 --> E2
     E2 --> E4
-    E4 --> E5
 
-    %% Image Generation
-    C4 --> F1
+    %% Image Generation (C4 skipped)
     C5 --> F2 & F3
     F2 & F3 --> F4
 
@@ -199,53 +197,49 @@ flowchart TB
     D4 --> D5[Merge chunks]
     D5 --> E
     
-    E --> F{Provider Selection}
-    F -->|Content| G[OpenAI GPT-4o]
-    F -->|Visuals| H[Claude Sonnet]
+    E --> F[OpenAI GPT-4o]
     
-    G --> I[Transform to Blog Style]
+    F --> I[Transform to Blog Style]
     I --> I1[Remove timestamps]
     I --> I2[Add section headings]
     I --> I3[Structure content]
-    I --> I4[Insert visual markers]
     
-    H --> J[Generate Visual Data]
-    J --> J1[Extract diagram specs]
-    J --> J2[Create mermaid code]
-    J --> J3[Structure for SVG]
-    
-    I4 & J3 --> K[Structured Content]
+    I3 --> K[Structured Content]
     K --> L[state.structured_content]
 ```
 
-### Phase 4: Visual Generation
+### Phase 4: Image Generation
 
 ```mermaid
 flowchart TB
-    A[generate_visuals node] --> B[Parse Visual Markers]
-    B --> C{Visual Type?}
+    A[generate_visuals node] --> B{SVG enabled?}
+    B -->|No - DISABLED| C[Skip - return state]
     
-    C -->|Mermaid| D[Inline Mermaid Code]
-    C -->|Architecture| E[SVG Generator]
-    C -->|Flowchart| E
-    C -->|Comparison| E
+    D[generate_images node] --> E[Extract sections from markdown]
+    E --> F{For each section}
     
-    D --> F[Embed in content]
-    E --> G[Generate SVG]
+    F --> G[Auto-detect image type]
+    G --> H{Image Type?}
     
-    F & G --> H[state.structured_content.visuals]
+    H -->|Infographic| I[Generate with Gemini]
+    H -->|Decorative| I
+    H -->|None/Short| J[Skip section]
     
-    I[generate_images node] --> J{Image Types?}
+    I --> K[Generate prompt from content]
+    K --> L[Call Gemini Image API]
+    L --> M{Image exists?}
+    M -->|Yes| N[Reuse existing]
+    M -->|No| O[Download PNG]
     
-    J -->|Decorative Headers| K[Gemini API]
-    J -->|Section Infographics| K
+    N & O --> P[Save to src/output/images/]
+    P --> Q[Encode base64 if needed]
+    Q --> R[Store in section_images]
     
-    K --> L[Generate prompt]
-    L --> M[Call Gemini Image API]
-    M --> N[Download PNG]
-    N --> O[Save to src/output/images/]
+    J --> F
+    R --> F
     
-    O --> P[state.structured_content.image_paths]
+    F -->|More sections| G
+    F -->|Done| S[state.structured_content.section_images]
 ```
 
 ### Phase 5: Output Generation
@@ -267,10 +261,9 @@ flowchart TB
     C6 --> C7[Add decorative header?]
     C7 --> C8[Add content paragraphs]
     C8 --> C9[Add infographic?]
-    C9 --> C10[Add SVG diagrams]
-    C10 --> C11{More sections?}
-    C11 -->|Yes| C5
-    C11 -->|No| C12[Build PDF]
+    C9 --> C10{More sections?}
+    C10 -->|Yes| C5
+    C10 -->|No| C11[Build PDF]
     
     D --> D1[python-pptx Setup]
     D1 --> D2[Create Presentation]
@@ -287,7 +280,7 @@ flowchart TB
     D11 -->|Yes| D5
     D11 -->|No| D12[Save PPTX]
     
-    C12 --> E[state.output_path]
+    C11 --> E[state.output_path]
     D12 --> E
 ```
 
@@ -389,8 +382,8 @@ graph TB
     end
     
     subgraph "Infrastructure Layer (External)"
-        C1[llm_content_generator.py<br/>OpenAI + Claude]
-        C2[llm_image_generator.py<br/>Gemini Images]
+        C1[llm_content_generator.py<br/>OpenAI GPT-4o]
+        C2[gemini_image_generator.py<br/>Gemini Images]
         C3[docling_adapter.py<br/>PDF parsing]
         C4[markitdown_adapter.py<br/>Web extraction]
         C5[file_system.py<br/>I/O operations]
@@ -420,8 +413,7 @@ graph LR
     
     subgraph "LLM Services"
         C1[OpenAI GPT-4o<br/>Content transform]
-        C2[Claude Sonnet<br/>Visual data]
-        C3[Gemini Image API<br/>Image generation]
+        C2[Gemini Image API<br/>Image generation]
     end
     
     subgraph "Output Generation"
@@ -435,8 +427,8 @@ graph LR
     end
     
     A1 & A2 --> B1
-    B1 --> C1 & C2 & C3
-    C1 & C2 & C3 --> D1 & D2
+    B1 --> C1 & C2
+    C1 & C2 --> D1 & D2
     E1 & E2 --> B1
 ```
 
@@ -448,7 +440,9 @@ graph LR
 - **Infrastructure**: External integrations (APIs, file I/O)
 
 ### 2. **LangGraph Workflow**
-- 7-node state machine
+- 7-node state machine (1 node currently disabled)
+- **Active nodes**: detect_format, parse_content, transform_content, generate_images, generate_output, validate_output
+- **Disabled node**: generate_visuals (SVG generation - use_claude_for_visuals=false)
 - Automatic retry on errors (max 3 attempts)
 - Conditional branching for retry logic
 
@@ -462,13 +456,14 @@ graph LR
 
 ### 5. **LLM Enhancement**
 - **OpenAI GPT-4o**: Content transformation to blog style
-- **Claude Sonnet**: Visual data generation
 - **Chunked processing**: Handles long documents (>50K chars)
+- **Content-aware prompts**: Keyword extraction for image generation
 
 ### 6. **Image Generation**
-- **SVG**: Mermaid diagrams for architecture/flowcharts
-- **Gemini**: Decorative headers and infographics
+- **Gemini API**: Decorative headers and infographics (PNG format)
+- **Auto-detection**: Content-aware image type selection per section
 - **Caching**: Reuses generated images across runs
+- **SVG generation**: Disabled (use_claude_for_visuals=false)
 
 ### 7. **Folder Processing**
 - Combines multiple files into single output
@@ -497,12 +492,14 @@ src/data/                      # Input files and folders
 src/output/                    # Generated outputs
   ├── *.pdf                    # PDF documents
   ├── *.pptx                   # PowerPoint presentations
-  └── images/                  # Generated images
-      ├── section_*_header.png
-      └── section_*_infographic.png
+  ├── images/                  # Gemini-generated images (PNG)
+  │   ├── section_*_infographic.png
+  │   └── section_*_decorative.png
+  ├── pdf_images/              # PDF image cache
+  └── temp/                    # Temporary merged content
 
-config/settings.yaml           # Configuration
-.env                          # API keys (not committed)
+config/settings.yaml           # Configuration (use_claude_for_visuals=false)
+.env                          # API keys (OPENAI_API_KEY, GEMINI_API_KEY)
 scripts/                      # Entry point scripts
 Makefile                      # Automation commands
 ```
@@ -530,9 +527,11 @@ make clean                    # Clean outputs
 
 ```bash
 # Required for LLM features
-OPENAI_API_KEY=sk-...         # OpenAI for content
-ANTHROPIC_API_KEY=sk-ant-...  # Claude for visuals
-GEMINI_API_KEY=...            # Gemini for images
+OPENAI_API_KEY=sk-...         # OpenAI for content transformation
+GEMINI_API_KEY=...            # Gemini for image generation
+
+# Optional (not currently used)
+ANTHROPIC_API_KEY=sk-ant-...  # Claude (disabled - use_claude_for_visuals=false)
 
 # Optional overrides
 DOC_GENERATOR_LLM__MODEL=gpt-4o
@@ -548,13 +547,25 @@ DOC_GENERATOR_LOGGING__LEVEL=DEBUG
 - **PDF/PPTX Creation**: ~5-10 seconds
 - **Total**: ~2-5 minutes per document with images
 
-## Future Enhancements
+## Current Status & Future Enhancements
 
+### ✅ Implemented
 1. ✅ Parallel image generation
-2. ✅ Streaming LLM responses
-3. ✅ Image caching system
-4. ⬜ Multiple LLM provider support
-5. ⬜ Custom theme support
-6. ⬜ Web UI for configuration
-7. ⬜ API endpoint deployment
-8. ⬜ Batch processing optimization
+2. ✅ Image caching and reuse system
+3. ✅ Content-aware image generation (Gemini)
+4. ✅ Folder-based processing with merging
+5. ✅ Chunked processing for long documents
+
+### ⬜ Disabled/Not Currently Used
+1. ⬜ SVG generation (use_claude_for_visuals=false)
+2. ⬜ Claude for visual data extraction
+3. ⬜ Mermaid diagram rendering
+
+### 🔮 Future Enhancements
+1. ⬜ Re-enable SVG generation with Claude
+2. ⬜ Streaming LLM responses
+3. ⬜ Multiple LLM provider support
+4. ⬜ Custom theme support
+5. ⬜ Web UI for configuration
+6. ⬜ API endpoint deployment
+7. ⬜ Batch processing optimization
