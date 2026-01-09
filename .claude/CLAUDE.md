@@ -15,7 +15,6 @@ Keep `docs/project/SPEC.md` in this structure:
 - Problems It Solves
 - What the Product Does
 - Functionality
-- Jobs To Be Done
 - Goals
 - Features (Input Formats, Output Formats, Advanced Features)
 - Tech Stack
