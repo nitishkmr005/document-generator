@@ -7,6 +7,7 @@ a single PDF and PPTX output combining content from all files.
 """
 
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 import argparse
@@ -15,11 +16,114 @@ from loguru import logger
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+
+# ============================================================================
+# Progress Logging Utilities
+# ============================================================================
+
+class ProgressLogger:
+    """Helper for colorful progress logging with emojis."""
+
+    STAGES = {
+        "discover": ("📂", "Discovering files"),
+        "parse": ("📄", "Parsing files"),
+        "merge": ("🔀", "Merging content"),
+        "transform": ("🤖", "LLM transformation"),
+        "images": ("🎨", "Generating images"),
+        "pdf": ("📕", "Creating PDF"),
+        "pptx": ("📊", "Creating PPTX"),
+        "complete": ("✅", "Complete"),
+    }
+
+    def __init__(self, topic_name: str, total_steps: int = 5):
+        self.topic_name = topic_name
+        self.total_steps = total_steps
+        self.current_step = 0
+        self.start_time = time.time()
+        self.step_start_time = time.time()
+
+    def _elapsed(self) -> str:
+        """Get elapsed time string."""
+        elapsed = time.time() - self.start_time
+        return f"{elapsed:.1f}s"
+
+    def _step_elapsed(self) -> str:
+        """Get step elapsed time string."""
+        elapsed = time.time() - self.step_start_time
+        return f"{elapsed:.1f}s"
+
+    def header(self):
+        """Print workflow header."""
+        print("\n" + "=" * 70)
+        print(f"🚀 DOCUMENT GENERATOR - Processing: {self.topic_name}")
+        print("=" * 70)
+        print(f"📋 Workflow: Parse → Merge → Transform → Images → PDF → PPTX")
+        print("-" * 70)
+
+    def stage(self, stage_key: str, message: str = ""):
+        """Start a new stage."""
+        self.current_step += 1
+        self.step_start_time = time.time()
+        emoji, stage_name = self.STAGES.get(stage_key, ("▶️", stage_key))
+        progress = f"[{self.current_step}/{self.total_steps}]"
+        print(f"\n{emoji} {progress} {stage_name}")
+        if message:
+            print(f"   └── {message}")
+
+    def substep(self, message: str, status: str = "info"):
+        """Log a substep within a stage."""
+        icons = {
+            "info": "   ├──",
+            "success": "   ├── ✓",
+            "warning": "   ├── ⚠️",
+            "error": "   ├── ❌",
+            "progress": "   ├── ⏳",
+        }
+        icon = icons.get(status, "   ├──")
+        print(f"{icon} {message}")
+
+    def substep_done(self, message: str):
+        """Log final substep (uses └── instead of ├──)."""
+        print(f"   └── ✓ {message}")
+
+    def stage_complete(self, message: str = ""):
+        """Mark stage as complete."""
+        elapsed = self._step_elapsed()
+        if message:
+            print(f"   └── ✅ {message} ({elapsed})")
+        else:
+            print(f"   └── ✅ Done ({elapsed})")
+
+    def summary(self, pdf_path: Optional[Path], pptx_path: Optional[Path]):
+        """Print final summary."""
+        total_time = time.time() - self.start_time
+        print("\n" + "=" * 70)
+        print("✨ GENERATION COMPLETE")
+        print("=" * 70)
+        print(f"📁 Topic: {self.topic_name}")
+        print(f"⏱️  Total time: {total_time:.1f}s")
+        print("-" * 70)
+        if pdf_path:
+            size_mb = pdf_path.stat().st_size / (1024 * 1024)
+            print(f"📕 PDF:  {pdf_path} ({size_mb:.1f} MB)")
+        if pptx_path:
+            size_mb = pptx_path.stat().st_size / (1024 * 1024)
+            print(f"📊 PPTX: {pptx_path} ({size_mb:.1f} MB)")
+        print("=" * 70 + "\n")
+
+    def error(self, message: str):
+        """Print error message."""
+        print(f"\n❌ ERROR: {message}")
+        print(f"⏱️  Failed after {self._elapsed()}\n")
+
 from doc_generator.application.graph_workflow import run_workflow
+from doc_generator.application.parsers import get_parser
 from doc_generator.infrastructure.logging_config import setup_logging
 from doc_generator.infrastructure.llm_service import LLMService
 from doc_generator.domain.content_types import ContentFormat
 from doc_generator.utils.content_merger import merge_folder_content
+from doc_generator.application.generators import get_generator
+from doc_generator.infrastructure.settings import get_settings
 
 
 # Supported file extensions
@@ -31,6 +135,44 @@ SUPPORTED_EXTENSIONS = {
     '.docx': ContentFormat.DOCX,
     '.pptx': ContentFormat.PPTX,
 }
+
+
+def parse_file_only(file_path: Path) -> dict | None:
+    """
+    Parse a file without running full workflow (no LLM, no output generation).
+
+    This is much faster than run_workflow as it only extracts raw content.
+
+    Args:
+        file_path: Path to file to parse
+
+    Returns:
+        Dict with filename, raw_content, metadata or None on failure
+    """
+    try:
+        # Detect format from extension
+        suffix = file_path.suffix.lower()
+        if suffix not in SUPPORTED_EXTENSIONS:
+            logger.error(f"Unsupported format: {suffix}")
+            return None
+
+        input_format = suffix.lstrip('.')  # e.g., ".pdf" -> "pdf"
+
+        # Get appropriate parser
+        parser = get_parser(input_format)
+
+        # Parse content (no LLM transformation)
+        raw_content, metadata = parser.parse(str(file_path))
+
+        return {
+            "filename": file_path.name,
+            "raw_content": raw_content,
+            "structured_content": "",  # Not transformed yet
+            "metadata": metadata
+        }
+    except Exception as e:
+        logger.error(f"Failed to parse {file_path.name}: {e}")
+        return None
 
 
 def discover_files(folder_path: Path) -> list[Path]:
@@ -71,88 +213,82 @@ def process_folder(
     Returns:
         Tuple of (pdf_path, pptx_path) or (None, None) on failure
     """
-    logger.info(f"Processing folder: {folder_path}")
-    if skip_image_generation:
-        logger.info("Image generation will be skipped - reusing existing images")
+    topic_name = folder_path.name
+    progress = ProgressLogger(topic_name, total_steps=5)
+    progress.header()
 
-    # Discover all supported files
+    if skip_image_generation:
+        print("⚡ Fast mode: Reusing existing images")
+
+    # =========================================================================
+    # STAGE 1: Discover files
+    # =========================================================================
+    progress.stage("discover", f"Scanning {folder_path}")
     files = discover_files(folder_path)
 
     if not files:
-        logger.error(f"No supported files found in {folder_path}")
-        logger.info(f"Supported extensions: {', '.join(SUPPORTED_EXTENSIONS.keys())}")
+        progress.error(f"No supported files found in {folder_path}")
+        print(f"   Supported: {', '.join(SUPPORTED_EXTENSIONS.keys())}")
         return None, None
 
-    logger.info(f"Found {len(files)} file(s) to process:")
-    for file in files:
-        logger.info(f"  - {file.name}")
+    for f in files:
+        progress.substep(f"{f.name}", "info")
+    progress.stage_complete(f"Found {len(files)} file(s)")
 
-    # Process each file and collect parsed content
+    # =========================================================================
+    # STAGE 2: Parse files (fast - no LLM)
+    # =========================================================================
+    progress.stage("parse", f"Extracting content from {len(files)} file(s)")
     all_parsed_content = []
-    all_metadata = []
+    total_chars = 0
 
-    for file_path in files:
-        logger.info(f"Processing: {file_path.name}")
-
-        try:
-            # Use a temporary output path for intermediate processing
-            temp_output = output_dir / f"temp_{file_path.stem}.pdf"
-
-            # Run workflow to parse and transform the content
-            result = run_workflow(
-                input_path=str(file_path),
-                output_format="pdf",
-                output_path=str(temp_output),
-                llm_service=llm_service
-            )
-
-            # Check if processing was successful (no errors and has output_path)
-            if not result.get("errors") and result.get("output_path"):
-                all_parsed_content.append({
-                    "filename": file_path.name,
-                    "raw_content": result.get("raw_content", ""),
-                    "structured_content": result.get("structured_content", ""),
-                    "metadata": result.get("metadata", {})
-                })
-                all_metadata.append(result.get("metadata", {}))
-                logger.success(f"Successfully processed: {file_path.name}")
-
-                # Clean up temporary file
-                if temp_output.exists():
-                    temp_output.unlink()
-            else:
-                errors = result.get("errors", ["Unknown error"])
-                logger.warning(f"Failed to process {file_path.name}: {errors}")
-
-        except Exception as e:
-            logger.error(f"Error processing {file_path.name}: {e}")
-            continue
+    for i, file_path in enumerate(files, 1):
+        progress.substep(f"[{i}/{len(files)}] {file_path.name}", "progress")
+        result = parse_file_only(file_path)
+        if result:
+            all_parsed_content.append(result)
+            chars = len(result['raw_content'])
+            total_chars += chars
 
     if not all_parsed_content:
-        logger.error("No files were successfully processed")
+        progress.error("No files were successfully parsed")
         return None, None
 
-    # Merge all content
-    logger.info("Merging content from all files...")
+    progress.stage_complete(f"Parsed {len(all_parsed_content)} files ({total_chars:,} chars)")
+
+    # =========================================================================
+    # STAGE 3: Merge & Transform with LLM
+    # =========================================================================
+    progress.stage("merge", "Combining content & LLM transformation")
+    progress.substep("Sending to LLM for blog-style transformation...", "progress")
+
     merged_content = merge_folder_content(
         all_parsed_content,
-        folder_name=folder_path.name,
+        folder_name=topic_name,
         llm_service=llm_service
     )
 
-    # Generate output file names based on folder name
-    topic_name = folder_path.name
-    pdf_output = output_dir / f"{topic_name}.pdf"
-    pptx_output = output_dir / f"{topic_name}.pptx"
+    output_chars = len(Path(merged_content["temp_file"]).read_text())
+    progress.stage_complete(f"Generated {output_chars:,} chars markdown")
 
-    # Generate PDF
-    logger.info(f"Generating PDF: {pdf_output}")
-    
-    # Add image reuse flag to metadata
+    # Setup output paths
+    topic_output_dir = output_dir / topic_name
+    topic_output_dir.mkdir(parents=True, exist_ok=True)
+    pdf_output = topic_output_dir / f"{topic_name}.pdf"
+    pptx_output = topic_output_dir / f"{topic_name}.pptx"
+
+    # =========================================================================
+    # STAGE 4: Generate PDF (includes images)
+    # =========================================================================
+    img_status = "reusing existing" if skip_image_generation else "generating new"
+    progress.stage("pdf", f"Creating PDF ({img_status} images)")
+
     pdf_metadata = merged_content["metadata"].copy()
     if skip_image_generation:
         pdf_metadata["skip_image_generation"] = True
-    
+
+    progress.substep("Running PDF workflow (transform → images → render)...", "progress")
+
     pdf_result = run_workflow(
         input_path=merged_content["temp_file"],
         output_format="pdf",
@@ -164,39 +300,57 @@ def process_folder(
     pdf_path = None
     if not pdf_result.get("errors") and pdf_result.get("output_path"):
         pdf_path = Path(pdf_result["output_path"])
-        logger.success(f"PDF generated: {pdf_path}")
+        size_mb = pdf_path.stat().st_size / (1024 * 1024)
+        progress.stage_complete(f"PDF ready: {pdf_path.name} ({size_mb:.1f} MB)")
     else:
         errors = pdf_result.get("errors", ["Unknown error"])
-        logger.error(f"PDF generation failed: {errors}")
+        progress.substep(f"PDF failed: {errors}", "error")
 
-    # Generate PPTX
-    logger.info(f"Generating PPTX: {pptx_output}")
-    
-    # Add image reuse flag to metadata
-    pptx_metadata = merged_content["metadata"].copy()
-    if skip_image_generation:
-        pptx_metadata["skip_image_generation"] = True
-    
-    pptx_result = run_workflow(
-        input_path=merged_content["temp_file"],
-        output_format="pptx",
-        output_path=str(pptx_output),
-        llm_service=llm_service,
-        metadata=pptx_metadata
-    )
+    # =========================================================================
+    # STAGE 5: Generate PPTX (reuses structured content)
+    # =========================================================================
+    progress.stage("pptx", "Creating PPTX (reusing PDF content)")
 
     pptx_path = None
-    if not pptx_result.get("errors") and pptx_result.get("output_path"):
-        pptx_path = Path(pptx_result["output_path"])
-        logger.success(f"PPTX generated: {pptx_path}")
+    if pdf_result and pdf_result.get("structured_content"):
+        progress.substep("Reusing structured content from PDF...", "progress")
+        try:
+            pptx_generator = get_generator("pptx")
+            pptx_output_path = pptx_generator.generate(
+                content=pdf_result["structured_content"],
+                metadata=pdf_result.get("metadata", merged_content["metadata"]),
+                output_dir=topic_output_dir
+            )
+            pptx_path = Path(pptx_output_path)
+            size_mb = pptx_path.stat().st_size / (1024 * 1024)
+            progress.stage_complete(f"PPTX ready: {pptx_path.name} ({size_mb:.1f} MB)")
+        except Exception as e:
+            progress.substep(f"PPTX failed: {e}", "error")
     else:
-        errors = pptx_result.get("errors", ["Unknown error"])
-        logger.error(f"PPTX generation failed: {errors}")
+        progress.substep("No cached content, running full workflow...", "warning")
+        pptx_metadata = merged_content["metadata"].copy()
+        pptx_metadata["skip_image_generation"] = True
 
-    # Clean up temporary merged content file
-    temp_file = Path(merged_content["temp_file"])
-    if temp_file.exists():
-        temp_file.unlink()
+        pptx_result = run_workflow(
+            input_path=merged_content["temp_file"],
+            output_format="pptx",
+            output_path=str(pptx_output),
+            llm_service=llm_service,
+            metadata=pptx_metadata
+        )
+
+        if not pptx_result.get("errors") and pptx_result.get("output_path"):
+            pptx_path = Path(pptx_result["output_path"])
+            size_mb = pptx_path.stat().st_size / (1024 * 1024)
+            progress.stage_complete(f"PPTX ready: {pptx_path.name} ({size_mb:.1f} MB)")
+        else:
+            errors = pptx_result.get("errors", ["Unknown error"])
+            progress.substep(f"PPTX failed: {errors}", "error")
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    progress.summary(pdf_path, pptx_path)
 
     return pdf_path, pptx_path
 
@@ -292,25 +446,21 @@ Examples:
             skip_image_generation=args.skip_images
         )
 
-        # Report results
+        # Exit with appropriate code
         if pdf_path or pptx_path:
-            logger.success("\n" + "="*60)
-            logger.success("GENERATION COMPLETE")
-            logger.success("="*60)
-            if pdf_path:
-                logger.success(f"PDF:  {pdf_path}")
-            if pptx_path:
-                logger.success(f"PPTX: {pptx_path}")
-            logger.success("="*60)
             sys.exit(0)
         else:
-            logger.error("Failed to generate documents")
+            print("\n❌ Failed to generate documents")
             sys.exit(1)
 
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Interrupted by user")
+        sys.exit(130)
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        print(f"\n❌ Fatal error: {e}")
         if args.verbose:
-            logger.exception("Stack trace:")
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 

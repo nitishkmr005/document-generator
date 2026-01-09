@@ -45,13 +45,27 @@ def generate_output_node(state: WorkflowState) -> WorkflowState:
         else:
             # Get default output directory from settings
             settings = get_settings()
-            output_dir = settings.generator.output_dir
 
-            # Generate output file with default naming
+            # Create topic-specific output directory
+            # Get folder name from metadata or derive from input path
+            folder_name = state["metadata"].get("custom_filename")
+            if not folder_name:
+                input_path = state.get("input_path", "")
+                if input_path:
+                    input_p = Path(input_path)
+                    # Use parent folder name if input is a file, or folder name if input is a folder
+                    folder_name = input_p.parent.name if input_p.is_file() else input_p.name
+                else:
+                    folder_name = "output"
+
+            topic_output_dir = settings.generator.output_dir / folder_name
+            topic_output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate output file in topic subfolder
             output_path = generator.generate(
                 content=state["structured_content"],
                 metadata=state["metadata"],
-                output_dir=output_dir
+                output_dir=topic_output_dir
             )
 
         state["output_path"] = str(output_path)

@@ -454,11 +454,25 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
             return state
 
         settings = get_settings()
-        images_dir = settings.image_generation.images_dir
+        metadata = state.get("metadata", {})
+
+        # Create topic-specific images directory
+        # Get folder name from metadata or derive from input path
+        folder_name = metadata.get("custom_filename")
+        if not folder_name:
+            input_path = state.get("input_path", "")
+            if input_path:
+                input_p = Path(input_path)
+                # Use parent folder name if input is a file, or folder name if input is a folder
+                folder_name = input_p.parent.name if input_p.is_file() else input_p.name
+            else:
+                folder_name = "output"
+
+        topic_output_dir = settings.generator.output_dir / folder_name
+        images_dir = topic_output_dir / "images"
         images_dir.mkdir(parents=True, exist_ok=True)
 
-        # Check for skip_image_generation flag in metadata
-        metadata = state.get("metadata", {})
+        # Check for skip_image_generation flag
         skip_generation = metadata.get("skip_image_generation", False)
         
         if skip_generation:

@@ -145,15 +145,15 @@ def merge_folder_content(
         logger.info("LLM not available - using basic concatenation merge")
         merged_content = _basic_merge(parsed_contents, initial_title, llm_service)
     
-    # Write to temporary file
+    # Write merged content to topic-specific output folder
     settings = get_settings()
-    temp_dir = settings.generator.temp_dir
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    topic_output_dir = settings.generator.output_dir / folder_name
+    topic_output_dir.mkdir(parents=True, exist_ok=True)
 
-    temp_file = temp_dir / f"{folder_name}_merged.md"
-    temp_file.write_text(merged_content, encoding="utf-8")
+    merged_file = topic_output_dir / f"{folder_name}_merged.md"
+    merged_file.write_text(merged_content, encoding="utf-8")
 
-    logger.success(f"Merged content written to: {temp_file} ({len(merged_content)} chars)")
+    logger.success(f"Merged content written to: {merged_file} ({len(merged_content)} chars)")
 
     # Combine metadata from all files with LLM-generated title
     combined_metadata = {
@@ -187,7 +187,7 @@ def merge_folder_content(
         combined_metadata["authors"] = sorted(list(all_authors))
 
     return {
-        "temp_file": str(temp_file),
+        "temp_file": str(merged_file),  # Now stored in topic output folder
         "metadata": combined_metadata,
         "num_files": len(parsed_contents)
     }
