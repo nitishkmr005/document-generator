@@ -67,20 +67,20 @@ class LLMService:
         self.temperature_summary = temperature_summary
         self.temperature_slides = temperature_slides
 
-        # Prefer Claude for visual generation, OpenAI for text
-        if self.claude_api_key and ANTHROPIC_AVAILABLE:
-            self.client = Anthropic(api_key=self.claude_api_key)
-            self.provider = "claude"
-            # Use Claude Sonnet for best results
-            if "gpt" in model.lower():
-                self.model = "claude-sonnet-4-20250514"
-            logger.info(f"LLM service initialized with Claude: {self.model}")
-        elif self.openai_api_key and OPENAI_AVAILABLE:
+        # Prefer OpenAI (Claude/Anthropic support disabled)
+        if self.openai_api_key and OPENAI_AVAILABLE:
             self.client = OpenAI(api_key=self.openai_api_key)
             self.provider = "openai"
             logger.info(f"LLM service initialized with OpenAI: {model}")
+        elif False and self.claude_api_key and ANTHROPIC_AVAILABLE:
+            # Claude support disabled - use OpenAI instead
+            self.client = Anthropic(api_key=self.claude_api_key)
+            self.provider = "claude"
+            if "gpt" in model.lower():
+                self.model = "claude-sonnet-4-20250514"
+            logger.info(f"LLM service initialized with Claude: {self.model}")
         else:
-            logger.warning("No API key provided - LLM features disabled")
+            logger.warning("No OpenAI API key provided - LLM features disabled")
 
     def is_available(self) -> bool:
         """Check if LLM service is available."""

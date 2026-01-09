@@ -1,27 +1,6 @@
 Introduction
 0:00
-0:05
-Cool. Hello everyone. Welcome to lecture 2 of CME 295.
-0:12
-So before we start, I wanted to give you a heads up about two logistical things.
-0:19
-So the first one is with Shervine, we reviewed the recording of lecture 1.
-0:25
-And we couldn't help but notice that the audio was suboptimal. So what we're doing for this lecture
-0:33
-is to have another setup. But then one issue is my voice will not
-0:38
-be propagated in the room. So I guess I have one question. Can everyone hear me very well, even from the back?
-0:47
-OK, cool. Great. So that's point number 1. Point number 2 is about the final exam.
-0:53
-So the final exam right now has a placeholder date for Wednesday, I think, December the 10th.
-1:00
-But just a heads up that we're trying to see if there is a way to move that to earlier in the week.
-1:06
-So we'll let when that's finalized. But for now, this is still TBD. But we'll make sure to let you know.
-1:14
-Cool. So with that aside, let's go into today's topic.
+let's go into today's topic.
 1:19
 But before we do that, as always, what we will do is we'll just quickly recap what we saw in the previous episodes.
 1:28

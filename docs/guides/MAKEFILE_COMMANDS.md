@@ -305,7 +305,7 @@ make help-docgen
 ```
 
 **Documentation files:**
-- `FOLDER_PROCESSING_QUICKSTART.md` - Folder processing guide
+- `Quickstart.md` - Quick start guide (all quickstart info)
 - `docs/guides/FOLDER_BASED_PROCESSING.md` - Complete folder guide
 - `docs/guides/REUSING_IMAGES.md` - Image reuse guide
 - `README.md` - Full documentation

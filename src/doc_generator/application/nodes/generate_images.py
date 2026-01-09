@@ -44,22 +44,28 @@ class ConceptExtractor:
     
     This class analyzes the actual content and extracts specific concepts,
     relationships, and technical details that should be visualized.
+    
+    NOTE: Anthropic/Claude support is optional. If not available, uses keyword extraction.
     """
 
     def __init__(self):
-        """Initialize extractor with Anthropic client."""
+        """Initialize extractor with Anthropic client (optional)."""
         import os
         self.api_key = os.getenv("ANTHROPIC_API_KEY")
         self.client = None
         self.settings = get_settings()
 
-        if self.api_key and ANTHROPIC_AVAILABLE:
+        # Skip Anthropic initialization - use keyword extraction only
+        if False and self.api_key and ANTHROPIC_AVAILABLE:
             self.client = anthropic.Anthropic(api_key=self.api_key)
             logger.debug("Concept extractor initialized with Claude")
+        else:
+            logger.debug("Concept extractor using keyword-based extraction only")
 
     def is_available(self) -> bool:
         """Check if extractor is available."""
-        return self.client is not None
+        # Always return False to use keyword extraction
+        return False
 
     def extract(self, section_title: str, content: str) -> dict:
         """

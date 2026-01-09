@@ -98,31 +98,33 @@ class LLMContentGenerator:
         self.visual_provider = None
         self.visual_model = None
         
-        # Setup content generation client (OpenAI preferred)
+        # Setup content generation client (OpenAI only - Claude disabled)
         if self.openai_api_key and OPENAI_AVAILABLE:
             self.content_client = OpenAI(api_key=self.openai_api_key)
             self.content_provider = "openai"
             self.content_model = self.settings.llm.content_model
             logger.info(f"Content Generator initialized with OpenAI: {self.content_model}")
-        elif self.claude_api_key and ANTHROPIC_AVAILABLE:
+        elif False and self.claude_api_key and ANTHROPIC_AVAILABLE:
+            # Claude support disabled
             self.content_client = Anthropic(api_key=self.claude_api_key)
             self.content_provider = "claude"
             self.content_model = self.settings.llm.svg_model
             logger.info(f"Content Generator initialized with Claude (fallback): {self.content_model}")
         else:
-            logger.warning("No API key available for content generation")
+            logger.warning("No OpenAI API key available for content generation")
         
-        # Setup visual data client (Claude preferred)
-        if self.claude_api_key and ANTHROPIC_AVAILABLE:
+        # Setup visual data client (OpenAI only - Claude disabled)
+        if self.openai_api_key and OPENAI_AVAILABLE:
+            self.visual_client = OpenAI(api_key=self.openai_api_key)
+            self.visual_provider = "openai"
+            self.visual_model = self.settings.llm.content_model
+            logger.debug(f"Visual data client using OpenAI: {self.visual_model}")
+        elif False and self.claude_api_key and ANTHROPIC_AVAILABLE:
+            # Claude support disabled
             self.visual_client = Anthropic(api_key=self.claude_api_key)
             self.visual_provider = "claude"
             self.visual_model = self.settings.llm.svg_model
             logger.debug(f"Visual data client using Claude: {self.visual_model}")
-        elif self.openai_api_key and OPENAI_AVAILABLE:
-            self.visual_client = OpenAI(api_key=self.openai_api_key)
-            self.visual_provider = "openai"
-            self.visual_model = self.settings.llm.content_model
-            logger.debug(f"Visual data client using OpenAI (fallback): {self.visual_model}")
         
         # Legacy compatibility
         self.client = self.content_client

@@ -1,8 +1,8 @@
 # Document Generator - Quick Start Guide
 
-## 🎉 Implementation Complete!
+**Production-ready LangGraph-based document generator** with 100% Python implementation.
 
-A **production-ready LangGraph-based document generator** with 100% Python implementation.
+---
 
 ## 🚀 Quick Start
 
@@ -10,45 +10,45 @@ A **production-ready LangGraph-based document generator** with 100% Python imple
 
 ```bash
 # Using make
-make setup-docgen
+make setup
 
 # Or manually
 uv pip install -e ".[dev]"
 ```
 
-### **2. Configure API Keys (Optional)**
+### **2. Configure API Keys**
 
-Create a `.env` file for LLM-enhanced features:
+Create a `.env` file:
 
 ```bash
-# Claude API (Recommended)
-ANTHROPIC_API_KEY=your_key_here
+# Required: OpenAI for LLM content generation
+OPENAI_API_KEY=your_openai_key_here
 
-# Or OpenAI API
-OPENAI_API_KEY=your_key_here
+# Required: Gemini for image generation
+GEMINI_API_KEY=your_gemini_key_here
 ```
 
-**Note**: API keys are optional. Without them, the system uses basic transformation.
+**Note**: Both API keys are required for full functionality. Without them:
+- No LLM content transformation
+- No image generation
+- Basic markdown-to-PDF conversion only
 
 ### **3. Run the Workflow**
 
-**Simplest - Process entire folder with one command:**
+**Simplest - Process entire folder (RECOMMENDED):**
 ```bash
-make run-llm-architectures
+make process-folder FOLDER=llm-architectures
 ```
 
 This will:
 - ✅ Process all files in `src/data/llm-architectures/`
 - ✅ Generate both PDF and PPTX
-- ✅ Use Claude/OpenAI for enhanced content (if configured)
+- ✅ Use OpenAI for content transformation
+- ✅ Use Gemini for image generation
 
-**Alternative - Single files:**
+**Alternative - Single file:**
 ```bash
-# Single file (both formats)
 bash run.sh src/data/sample/test-blog-article.md
-
-# Or using make (one format)
-make run-docgen INPUT=src/data/sample/test-blog-article.md OUTPUT=pdf
 ```
 
 ### **4. Check the Output**
@@ -59,7 +59,177 @@ ls -lh src/output/
 # You should see:
 # - llm-architectures.pdf
 # - llm-architectures.pptx
+# - images/ (generated images)
 ```
+
+---
+
+## 📖 Makefile Commands
+
+All automation ready! Just type `make <command>`.
+
+### ⚡ Most Used Commands
+
+```bash
+# 1. Process a folder (generates images)
+make process-folder FOLDER=llm-architectures
+
+# 2. Process all folders in src/data/
+make batch-topics
+
+# 3. List available folders
+make list-topics
+
+# 4. Show all commands
+make help
+```
+
+### Quick Command Reference
+
+| Command | What It Does | Output |
+|---------|--------------|--------|
+| `make setup` | Install dependencies | - |
+| `make run` | Run main application | PDF/PPTX |
+| `make process-folder FOLDER=<name>` | Process folder | PDF + PPTX |
+| `make batch-topics` | Process all folders | Multiple PDFs + PPTXs |
+| `make list-topics` | List available folders | List |
+| `make test` | Run tests | Test results |
+| `make lint` | Format + lint code | - |
+| `make clean` | Clean outputs | - |
+| `make help` | Show all commands | Command list |
+
+### Common Scenarios
+
+**First Time Setup:**
+```bash
+make setup                            # Install dependencies
+make process-folder FOLDER=llm-architectures  # Generate everything
+```
+
+**Add New Topic:**
+```bash
+mkdir src/data/new-topic
+cp files... src/data/new-topic/
+make process-folder FOLDER=new-topic
+```
+
+**Process Everything:**
+```bash
+make batch-topics                     # Process all folders
+```
+
+**Maintenance:**
+```bash
+make clean          # Clean all generated files
+make test           # Run tests
+make lint           # Format and lint
+```
+
+---
+
+## 📁 Folder-Based Processing
+
+Process entire folders as topics - combine multiple files into one PDF/PPTX per topic.
+
+### How It Works
+
+```
+INPUT (folder):
+src/data/llm-architectures/
+├── slides.pdf        (File 1)
+└── transcript.txt    (File 2)
+
+PROCESSING:
+1. Parse slides.pdf → extract content
+2. Parse transcript.txt → extract content
+3. LLM merges both → cohesive document
+4. Generate images for sections
+5. Create outputs
+
+OUTPUT:
+src/output/
+├── llm-architectures.pdf   (Combined from both files)
+├── llm-architectures.pptx  (Combined from both files)
+└── images/                 (Generated images)
+```
+
+### Process Your Folder
+
+```bash
+# Process llm-architectures folder
+make process-folder FOLDER=llm-architectures
+```
+
+**What it does:**
+1. ✅ Processes all files in the folder
+2. ✅ Merges them intelligently with LLM
+3. ✅ Generates images automatically
+4. ✅ Creates **ONE** PDF: `src/output/llm-architectures.pdf`
+5. ✅ Creates **ONE** PPTX: `src/output/llm-architectures.pptx`
+
+### Adding More Topics
+
+**1. Create New Topic Folder:**
+```bash
+mkdir src/data/machine-learning
+```
+
+**2. Add Files:**
+```bash
+# Add any supported files
+cp intro.pdf src/data/machine-learning/
+cp advanced.md src/data/machine-learning/
+cp notes.txt src/data/machine-learning/
+```
+
+**3. Process:**
+```bash
+make process-folder FOLDER=machine-learning
+```
+
+**4. Get Combined Output:**
+```
+src/output/
+├── machine-learning.pdf   (All files combined)
+└── machine-learning.pptx  (All files combined)
+```
+
+### Batch Process All Topics
+
+Process **all folders** in `src/data/` at once:
+
+```bash
+make batch-topics
+```
+
+**Example with 3 topics:**
+```
+src/data/
+├── llm-architectures/     → llm-architectures.pdf + .pptx
+├── machine-learning/      → machine-learning.pdf + .pptx
+└── python-basics/         → python-basics.pdf + .pptx
+
+Result:
+✅ 3 PDFs generated
+✅ 3 PPTXs generated
+✅ All in one run!
+```
+
+### Supported File Types
+
+Your folder can contain any mix of:
+
+| Type | Extensions | Example |
+|------|------------|---------|
+| PDF | `.pdf` | slides.pdf |
+| Word | `.docx` | notes.docx |
+| PowerPoint | `.pptx` | presentation.pptx |
+| Markdown | `.md`, `.markdown` | readme.md |
+| Text | `.txt` | transcript.txt |
+
+**All files in the folder are merged together!**
+
+---
 
 ## 🐳 Docker Deployment
 
@@ -74,32 +244,173 @@ make docker-run INPUT=src/data/sample.md OUTPUT=pdf
 ls -lh src/output/
 ```
 
+---
+
 ## ✨ Key Features
 
 1. ✅ **100% Pure Python** - No Node.js dependencies
-2. ✅ **LLM Integration** - Claude & OpenAI support for enhanced content
-3. ✅ **Advanced Parsing** - Docling (OCR, tables) + MarkItDown
-4. ✅ **Folder Processing** - Process multiple files at once with intelligent merging
-5. ✅ **Clean Architecture** - Domain/Application/Infrastructure separation
-6. ✅ **LangGraph Workflow** - State machine with retry logic
-7. ✅ **Environment Config** - .env file support for API keys
-8. ✅ **Docker Ready** - Containerized for portability
-9. ✅ **Production Ready** - Comprehensive error handling, logging, validation
+2. ✅ **OpenAI Integration** - GPT-4o for content transformation
+3. ✅ **Gemini Images** - High-quality image generation
+4. ✅ **Advanced Parsing** - Docling (OCR, tables) + MarkItDown
+5. ✅ **Folder Processing** - Process multiple files at once with intelligent merging
+6. ✅ **Clean Architecture** - Domain/Application/Infrastructure separation
+7. ✅ **LangGraph Workflow** - State machine with retry logic
+8. ✅ **Environment Config** - .env file support for API keys
+9. ✅ **Docker Ready** - Containerized for portability
+10. ✅ **Production Ready** - Comprehensive error handling, logging, validation
 
-## 📖 Documentation
+---
+
+## 🎯 Project Structure
+
+```
+src/data/                    # Input files and folders
+src/output/                  # Generated PDFs and PPTXs
+  ├── images/               # Generated images
+  └── pdf_images/           # Cached PDF images
+config/settings.yaml         # Configuration
+.env                        # API keys (not committed)
+Makefile                    # All automation commands
+```
+
+---
+
+## 📚 Documentation
 
 - **Quickstart.md** (this file): Quick start guide
 - **README.md**: Complete documentation
-- **ENV_SETUP.md**: Environment configuration guide
-- **docs/**: Additional documentation
+- **docs/guides/**: Extended guides
+  - `MAKEFILE_COMMANDS.md` - Complete command reference
+  - `FOLDER_BASED_PROCESSING.md` - Detailed folder processing guide
+  - `ENV_SETUP.md` - Environment configuration
+  - `IMPLEMENTATION_SUMMARY.md` - Technical implementation details
+
+---
+
+## 🔧 Configuration
+
+### Settings File
+
+Edit `config/settings.yaml` to customize:
+
+```yaml
+# LLM settings
+llm:
+  model: "gpt-4o-mini"
+  use_claude_for_visuals: false  # Disabled (using Gemini)
+
+# Image generation (Gemini)
+image_generation:
+  default_provider: "gemini"
+  gemini_model: "imagen-3.0-generate-001"
+  enable_decorative_headers: true
+  enable_infographics: true
+```
+
+### Environment Variables
+
+Override settings with environment variables using `DOC_GENERATOR_` prefix:
+
+```bash
+export DOC_GENERATOR_LLM__MODEL="gpt-4o"
+export DOC_GENERATOR_PDF__PAGE_SIZE="a4"
+```
+
+---
 
 ## 🎉 Ready to Use!
 
 Your document generator is fully implemented! Start with:
+
 ```bash
 # Process the LLM architectures folder
-make run-llm-architectures
+make process-folder FOLDER=llm-architectures
+
+# Or process all folders
+make batch-topics
 
 # Or a single file
 bash run.sh src/data/sample/test-blog-article.md
 ```
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. API Key Errors**
+```bash
+# Check your .env file
+cat .env
+
+# Should contain:
+OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=...
+```
+
+**2. Module Not Found**
+```bash
+# Reinstall dependencies
+make setup
+```
+
+**3. Permission Errors**
+```bash
+# Make scripts executable
+chmod +x run.sh
+```
+
+**4. No Output Generated**
+```bash
+# Check logs for errors
+make run INPUT=your-file.pdf OUTPUT=pdf
+
+# Enable verbose logging
+export DOC_GENERATOR_LOGGING__LEVEL="DEBUG"
+```
+
+### Get Help
+
+```bash
+# Show all available commands
+make help
+
+# List your topic folders
+make list-topics
+
+# Test your setup
+make test
+```
+
+---
+
+## 💡 Pro Tips
+
+1. **Use folder processing** for multiple related files
+2. **Keep images** in `src/output/images/` between runs
+3. **Check `make help`** for all available commands
+4. **Use `make lint`** before committing code
+5. **Run `make test`** to verify everything works
+
+---
+
+## 📞 Support
+
+For issues or questions:
+1. Check the documentation in `docs/guides/`
+2. Review the `README.md` for detailed information
+3. Check logs in the output for error messages
+4. Use `make help` for command reference
+
+---
+
+## Summary
+
+✅ **Install:** `make setup`  
+✅ **Configure:** Add API keys to `.env`  
+✅ **Process folder:** `make process-folder FOLDER=<name>`  
+✅ **Process all:** `make batch-topics`  
+✅ **Get help:** `make help`  
+
+**Ready to go!** 🚀

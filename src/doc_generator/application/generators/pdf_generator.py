@@ -48,8 +48,8 @@ class PDFGenerator:
         Args:
             image_cache: Directory for cached images (optional)
         """
-        settings = get_settings()
-        self.image_cache = image_cache or Path(settings.pdf.image_cache_dir)
+        self.settings = get_settings()
+        self.image_cache = image_cache or Path(self.settings.pdf.image_cache_dir)
         self.styles = create_custom_styles()
 
     def generate(self, content: dict, metadata: dict, output_dir: Path) -> Path:

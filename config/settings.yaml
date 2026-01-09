@@ -110,7 +110,7 @@ image_generation:
   default_provider: "gemini"
   
   # Gemini Imagen settings
-  gemini_model: "imagen-3.0-generate-001"
+  gemini_model: "gemini-3-pro-image-preview"
   gemini_rate_limit: 20  # images per minute
   gemini_request_delay: 3.0  # seconds between requests
   

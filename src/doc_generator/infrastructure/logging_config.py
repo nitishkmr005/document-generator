@@ -4,6 +4,7 @@ Logging configuration for document generator.
 Configures loguru for structured logging with custom formatting.
 """
 
+import logging
 import sys
 
 from loguru import logger
@@ -51,5 +52,10 @@ def setup_logging(verbose: bool = False, log_file: str | None = None) -> None:
             retention="7 days",
         )
         logger.info(f"Logging to file: {log_file}")
+
+    # Suppress verbose logging from third-party libraries
+    logging.getLogger("docling").setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("pdfminer").setLevel(logging.WARNING)
 
     logger.info(f"Logging configured (level={level})")

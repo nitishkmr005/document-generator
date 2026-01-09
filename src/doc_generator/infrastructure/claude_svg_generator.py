@@ -1,6 +1,9 @@
 """
 Claude-powered SVG generator for professional diagrams.
 
+NOTE: This module is currently DISABLED. The system uses Gemini for image generation.
+Set llm.use_claude_for_visuals = true in settings.yaml to enable.
+
 Uses Claude Sonnet 4.5 to generate high-quality SVG visualizations for
 architecture diagrams, flowcharts, mind maps, and comparison visuals.
 """
