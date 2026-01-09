@@ -5,6 +5,7 @@ LangGraph-based document generator for converting multiple input formats (PDF, M
 ## Table of Contents
 - [Features](#features)
 - [Architecture](#architecture)
+- [Process Flow](#process-flow)
 - [Tech Stack](#tech-stack)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -54,6 +55,20 @@ detect_format → parse_content → transform_content → generate_output → va
                                                                               ↓
                                                                     (retry on error, max 3x)
 ```
+
+## Process Flow
+
+For a comprehensive visual guide to the entire document generation process, see **[docs/PROCESS_FLOW.md](docs/PROCESS_FLOW.md)**.
+
+This includes detailed diagrams for:
+- 🔄 Complete architecture overview
+- 📥 Input detection and parsing
+- 🤖 LLM content transformation
+- 🎨 Visual and image generation
+- 📄 PDF/PPTX output creation
+- 🔁 Validation and retry logic
+- 📁 Folder-based processing
+- 🛠️ Technology stack flow
 
 ## Tech Stack
 

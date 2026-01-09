@@ -279,6 +279,8 @@ Makefile                    # All automation commands
 
 - **Quickstart.md** (this file): Quick start guide
 - **README.md**: Complete documentation
+- **docs/PROCESS_FLOW.md**: Visual process flow diagrams (see how everything works!)
+- **docs/README.md**: Documentation index
 - **docs/guides/**: Extended guides
   - `MAKEFILE_COMMANDS.md` - Complete command reference
   - `FOLDER_BASED_PROCESSING.md` - Detailed folder processing guide
@@ -302,7 +304,7 @@ llm:
 # Image generation (Gemini)
 image_generation:
   default_provider: "gemini"
-  gemini_model: "imagen-3.0-generate-001"
+  gemini_model: "gemini-3-pro-image-preview"
   enable_decorative_headers: true
   enable_infographics: true
 ```
