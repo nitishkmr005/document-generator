@@ -1,7 +1,8 @@
 """
 PDF generator using ReportLab.
 
-Generates PDF documents from structured markdown content.
+Generates blog-style PDF documents from structured markdown content with
+inline visualizations.
 """
 
 from pathlib import Path
@@ -13,13 +14,16 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from ...domain.exceptions import GenerationError
 from ...infrastructure.pdf_utils import (
     create_custom_styles,
+    extract_headings,
     inline_md,
     make_banner,
     make_code_block,
     make_image_flowable,
     make_mermaid_flowable,
     make_quote,
+    make_section_divider,
     make_table,
+    make_table_of_contents,
     parse_markdown_lines,
     rasterize_svg,
 )
@@ -31,7 +35,10 @@ class PDFGenerator:
     """
     PDF generator using ReportLab.
 
-    Converts structured markdown content to PDF with custom styling.
+    Converts structured markdown content to blog-style PDF with:
+    - Inline visualizations where markers appear
+    - Mermaid diagrams rendered as images
+    - Professional typography and spacing
     """
 
     def __init__(self, image_cache: Path | None = None):
@@ -51,7 +58,7 @@ class PDFGenerator:
 
         Args:
             content: Structured content dictionary with 'title', 'markdown',
-                     and optional 'visualizations' keys
+                     'visualizations', and 'marker_to_path' keys
             metadata: Document metadata
             output_dir: Output directory
 
@@ -66,7 +73,6 @@ class PDFGenerator:
             output_dir.mkdir(parents=True, exist_ok=True)
             self.image_cache.mkdir(parents=True, exist_ok=True)
 
-            # Create output path
             # Get title for document content
             title = metadata.get("title", "document")
 
@@ -86,11 +92,23 @@ class PDFGenerator:
             if not markdown_content:
                 raise GenerationError("No content provided for PDF generation")
 
-            # Get visualizations if available
+            # Get visualizations and marker mapping
             visualizations = content.get("visualizations", [])
+            marker_to_path = content.get("marker_to_path", {})
+            
+            # Build visualization lookup by title for inline replacement
+            visual_lookup = self._build_visual_lookup(visualizations)
 
             # Create PDF
-            self._create_pdf(output_path, title, markdown_content, metadata, visualizations)
+            self._create_pdf(
+                output_path, 
+                title, 
+                markdown_content, 
+                metadata, 
+                visualizations,
+                marker_to_path,
+                visual_lookup
+            )
 
             logger.info(f"PDF generated successfully: {output_path}")
 
@@ -100,61 +118,161 @@ class PDFGenerator:
             logger.error(f"PDF generation failed: {e}")
             raise GenerationError(f"Failed to generate PDF: {e}")
 
+    def _build_visual_lookup(self, visualizations: list[dict]) -> dict:
+        """
+        Build lookup dictionary for visualizations by title and type.
+        
+        Args:
+            visualizations: List of visualization dictionaries
+            
+        Returns:
+            Dictionary mapping (type, title) -> visualization dict
+        """
+        lookup = {}
+        for vis in visualizations:
+            vis_type = vis.get("type", "")
+            title = vis.get("title", "")
+            marker_id = vis.get("marker_id", "")
+            
+            # Index by multiple keys for flexible lookup
+            if vis_type and title:
+                lookup[(vis_type, title.lower())] = vis
+            if marker_id:
+                lookup[marker_id] = vis
+            if title:
+                lookup[title.lower()] = vis
+                
+        return lookup
+
+    def _find_visualization(
+        self, 
+        marker_type: str, 
+        marker_title: str, 
+        visual_lookup: dict
+    ) -> dict | None:
+        """
+        Find a visualization matching a marker.
+        
+        Args:
+            marker_type: Type from the marker (architecture, flowchart, etc.)
+            marker_title: Title from the marker
+            visual_lookup: Lookup dictionary
+            
+        Returns:
+            Visualization dict or None
+        """
+        # Try exact match on type + title
+        key = (marker_type, marker_title.lower())
+        if key in visual_lookup:
+            return visual_lookup[key]
+        
+        # Try title only
+        if marker_title.lower() in visual_lookup:
+            return visual_lookup[marker_title.lower()]
+        
+        # Try partial title match
+        title_lower = marker_title.lower()
+        for k, v in visual_lookup.items():
+            if isinstance(k, str) and title_lower in k:
+                return v
+            if isinstance(k, tuple) and len(k) == 2 and title_lower in k[1]:
+                return v
+        
+        return None
+
     def _create_pdf(
         self,
         output_path: Path,
         title: str,
         markdown_content: str,
         metadata: dict,
-        visualizations: list[dict] = None
+        visualizations: list[dict],
+        marker_to_path: dict,
+        visual_lookup: dict
     ) -> None:
         """
-        Create PDF document.
+        Create blog-like PDF document with inline visualizations.
+
+        Features:
+        - Hero title section with larger typography
+        - Table of contents for navigation
+        - Section dividers for visual separation
+        - Inline SVG visualizations where markers appear
+        - Mermaid diagrams rendered as images
 
         Args:
             output_path: Path to output PDF
             title: Document title
             markdown_content: Markdown content to convert
             metadata: Document metadata
-            visualizations: Optional list of visualization dictionaries
+            visualizations: List of visualization dictionaries
+            marker_to_path: Mapping of marker IDs to file paths
+            visual_lookup: Lookup dict for finding visualizations
         """
-        visualizations = visualizations or []
-
-        # Create document
+        # Create document with blog-like margins
         doc = SimpleDocTemplate(
             str(output_path),
             pagesize=letter,
-            rightMargin=54,
-            leftMargin=54,
-            topMargin=54,
-            bottomMargin=54,
+            rightMargin=60,
+            leftMargin=60,
+            topMargin=60,
+            bottomMargin=48,
             title=title,
             author=metadata.get("author", ""),
         )
 
         story = []
 
-        # Add title page
+        # Hero title section (blog-like)
+        story.append(Spacer(1, 24))
         story.append(Paragraph(inline_md(title), self.styles["TitleCover"]))
 
         subtitle = metadata.get("subtitle", metadata.get("url", ""))
         if subtitle:
             story.append(Paragraph(inline_md(subtitle), self.styles["SubtitleCover"]))
 
-        story.append(Spacer(1, 12))
+        # Add executive summary if available
+        exec_summary = metadata.get("executive_summary", "")
+        if exec_summary:
+            story.append(Spacer(1, 12))
+            story.append(make_banner("Executive Summary", self.styles))
+            story.append(Spacer(1, 8))
+            # Parse summary as markdown (may have bullets)
+            for kind, content_item in parse_markdown_lines(exec_summary):
+                if kind == "bullets":
+                    for item in content_item:
+                        story.append(
+                            Paragraph(inline_md(item), self.styles["BulletCustom"], bulletText="•")
+                        )
+                elif kind == "para" and content_item.strip():
+                    story.append(Paragraph(inline_md(content_item), self.styles["BodyCustom"]))
+            story.append(Spacer(1, 12))
 
-        # Parse and add markdown content
+        story.append(Spacer(1, 16))
+
+        # Table of contents (blog-like navigation)
+        headings = extract_headings(markdown_content)
+        if headings:
+            story.extend(make_table_of_contents(headings, self.styles))
+            story.extend(make_section_divider(self.styles))
+
+        # Track which visualizations we've used (for any remaining at end)
+        used_visualizations = set()
+
+        # Parse and add markdown content with inline visualizations
         for kind, content_item in parse_markdown_lines(markdown_content):
             if kind == "spacer":
-                story.append(Spacer(1, 6))
+                story.append(Spacer(1, 12))
 
             elif kind == "h1":
+                # Major section - add divider before
+                story.extend(make_section_divider(self.styles))
                 story.append(Paragraph(inline_md(content_item), self.styles["Heading2Custom"]))
 
             elif kind == "h2":
-                story.append(Spacer(1, 8))
+                story.append(Spacer(1, 16))
                 story.append(make_banner(content_item, self.styles))
-                story.append(Spacer(1, 6))
+                story.append(Spacer(1, 12))
 
             elif kind == "h3":
                 story.append(Paragraph(inline_md(content_item), self.styles["Heading3Custom"]))
@@ -162,46 +280,107 @@ class PDFGenerator:
             elif kind.startswith("h"):
                 story.append(Paragraph(inline_md(content_item), self.styles["Heading3Custom"]))
 
+            elif kind == "visual_marker":
+                # Handle inline visual marker - find and embed the visualization
+                marker_type = content_item.get("type", "")
+                marker_title = content_item.get("title", "")
+                marker_desc = content_item.get("description", "")
+                
+                logger.debug(f"Processing visual marker: {marker_type} - {marker_title}")
+                
+                # Find matching visualization
+                vis = self._find_visualization(marker_type, marker_title, visual_lookup)
+                
+                if vis and vis.get("path"):
+                    svg_path = Path(vis["path"])
+                    if svg_path.exists():
+                        # Rasterize and embed
+                        png_path = rasterize_svg(svg_path, self.image_cache)
+                        if png_path:
+                            story.append(Spacer(1, 12))
+                            story.extend(make_image_flowable(
+                                marker_title,
+                                png_path,
+                                self.styles
+                            ))
+                            story.append(Spacer(1, 12))
+                            used_visualizations.add(vis.get("marker_id", marker_title))
+                            logger.debug(f"Embedded visualization inline: {marker_title}")
+                        else:
+                            # Fallback: show placeholder
+                            story.append(Paragraph(
+                                f"<i>[Diagram: {inline_md(marker_title)}]</i>",
+                                self.styles["ImageCaption"]
+                            ))
+                    else:
+                        logger.warning(f"Visualization file not found: {svg_path}")
+                        story.append(Paragraph(
+                            f"<i>[Diagram: {inline_md(marker_title)} - {inline_md(marker_desc)}]</i>",
+                            self.styles["ImageCaption"]
+                        ))
+                else:
+                    # No visualization generated for this marker - show placeholder
+                    logger.debug(f"No visualization found for marker: {marker_title}")
+                    story.append(Paragraph(
+                        f"<i>[Diagram placeholder: {inline_md(marker_title)}]</i>",
+                        self.styles["ImageCaption"]
+                    ))
+
             elif kind == "image":
                 alt, url = content_item
                 # Resolve image path (if local file)
                 image_path = self._resolve_image_path(url)
                 if image_path:
+                    story.append(Spacer(1, 12))
                     story.extend(make_image_flowable(alt, image_path, self.styles))
+                    story.append(Spacer(1, 12))
                 else:
                     story.append(Paragraph(f"Image: {inline_md(alt)}", self.styles["ImageCaption"]))
 
             elif kind == "quote":
+                story.append(Spacer(1, 8))
                 story.append(make_quote(content_item, self.styles))
-                story.append(Spacer(1, 6))
+                story.append(Spacer(1, 12))
 
             elif kind == "bullets":
                 for item in content_item:
                     story.append(
-                        Paragraph(inline_md(item), self.styles["BulletCustom"], bulletText="-")
+                        Paragraph(inline_md(item), self.styles["BulletCustom"], bulletText="•")
                     )
+                story.append(Spacer(1, 8))
 
             elif kind == "mermaid":
+                story.append(Spacer(1, 12))
                 story.extend(make_mermaid_flowable(content_item, self.styles, self.image_cache))
+                story.append(Spacer(1, 12))
 
             elif kind == "code":
+                story.append(Spacer(1, 8))
                 story.append(make_code_block(content_item, self.styles))
+                story.append(Spacer(1, 8))
 
             elif kind == "table":
+                story.append(Spacer(1, 8))
                 story.append(make_table(content_item, self.styles))
-                story.append(Spacer(1, 6))
+                story.append(Spacer(1, 12))
 
             else:  # para
                 if content_item.strip():
                     story.append(Paragraph(inline_md(content_item), self.styles["BodyCustom"]))
 
-        # Add visualizations section if available
-        if visualizations:
+        # Add any remaining visualizations that weren't placed inline
+        # (from LLM suggestions or figure parsing fallback)
+        remaining_visuals = [
+            v for v in visualizations 
+            if v.get("marker_id", v.get("title", "")) not in used_visualizations
+        ]
+        
+        if remaining_visuals:
             story.append(Spacer(1, 20))
-            story.append(make_banner("Visualizations", self.styles))
+            story.append(make_banner("Additional Diagrams", self.styles))
             story.append(Spacer(1, 12))
 
-            for visual in visualizations:
+            for visual in remaining_visuals:
                 vis_title = visual.get("title", "Visualization")
                 svg_path = visual.get("path", "")
 
@@ -214,7 +393,7 @@ class PDFGenerator:
                             story.extend(make_image_flowable(vis_title, png_path, self.styles))
                             story.append(Spacer(1, 8))
                             vis_type = visual.get("type", "diagram")
-                            logger.debug(f"Added {vis_type} visualization to PDF: {vis_title}")
+                            logger.debug(f"Added remaining {vis_type} to PDF: {vis_title}")
 
         # Build PDF
         element_count = len(story)

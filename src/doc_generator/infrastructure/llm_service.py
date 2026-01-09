@@ -1,7 +1,7 @@
 """
 LLM service for intelligent content transformation.
 
-Provides OpenAI-powered content summarization, slide generation, and enhancement.
+Provides OpenAI and Claude-powered content summarization, slide generation, and enhancement.
 """
 
 import json
@@ -9,16 +9,29 @@ import os
 from typing import Optional
 
 from loguru import logger
-from openai import OpenAI
 
 from .settings import get_settings
+
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    logger.warning("OpenAI package not available")
+
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+    logger.warning("Anthropic package not available")
 
 
 class LLMService:
     """
     LLM service for intelligent content processing.
 
-    Uses OpenAI GPT models for content summarization, slide generation,
+    Uses OpenAI GPT or Claude models for content summarization, slide generation,
     and executive presentation enhancement.
     """
 
@@ -37,12 +50,16 @@ class LLMService:
         Initialize LLM service.
 
         Args:
-            api_key: OpenAI API key. If not provided, uses OPENAI_API_KEY env var.
-            model: Model to use (default: gpt-4o-mini for cost efficiency)
+            api_key: API key. If not provided, checks env vars (ANTHROPIC_API_KEY, CLAUDE_API_KEY, OPENAI_API_KEY)
+            model: Model to use (default: gpt-4o-mini)
         """
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        # Try to determine which API to use
+        self.claude_api_key = api_key or os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+        self.openai_api_key = api_key or os.getenv("OPENAI_API_KEY")
+        
         self.model = model
         self.client = None
+        self.provider = None
         self.max_summary_points = max_summary_points
         self.max_slides = max_slides
         self.max_tokens_summary = max_tokens_summary
@@ -50,15 +67,69 @@ class LLMService:
         self.temperature_summary = temperature_summary
         self.temperature_slides = temperature_slides
 
-        if self.api_key:
-            self.client = OpenAI(api_key=self.api_key)
-            logger.info(f"LLM service initialized with model: {model}")
+        # Prefer Claude for visual generation, OpenAI for text
+        if self.claude_api_key and ANTHROPIC_AVAILABLE:
+            self.client = Anthropic(api_key=self.claude_api_key)
+            self.provider = "claude"
+            # Use Claude Sonnet for best results
+            if "gpt" in model.lower():
+                self.model = "claude-sonnet-4-20250514"
+            logger.info(f"LLM service initialized with Claude: {self.model}")
+        elif self.openai_api_key and OPENAI_AVAILABLE:
+            self.client = OpenAI(api_key=self.openai_api_key)
+            self.provider = "openai"
+            logger.info(f"LLM service initialized with OpenAI: {model}")
         else:
-            logger.warning("No OpenAI API key provided - LLM features disabled")
+            logger.warning("No API key provided - LLM features disabled")
 
     def is_available(self) -> bool:
         """Check if LLM service is available."""
         return self.client is not None
+
+    def _call_llm(self, system_msg: str, user_msg: str, max_tokens: int, temperature: float, json_mode: bool = False) -> str:
+        """
+        Call LLM provider (OpenAI or Claude).
+        
+        Args:
+            system_msg: System message
+            user_msg: User message
+            max_tokens: Maximum tokens
+            temperature: Temperature
+            json_mode: Whether to use JSON mode
+            
+        Returns:
+            Response text
+        """
+        if not self.is_available():
+            return ""
+            
+        try:
+            if self.provider == "claude":
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    system=system_msg,
+                    messages=[{"role": "user", "content": user_msg}]
+                )
+                return response.content[0].text
+            else:  # openai
+                kwargs = {
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg}
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens
+                }
+                if json_mode:
+                    kwargs["response_format"] = {"type": "json_object"}
+                response = self.client.chat.completions.create(**kwargs)
+                return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"LLM call failed: {e}")
+            return ""
 
     def generate_executive_summary(self, content: str, max_points: Optional[int] = None) -> str:
         """
@@ -75,7 +146,8 @@ class LLMService:
             return ""
 
         max_points = self.max_summary_points if max_points is None else max_points
-        prompt = f"""Analyze the following content and create an executive summary suitable for senior leadership.
+        system_msg = "You are an executive communication specialist who creates clear, impactful summaries for senior leadership."
+        user_msg = f"""Analyze the following content and create an executive summary suitable for senior leadership.
 
 Requirements:
 - Maximum {max_points} key points
@@ -90,16 +162,7 @@ Content:
 Respond with ONLY the bullet points, no introduction or conclusion."""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an executive communication specialist who creates clear, impactful summaries for senior leadership."},  # noqa: E501
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=self.temperature_summary,
-                max_tokens=self.max_tokens_summary
-            )
-            summary = response.choices[0].message.content.strip()
+            summary = self._call_llm(system_msg, user_msg, self.max_tokens_summary, self.temperature_summary)
             logger.debug(f"Generated executive summary: {len(summary)} chars")
             return summary
         except Exception as e:
@@ -148,17 +211,8 @@ Respond in JSON format:
 }}"""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a presentation design expert who creates compelling executive presentations. Always respond with valid JSON."},  # noqa: E501
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=self.temperature_slides,
-                max_tokens=self.max_tokens_slides,
-                response_format={"type": "json_object"}
-            )
-            result = response.choices[0].message.content.strip()
+            system_msg = "You are a presentation design expert who creates compelling executive presentations. Always respond with valid JSON."
+            result = self._call_llm(system_msg, prompt, self.max_tokens_slides, self.temperature_slides, json_mode=True)
             logger.debug(f"Slide structure raw response: {result[:200]}...")
 
             data = json.loads(result)
@@ -216,16 +270,8 @@ Bullet points:
 Respond with ONLY the enhanced bullet points, one per line, starting with "-"."""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an executive communication specialist."},  # noqa: E501
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=300
-            )
-            result = response.choices[0].message.content.strip()
+            system_msg = "You are an executive communication specialist."
+            result = self._call_llm(system_msg, prompt, 300, 0.3)
             enhanced = [line.lstrip("- ").strip() for line in result.split("\n") if line.strip().startswith("-")]
             return enhanced if enhanced else bullets
         except Exception as e:
@@ -260,16 +306,8 @@ Requirements:
 Respond with ONLY the speaker notes text."""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a presentation coach."},  # noqa: E501
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.4,
-                max_tokens=200
-            )
-            return response.choices[0].message.content.strip()
+            system_msg = "You are a presentation coach."
+            return self._call_llm(system_msg, prompt, 200, 0.4)
         except Exception as e:
             logger.error(f"Failed to generate speaker notes: {e}")
             return ""
@@ -303,17 +341,8 @@ Example format:
 {{"charts": [{{"chart_type": "bar", "title": "Revenue by Quarter", "data": [{{"label": "Q1", "value": 100}}]}}]}}"""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a data visualization expert."},  # noqa: E501
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=1000,
-                response_format={"type": "json_object"}
-            )
-            result = response.choices[0].message.content.strip()
+            system_msg = "You are a data visualization expert."
+            result = self._call_llm(system_msg, prompt, 1000, 0.3, json_mode=True)
             data = json.loads(result)
             if isinstance(data, dict):
                 charts = data.get("charts", data.get("data", []))
@@ -402,22 +431,10 @@ For mind_map:
 If no good visualization opportunities exist, return {{"visualizations": []}}"""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a visual communication expert who creates clear, informative diagrams. "
-                                   "You identify the best visualization type for each concept and structure data precisely. "  # noqa: E501
-                                   "Keep all text labels SHORT (under 20 chars) to prevent overlap in diagrams."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.4,
-                max_tokens=2000,
-                response_format={"type": "json_object"}
-            )
-            result = response.choices[0].message.content.strip()
+            system_msg = ("You are a visual communication expert who creates clear, informative diagrams. "
+                         "You identify the best visualization type for each concept and structure data precisely. "
+                         "Keep all text labels SHORT (under 20 chars) to prevent overlap in diagrams.")
+            result = self._call_llm(system_msg, prompt, 2000, 0.4, json_mode=True)
             logger.debug(f"Visualization suggestions raw response: {result[:300]}...")
 
             data = json.loads(result)

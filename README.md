@@ -7,6 +7,7 @@ LangGraph-based document generator for converting multiple input formats (PDF, M
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Installation](#installation)
+- [Configuration](#configuration)
 - [Usage](#usage)
 - [Docker Deployment](#docker-deployment)
 - [Development](#development)
@@ -85,6 +86,18 @@ detect_format → parse_content → transform_content → generate_output → va
    uv pip install -e ".[dev]"
    ```
 
+3. **Configure API Keys** (Optional - for LLM-enhanced features):
+   Create a `.env` file in the project root:
+   ```bash
+   # Claude API (Recommended for visuals)
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
+   
+   # Or OpenAI API
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+   
+   See `ENV_SETUP.md` for detailed configuration options.
+
 ### Docker (Recommended for Production)
 
 1. **Build Docker image**:
@@ -97,21 +110,78 @@ detect_format → parse_content → transform_content → generate_output → va
    docker build -t doc-generator:latest .
    ```
 
+## Configuration
+
+### API Keys (Optional)
+
+The system supports multiple LLM providers for enhanced content transformation:
+
+1. **Claude (Anthropic)** - Recommended for visual generation
+   ```bash
+   ANTHROPIC_API_KEY=your_key_here
+   # or
+   CLAUDE_API_KEY=your_key_here
+   ```
+
+2. **OpenAI** - Alternative LLM provider
+   ```bash
+   OPENAI_API_KEY=your_key_here
+   ```
+
+**Priority**: Claude > OpenAI > No LLM (basic mode)
+
+Create a `.env` file with your API key to enable LLM-enhanced features:
+- Executive summaries
+- Intelligent slide generation
+- Content transformation
+- Visual diagram generation
+
+### Settings File
+
+Edit `config/settings.yaml` to customize:
+- Page layouts and margins
+- Color themes
+- LLM parameters
+- Retry limits
+
 ## Usage
 
 ### Command Line (Local)
 
-**Basic usage**:
+**Quick Start - Process Entire Folder**:
 ```bash
-python scripts/run_generator.py <input> --output <format>
+# Process LLM architectures folder (generates both PDF and PPTX)
+make run-llm-architectures
+
+# Or use the shell script directly
+bash run.sh src/data/llm-architectures --verbose
 ```
 
-**Examples**:
-
+**Single File Processing**:
 ```bash
-# Markdown to PDF
-python scripts/run_generator.py src/data/article.md --output pdf
+# Using make (single output format)
+make run-docgen INPUT=src/data/article.md OUTPUT=pdf
 
+# Using run.sh (generates both PDF and PPTX)
+bash run.sh src/data/article.md --verbose
+
+# Using Python directly
+python scripts/run_generator.py src/data/article.md --output pdf
+```
+
+**Folder Processing**:
+```bash
+# Process all files in a folder
+python scripts/generate_from_folder.py src/data/llm-architectures --verbose
+
+# The script will:
+# 1. Parse all supported files (PDF, MD, TXT, DOCX, PPTX)
+# 2. Merge content intelligently
+# 3. Generate both PDF and PPTX outputs
+```
+
+**More Examples**:
+```bash
 # Web article to PPTX
 python scripts/run_generator.py https://example.com/article --output pptx
 
@@ -123,15 +193,6 @@ python scripts/run_generator.py input.md --output pdf --verbose
 
 # With log file
 python scripts/run_generator.py input.md --output pdf --log-file output.log
-```
-
-**Using Makefile**:
-```bash
-# Convert markdown to PDF
-make run-docgen INPUT=src/data/article.md OUTPUT=pdf
-
-# Convert URL to PPTX
-make run-docgen INPUT=https://example.com/article OUTPUT=pptx
 ```
 
 ### Docker Usage
@@ -334,9 +395,9 @@ make run-docgen INPUT=README.md OUTPUT=pdf
 ls -lh src/output/*.pdf
 ```
 
-## Configuration
+## Advanced Configuration
 
-Configuration is managed through `config/settings.yaml`:
+Configuration is managed through `config/settings.yaml` and `.env` file:
 
 ```yaml
 generator:

@@ -6,6 +6,7 @@ architecture diagrams, flowcharts, mind maps, and comparison visuals.
 """
 
 import json
+import math
 import os
 from pathlib import Path
 from typing import Optional
@@ -451,44 +452,255 @@ Return ONLY the SVG code, no explanations or markdown code blocks."""
         logger.debug(f"Saved Claude-generated SVG: {path}")
 
 
+# Type aliases for common variations
+TYPE_ALIASES = {
+    "comparison": "comparison_visual",
+    "diagram": "architecture",
+    "chart": "comparison_visual",
+    "graph": "flowchart",
+    "table": "comparison_visual",
+    "heatmap": "comparison_visual",
+    "process": "flowchart",
+    "hierarchy": "concept_map",
+    "tree": "mind_map",
+}
+
+
 def generate_visualization_with_claude(
     visual_type: str,
     data: dict,
     title: str,
-    output_path: Optional[Path] = None
+    output_path: Optional[Path] = None,
+    validation_feedback: list[str] | None = None
 ) -> str:
     """
     Generate visualization using Claude SVG generator.
 
     Args:
-        visual_type: "architecture", "flowchart", "comparison_visual", "concept_map", or "mind_map"
+        visual_type: "architecture", "flowchart", "comparison", "concept_map", or "mind_map"
         data: Type-specific data dictionary
         title: Visualization title
         output_path: Optional path to save SVG
+        validation_feedback: Optional list of validation errors from previous attempt
 
     Returns:
-        SVG code as string
+        SVG code as string, or fallback SVG if generation fails
     """
     generator = ClaudeSVGGenerator()
 
     if not generator.is_available():
-        logger.warning("Claude SVG generator not available, falling back to basic generator")
-        return ""
+        logger.warning("Claude SVG generator not available, returning fallback SVG")
+        return _create_fallback_svg(visual_type, title, data)
+
+    # Normalize type using aliases
+    normalized_type = TYPE_ALIASES.get(visual_type.lower(), visual_type.lower())
+    
+    if normalized_type != visual_type:
+        logger.debug(f"Mapped visual type '{visual_type}' to '{normalized_type}'")
 
     try:
-        if visual_type == "architecture":
-            return generator.generate_architecture_diagram(title, data, output_path)
-        elif visual_type == "flowchart":
-            return generator.generate_flowchart(title, data, output_path)
-        elif visual_type == "comparison_visual":
-            return generator.generate_comparison_visual(title, data, output_path)
-        elif visual_type == "concept_map":
-            return generator.generate_concept_map(title, data, output_path)
-        elif visual_type == "mind_map":
-            return generator.generate_mind_map(title, data, output_path)
+        svg_content = ""
+        
+        if normalized_type == "architecture":
+            svg_content = generator.generate_architecture_diagram(title, data, output_path)
+        elif normalized_type == "flowchart":
+            svg_content = generator.generate_flowchart(title, data, output_path)
+        elif normalized_type == "comparison_visual":
+            svg_content = generator.generate_comparison_visual(title, data, output_path)
+        elif normalized_type == "concept_map":
+            svg_content = generator.generate_concept_map(title, data, output_path)
+        elif normalized_type == "mind_map":
+            svg_content = generator.generate_mind_map(title, data, output_path)
         else:
-            logger.warning(f"Unknown visualization type for Claude: {visual_type}")
-            return ""
+            logger.warning(f"Unknown visualization type '{visual_type}' (normalized: '{normalized_type}'), using architecture")
+            svg_content = generator.generate_architecture_diagram(title, data, output_path)
+        
+        # If Claude failed, return fallback
+        if not svg_content:
+            logger.warning(f"Claude returned empty SVG for {title}, using fallback")
+            return _create_fallback_svg(normalized_type, title, data)
+        
+        return svg_content
+        
     except Exception as e:
         logger.error(f"Failed to generate {visual_type} with Claude: {e}")
-        return ""
+        return _create_fallback_svg(normalized_type if 'normalized_type' in dir() else "architecture", title, data)
+
+
+def _create_fallback_svg(visual_type: str, title: str, data: dict) -> str:
+    """
+    Create a basic fallback SVG when Claude generation fails.
+    
+    Args:
+        visual_type: Type of visualization
+        title: Title for the diagram
+        data: Data dictionary (used for extracting labels)
+        
+    Returns:
+        Basic SVG code
+    """
+    # Extract some labels from data for the fallback
+    labels = []
+    if "components" in data:
+        labels = [c.get("name", f"Item {i+1}") for i, c in enumerate(data["components"][:5])]
+    elif "nodes" in data:
+        labels = [n.get("text", f"Node {i+1}") for i, n in enumerate(data["nodes"][:5])]
+    elif "concepts" in data:
+        labels = [c.get("text", f"Concept {i+1}") for i, c in enumerate(data["concepts"][:5])]
+    elif "items" in data:
+        labels = data["items"][:5]
+    elif "branches" in data:
+        labels = [b.get("text", f"Branch {i+1}") for i, b in enumerate(data["branches"][:5])]
+    
+    if not labels:
+        labels = ["Component 1", "Component 2", "Component 3"]
+    
+    # Color palette
+    colors = ["#1E5D5A", "#2E86AB", "#D76B38", "#A23B72", "#F18F01"]
+    
+    # Build SVG based on type
+    if visual_type in ("architecture", "diagram"):
+        return _fallback_architecture_svg(title, labels, colors)
+    elif visual_type == "flowchart":
+        return _fallback_flowchart_svg(title, labels, colors)
+    elif visual_type in ("comparison", "comparison_visual"):
+        return _fallback_comparison_svg(title, labels, colors)
+    elif visual_type == "concept_map":
+        return _fallback_concept_map_svg(title, labels, colors)
+    elif visual_type == "mind_map":
+        return _fallback_mind_map_svg(title, labels, colors)
+    else:
+        return _fallback_architecture_svg(title, labels, colors)
+
+
+def _fallback_architecture_svg(title: str, labels: list[str], colors: list[str]) -> str:
+    """Generate fallback architecture diagram."""
+    boxes = []
+    y_offset = 80
+    
+    for i, label in enumerate(labels):
+        color = colors[i % len(colors)]
+        x = 150 + (i % 3) * 250
+        y = y_offset + (i // 3) * 120
+        boxes.append(f'''
+        <rect x="{x}" y="{y}" width="180" height="60" rx="8" fill="{color}" opacity="0.9"/>
+        <text x="{x + 90}" y="{y + 35}" text-anchor="middle" fill="white" font-size="13" font-family="Arial">{label[:20]}</text>''')
+    
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+    <rect width="800" height="400" fill="#FAFAFA"/>
+    <text x="400" y="40" text-anchor="middle" font-size="18" font-weight="bold" fill="#333" font-family="Arial">{title[:50]}</text>
+    {"".join(boxes)}
+</svg>'''
+
+
+def _fallback_flowchart_svg(title: str, labels: list[str], colors: list[str]) -> str:
+    """Generate fallback flowchart."""
+    nodes = []
+    arrows = []
+    
+    for i, label in enumerate(labels):
+        color = colors[i % len(colors)]
+        y = 80 + i * 80
+        nodes.append(f'''
+        <rect x="300" y="{y}" width="200" height="50" rx="6" fill="{color}"/>
+        <text x="400" y="{y + 30}" text-anchor="middle" fill="white" font-size="12" font-family="Arial">{label[:25]}</text>''')
+        
+        if i < len(labels) - 1:
+            arrows.append(f'''<line x1="400" y1="{y + 50}" x2="400" y2="{y + 80}" stroke="#666" stroke-width="2" marker-end="url(#arrow)"/>''')
+    
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 {100 + len(labels) * 80}">
+    <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#666"/>
+        </marker>
+    </defs>
+    <rect width="800" height="{100 + len(labels) * 80}" fill="#FAFAFA"/>
+    <text x="400" y="40" text-anchor="middle" font-size="18" font-weight="bold" fill="#333" font-family="Arial">{title[:50]}</text>
+    {"".join(arrows)}
+    {"".join(nodes)}
+</svg>'''
+
+
+def _fallback_comparison_svg(title: str, labels: list[str], colors: list[str]) -> str:
+    """Generate fallback comparison table."""
+    rows = []
+    
+    for i, label in enumerate(labels):
+        color = colors[i % len(colors)]
+        y = 100 + i * 50
+        bar_width = 150 + (i * 30) % 200
+        rows.append(f'''
+        <rect x="50" y="{y}" width="700" height="45" fill="{'#F8F9FA' if i % 2 == 0 else 'white'}"/>
+        <text x="70" y="{y + 28}" font-size="13" fill="#333" font-family="Arial">{label[:30]}</text>
+        <rect x="300" y="{y + 12}" width="{bar_width}" height="20" rx="4" fill="{color}"/>''')
+    
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 {150 + len(labels) * 50}">
+    <rect width="800" height="{150 + len(labels) * 50}" fill="#FAFAFA"/>
+    <text x="400" y="40" text-anchor="middle" font-size="18" font-weight="bold" fill="#333" font-family="Arial">{title[:50]}</text>
+    <rect x="50" y="60" width="700" height="30" fill="#E8E8E8"/>
+    <text x="70" y="80" font-size="12" font-weight="bold" fill="#333" font-family="Arial">Item</text>
+    <text x="420" y="80" font-size="12" font-weight="bold" fill="#333" font-family="Arial">Score</text>
+    {"".join(rows)}
+</svg>'''
+
+
+def _fallback_concept_map_svg(title: str, labels: list[str], colors: list[str]) -> str:
+    """Generate fallback concept map."""
+    nodes = []
+    lines = []
+    
+    # Central node
+    nodes.append(f'''
+    <ellipse cx="400" cy="150" rx="100" ry="40" fill="{colors[0]}"/>
+    <text x="400" y="155" text-anchor="middle" fill="white" font-size="14" font-family="Arial">{title[:20]}</text>''')
+    
+    # Branch nodes
+    for i, label in enumerate(labels[:4]):
+        angle = (i * 90) - 45
+        x = 400 + int(200 * math.cos(math.radians(angle)))
+        y = 280 + int(80 * math.sin(math.radians(angle)))
+        color = colors[(i + 1) % len(colors)]
+        
+        lines.append(f'<line x1="400" y1="190" x2="{x}" y2="{y - 25}" stroke="#999" stroke-width="1.5" stroke-dasharray="4"/>')
+        nodes.append(f'''
+        <ellipse cx="{x}" cy="{y}" rx="80" ry="30" fill="{color}"/>
+        <text x="{x}" y="{y + 5}" text-anchor="middle" fill="white" font-size="11" font-family="Arial">{label[:15]}</text>''')
+    
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+    <rect width="800" height="400" fill="#FAFAFA"/>
+    {"".join(lines)}
+    {"".join(nodes)}
+</svg>'''
+
+
+def _fallback_mind_map_svg(title: str, labels: list[str], colors: list[str]) -> str:
+    """Generate fallback mind map."""
+    nodes = []
+    lines = []
+    
+    # Central node
+    nodes.append(f'''
+    <ellipse cx="400" cy="200" rx="90" ry="45" fill="{colors[0]}"/>
+    <text x="400" y="205" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">{title[:15]}</text>''')
+    
+    # Branch nodes in a radial pattern
+    for i, label in enumerate(labels[:6]):
+        angle = (i * 60) - 30
+        x = 400 + int(220 * math.cos(math.radians(angle)))
+        y = 200 + int(130 * math.sin(math.radians(angle)))
+        color = colors[(i + 1) % len(colors)]
+        
+        # Curved line
+        mid_x = 400 + int(110 * math.cos(math.radians(angle)))
+        mid_y = 200 + int(65 * math.sin(math.radians(angle)))
+        lines.append(f'<path d="M400,200 Q{mid_x},{mid_y} {x},{y}" stroke="{color}" stroke-width="3" fill="none"/>')
+        
+        nodes.append(f'''
+        <ellipse cx="{x}" cy="{y}" rx="70" ry="28" fill="{color}"/>
+        <text x="{x}" y="{y + 5}" text-anchor="middle" fill="white" font-size="11" font-family="Arial">{label[:12]}</text>''')
+    
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+    <rect width="800" height="450" fill="#FAFAFA"/>
+    {"".join(lines)}
+    {"".join(nodes)}
+</svg>'''

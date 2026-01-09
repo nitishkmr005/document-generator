@@ -5,14 +5,19 @@ Provides centralized configuration loading from config/settings.yaml with
 type validation and environment variable support.
 """
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 import yaml
+from dotenv import load_dotenv
 from loguru import logger
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
+# Load .env file if it exists
+load_dotenv()
 
 
 class PdfPaletteSettings(BaseSettings):
@@ -110,9 +115,18 @@ class GeneratorSettings(BaseSettings):
 
 
 class LlmSettings(BaseSettings):
-    """LLM service settings."""
+    """LLM service settings with separate configs for content and visuals."""
 
-    model: str = "gpt-4o-mini"
+    # Content generation settings (OpenAI GPT-4o)
+    content_model: str = "gpt-5.2"
+    content_provider: str = "openai"  # "openai" or "claude"
+    content_max_tokens: int = 8000
+    content_temperature: float = 0.4
+    
+    # Legacy model setting (fallback)
+    model: str = "gpt-5.2"
+    
+    # Summary and slide generation
     max_summary_points: int = 5
     max_slides: int = 10
     max_tokens_summary: int = 500
@@ -120,11 +134,17 @@ class LlmSettings(BaseSettings):
     temperature_summary: float = 0.3
     temperature_slides: float = 0.4
 
-    # Claude API settings for SVG generation
-    claude_model: str = "claude-sonnet-4-20250514"
+    # SVG/Visual generation settings (Claude Sonnet 4)
+    svg_model: str = "claude-sonnet-4-20250514"
+    svg_provider: str = "claude"  # Always Claude for visuals
+    svg_max_tokens: int = 4000
+    svg_temperature: float = 0.3
+    use_claude_for_visuals: bool = True
+    
+    # Legacy Claude settings (for backwards compatibility)
+    claude_model: str = "claude-sonnet-4-5-20250929"
     claude_max_tokens: int = 4000
     claude_temperature: float = 0.3
-    use_claude_for_visuals: bool = True
 
 
 class SvgSettings(BaseSettings):

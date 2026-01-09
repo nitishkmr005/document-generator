@@ -46,11 +46,9 @@ docs/
 - `/retro` - create learnings file
 
 ## Workflow
-1. `/session-start`
-2. Read docs first, code only when needed
+1. Read docs first, code only when needed
 3. `make lint` after changes
 4. `make test` before commit
-5. `/session-end`
 
 ## Principles
 - Simplicity over complexity

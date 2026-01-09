@@ -16,30 +16,49 @@ make setup-docgen
 uv pip install -e ".[dev]"
 ```
 
-### **2. Test the System**
+### **2. Configure API Keys (Optional)**
+
+Create a `.env` file for LLM-enhanced features:
 
 ```bash
-# Convert the sample markdown to PDF
-make run-docgen INPUT=src/data/sample.md OUTPUT=pdf
+# Claude API (Recommended)
+ANTHROPIC_API_KEY=your_key_here
 
-# Or directly
-python scripts/run_generator.py src/data/sample.md --output pdf
-
-# Check the output
-ls -lh src/output/
+# Or OpenAI API
+OPENAI_API_KEY=your_key_here
 ```
 
-### **3. Try Different Formats**
+**Note**: API keys are optional. Without them, the system uses basic transformation.
+
+### **3. Run the Workflow**
+
+**Simplest - Process entire folder with one command:**
+```bash
+make run-llm-architectures
+```
+
+This will:
+- ✅ Process all files in `src/data/llm-architectures/`
+- ✅ Generate both PDF and PPTX
+- ✅ Use Claude/OpenAI for enhanced content (if configured)
+
+**Alternative - Single files:**
+```bash
+# Single file (both formats)
+bash run.sh src/data/sample/test-blog-article.md
+
+# Or using make (one format)
+make run-docgen INPUT=src/data/sample/test-blog-article.md OUTPUT=pdf
+```
+
+### **4. Check the Output**
 
 ```bash
-# Markdown to PPTX
-python scripts/run_generator.py src/data/sample.md --output pptx
+ls -lh src/output/
 
-# Your README to PDF
-python scripts/run_generator.py README.md --output pdf
-
-# Web article to PDF
-python scripts/run_generator.py https://example.com/article --output pdf
+# You should see:
+# - llm-architectures.pdf
+# - llm-architectures.pptx
 ```
 
 ## 🐳 Docker Deployment
@@ -58,20 +77,29 @@ ls -lh src/output/
 ## ✨ Key Features
 
 1. ✅ **100% Pure Python** - No Node.js dependencies
-2. ✅ **Advanced Parsing** - Docling (OCR, tables) + MarkItDown
-3. ✅ **Clean Architecture** - Domain/Application/Infrastructure separation
-4. ✅ **LangGraph Workflow** - State machine with retry logic
-5. ✅ **Docker Ready** - Containerized for portability
-6. ✅ **Production Ready** - Comprehensive error handling, logging, validation
+2. ✅ **LLM Integration** - Claude & OpenAI support for enhanced content
+3. ✅ **Advanced Parsing** - Docling (OCR, tables) + MarkItDown
+4. ✅ **Folder Processing** - Process multiple files at once with intelligent merging
+5. ✅ **Clean Architecture** - Domain/Application/Infrastructure separation
+6. ✅ **LangGraph Workflow** - State machine with retry logic
+7. ✅ **Environment Config** - .env file support for API keys
+8. ✅ **Docker Ready** - Containerized for portability
+9. ✅ **Production Ready** - Comprehensive error handling, logging, validation
 
 ## 📖 Documentation
 
-- **QUICKSTART.md** (this file): Quick start guide
-- **DOC_GENERATOR_README.md**: Complete documentation
+- **Quickstart.md** (this file): Quick start guide
+- **README.md**: Complete documentation
+- **ENV_SETUP.md**: Environment configuration guide
+- **docs/**: Additional documentation
 
 ## 🎉 Ready to Use!
 
 Your document generator is fully implemented! Start with:
 ```bash
-make run-docgen INPUT=src/data/sample.md OUTPUT=pdf
+# Process the LLM architectures folder
+make run-llm-architectures
+
+# Or a single file
+bash run.sh src/data/sample/test-blog-article.md
 ```

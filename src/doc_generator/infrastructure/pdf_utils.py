@@ -103,6 +103,7 @@ def parse_markdown_lines(text: str) -> Iterator[tuple[str, any]]:
     - ("image", ("alt text", "url"))
     - ("quote", "quoted text")
     - ("spacer", "")
+    - ("visual_marker", {"type": "architecture", "title": "...", "description": "..."})
 
     Args:
         text: Markdown text to parse
@@ -170,6 +171,16 @@ def parse_markdown_lines(text: str) -> Iterator[tuple[str, any]]:
             yield ("spacer", "")
             continue
 
+        # Visual markers: [VISUAL:type:title:description]
+        visual_match = re.match(r'^\[VISUAL:(\w+):([^:]+):([^\]]+)\]$', line.strip())
+        if visual_match:
+            yield ("visual_marker", {
+                "type": visual_match.group(1).lower(),
+                "title": visual_match.group(2).strip(),
+                "description": visual_match.group(3).strip()
+            })
+            continue
+
         # Headings
         heading_match = re.match(r"^(#{1,6})\s+(.*)$", line)
         if heading_match:
@@ -202,6 +213,80 @@ def parse_markdown_lines(text: str) -> Iterator[tuple[str, any]]:
         yield from flush_table()
     if bullets:
         yield from flush_bullets()
+
+
+def extract_headings(text: str) -> list[tuple[int, str]]:
+    """
+    Extract headings from markdown text for table of contents.
+
+    Args:
+        text: Markdown text to parse
+
+    Returns:
+        List of (level, heading_text) tuples
+    """
+    headings = []
+    for line in text.splitlines():
+        heading_match = re.match(r"^(#{1,3})\s+(.*)$", line)
+        if heading_match:
+            level = len(heading_match.group(1))
+            headings.append((level, heading_match.group(2)))
+    return headings
+
+
+def make_table_of_contents(headings: list[tuple[int, str]], styles: dict) -> list:
+    """
+    Create table of contents flowables.
+
+    Args:
+        headings: List of (level, heading_text) tuples
+        styles: ReportLab styles dictionary
+
+    Returns:
+        List of flowables for the TOC
+    """
+    if not headings:
+        return []
+
+    flowables = []
+    flowables.append(Paragraph("Contents", styles["TOCHeading"]))
+    flowables.append(Spacer(1, 8))
+
+    for level, heading in headings:
+        indent = (level - 1) * 20
+        style = ParagraphStyle(
+            name=f"TOCLevel{level}",
+            parent=styles["TOCEntry"],
+            leftIndent=indent,
+            fontName="Helvetica-Bold" if level == 1 else "Helvetica",
+            fontSize=12 if level == 1 else 11,
+        )
+        flowables.append(Paragraph(f"• {inline_md(heading)}", style))
+
+    flowables.append(Spacer(1, 24))
+    return flowables
+
+
+def make_section_divider(styles: dict) -> list:
+    """
+    Create a blog-style section divider.
+
+    Args:
+        styles: ReportLab styles dictionary
+
+    Returns:
+        List of flowables for the section divider
+    """
+    divider = Table(
+        [[""]],
+        colWidths=[2 * inch]
+    )
+    divider.setStyle(TableStyle([
+        ("LINEABOVE", (0, 0), (-1, -1), 2, PALETTE["accent"]),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return [Spacer(1, 16), divider, Spacer(1, 16)]
 
 
 def make_banner(text: str, styles: dict) -> Table:
@@ -469,127 +554,172 @@ def create_custom_styles() -> dict:
     """
     Create custom ReportLab styles for PDF generation.
 
+    Blog-like styling with larger typography, more whitespace,
+    and improved readability.
+
     Returns:
         Dictionary of custom ParagraphStyle objects
     """
     styles = getSampleStyleSheet()
 
-    # Title styles
+    # Title styles - Blog-like hero header
     styles.add(ParagraphStyle(
         name="TitleCover",
         parent=styles["Title"],
-        fontName="Times-Roman",
-        fontSize=28,
-        leading=32,
+        fontName="Times-Bold",
+        fontSize=36,
+        leading=44,
         textColor=PALETTE["ink"],
-        spaceAfter=6,
+        spaceAfter=12,
+        spaceBefore=24,
     ))
 
     styles.add(ParagraphStyle(
         name="SubtitleCover",
         parent=styles["BodyText"],
         fontName="Helvetica",
-        fontSize=12,
-        leading=16,
+        fontSize=14,
+        leading=20,
         textColor=PALETTE["muted"],
+        spaceAfter=24,
     ))
 
-    # Section banner
+    # Table of Contents styles
+    styles.add(ParagraphStyle(
+        name="TOCHeading",
+        parent=styles["Heading1"],
+        fontName="Times-Bold",
+        fontSize=20,
+        leading=28,
+        textColor=PALETTE["teal"],
+        spaceBefore=24,
+        spaceAfter=16,
+    ))
+
+    styles.add(ParagraphStyle(
+        name="TOCEntry",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=12,
+        leading=20,
+        textColor=PALETTE["ink"],
+        leftIndent=12,
+        spaceAfter=6,
+    ))
+
+    # Section banner - Blog-style section divider
     styles.add(ParagraphStyle(
         name="SectionBanner",
         parent=styles["BodyText"],
         fontName="Helvetica-Bold",
-        fontSize=12,
-        leading=14,
+        fontSize=14,
+        leading=18,
     ))
 
-    # Heading styles
+    # Heading styles - Blog-like larger headings with more space
     styles.add(ParagraphStyle(
         name="Heading2Custom",
         parent=styles["Heading2"],
-        fontName="Times-Roman",
-        fontSize=16,
-        leading=20,
+        fontName="Times-Bold",
+        fontSize=24,
+        leading=32,
         textColor=PALETTE["ink"],
-        spaceAfter=6,
+        spaceBefore=24,
+        spaceAfter=12,
     ))
 
     styles.add(ParagraphStyle(
         name="Heading3Custom",
         parent=styles["Heading3"],
-        fontName="Times-Roman",
-        fontSize=13,
-        leading=17,
+        fontName="Times-Bold",
+        fontSize=18,
+        leading=24,
         textColor=PALETTE["ink"],
-        spaceAfter=4,
+        spaceBefore=16,
+        spaceAfter=8,
     ))
 
-    # Body text
+    # Body text - Blog-like readable body
     styles.add(ParagraphStyle(
         name="BodyCustom",
         parent=styles["BodyText"],
         fontName="Helvetica",
-        fontSize=10.5,
-        leading=14,
+        fontSize=12,
+        leading=20,
         textColor=PALETTE["muted"],
-        spaceAfter=6,
+        spaceAfter=12,
     ))
 
-    # Bullets
+    # Bullets - Larger for readability
     styles.add(ParagraphStyle(
         name="BulletCustom",
         parent=styles["BodyText"],
         fontName="Helvetica",
-        fontSize=10.5,
-        leading=14,
-        leftIndent=12,
-        bulletIndent=0,
-        spaceAfter=4,
+        fontSize=12,
+        leading=20,
+        leftIndent=20,
+        bulletIndent=8,
+        spaceAfter=8,
         textColor=PALETTE["muted"],
     ))
 
-    # Code block
+    # Code block - Blog-style with better readability
     styles.add(ParagraphStyle(
         name="CodeBlock",
         parent=styles["BodyText"],
         fontName="Courier",
-        fontSize=8.5,
-        leading=11,
-        leftIndent=6,
-        rightIndent=6,
-        spaceAfter=6,
+        fontSize=10,
+        leading=14,
+        leftIndent=8,
+        rightIndent=8,
+        spaceAfter=12,
         textColor=PALETTE["ink"],
     ))
 
-    # Image caption
+    # Image caption - Blog-style centered caption
     styles.add(ParagraphStyle(
         name="ImageCaption",
         parent=styles["BodyText"],
         fontName="Helvetica-Oblique",
-        fontSize=9.5,
-        leading=12,
+        fontSize=11,
+        leading=16,
         textColor=PALETTE["muted"],
         alignment=1,  # Center
+        spaceAfter=16,
     ))
 
-    # Quote
+    # Quote - Blog-style blockquote
     styles.add(ParagraphStyle(
         name="Quote",
         parent=styles["BodyText"],
-        fontName="Helvetica-Oblique",
-        fontSize=10.5,
-        leading=14,
+        fontName="Times-Italic",
+        fontSize=14,
+        leading=22,
         textColor=PALETTE["ink"],
+        leftIndent=20,
+        rightIndent=20,
     ))
 
-    # Table cell
+    # Table cell - Blog-style readable tables
     styles.add(ParagraphStyle(
         name="TableCell",
         parent=styles["BodyText"],
         fontName="Helvetica",
-        fontSize=9.5,
-        leading=12,
+        fontSize=11,
+        leading=16,
         textColor=PALETTE["ink"],
+    ))
+
+    # Featured/Hero image style
+    styles.add(ParagraphStyle(
+        name="HeroCaption",
+        parent=styles["BodyText"],
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        leading=18,
+        textColor=PALETTE["accent"],
+        alignment=1,  # Center
+        spaceAfter=24,
     ))
 
     return styles

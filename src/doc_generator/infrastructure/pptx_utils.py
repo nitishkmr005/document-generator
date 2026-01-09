@@ -13,18 +13,18 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
-# Corporate color theme - Professional and executive-friendly
+# Blog-style color theme - Modern and approachable
 THEME_COLORS = {
-    "ink": RGBColor(33, 37, 41),        # Dark charcoal for text
-    "muted": RGBColor(108, 117, 125),   # Professional gray
-    "accent": RGBColor(0, 123, 255),    # Corporate blue
-    "accent_dark": RGBColor(0, 86, 179),  # Darker blue
-    "teal": RGBColor(23, 162, 184),     # Accent teal
-    "success": RGBColor(40, 167, 69),   # Green for positive
-    "warning": RGBColor(255, 193, 7),   # Amber
+    "ink": RGBColor(28, 28, 28),         # Rich black for text
+    "muted": RGBColor(74, 74, 74),       # Softer gray
+    "accent": RGBColor(215, 107, 56),    # Warm orange (blog-like)
+    "accent_dark": RGBColor(180, 85, 45),  # Darker orange
+    "teal": RGBColor(30, 93, 90),        # Deep teal
+    "success": RGBColor(92, 148, 110),   # Soft green
+    "warning": RGBColor(241, 143, 1),    # Warm amber
     "background": RGBColor(255, 255, 255),
-    "light_bg": RGBColor(248, 249, 250),  # Light gray background
-    "dark_bg": RGBColor(33, 37, 41),      # Dark background for contrast
+    "light_bg": RGBColor(246, 241, 231),  # Warm paper background (blog-like)
+    "dark_bg": RGBColor(30, 93, 90),      # Teal background for contrast
 }
 
 
@@ -45,7 +45,9 @@ def create_presentation() -> Presentation:
 
 def add_title_slide(prs: Presentation, title: str, subtitle: str = "") -> None:
     """
-    Add executive-style title slide to presentation.
+    Add blog-style title slide to presentation.
+
+    Features a warm, modern design with large typography.
 
     Args:
         prs: Presentation object
@@ -55,61 +57,61 @@ def add_title_slide(prs: Presentation, title: str, subtitle: str = "") -> None:
     slide_layout = prs.slide_layouts[6]  # Blank layout for custom design
     slide = prs.slides.add_slide(slide_layout)
 
-    # Set dark background for executive look
+    # Set warm paper background for blog-like feel
     background = slide.background
     fill = background.fill
     fill.solid()
-    fill.fore_color.rgb = THEME_COLORS["dark_bg"]
+    fill.fore_color.rgb = THEME_COLORS["light_bg"]
 
-    # Add accent bar at top
+    # Add accent bar at top (thicker for blog style)
     accent_bar = slide.shapes.add_shape(
         1,  # Rectangle
         Inches(0), Inches(0),
-        prs.slide_width, Inches(0.15)
+        prs.slide_width, Inches(0.2)
     )
     accent_bar.fill.solid()
     accent_bar.fill.fore_color.rgb = THEME_COLORS["accent"]
     accent_bar.line.fill.background()
 
-    # Title - large, white, centered
+    # Title - large, dark, centered (blog-like)
     title_box = slide.shapes.add_textbox(
-        Inches(0.5), Inches(1.8),
-        Inches(9), Inches(1.5)
+        Inches(0.5), Inches(1.5),
+        Inches(9), Inches(2)
     )
     tf = title_box.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     p.text = title
-    p.font.size = Pt(48)
-    p.font.color.rgb = THEME_COLORS["background"]
+    p.font.size = Pt(54)
+    p.font.color.rgb = THEME_COLORS["ink"]
     p.font.bold = True
     p.alignment = PP_ALIGN.CENTER
 
     # Subtitle
     if subtitle:
         subtitle_box = slide.shapes.add_textbox(
-            Inches(0.5), Inches(3.4),
+            Inches(0.5), Inches(3.6),
             Inches(9), Inches(0.8)
         )
         tf = subtitle_box.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = subtitle
-        p.font.size = Pt(20)
+        p.font.size = Pt(22)
         p.font.color.rgb = THEME_COLORS["muted"]
         p.alignment = PP_ALIGN.CENTER
 
-    # Bottom accent line
+    # Bottom accent line (centered)
     bottom_line = slide.shapes.add_shape(
         1,  # Rectangle
-        Inches(3.5), Inches(4.8),
-        Inches(3), Inches(0.05)
+        Inches(4), Inches(4.8),
+        Inches(2), Inches(0.06)
     )
     bottom_line.fill.solid()
     bottom_line.fill.fore_color.rgb = THEME_COLORS["accent"]
     bottom_line.line.fill.background()
 
-    logger.debug(f"Added executive title slide: {title}")
+    logger.debug(f"Added blog-style title slide: {title}")
 
 
 def add_content_slide(
@@ -120,7 +122,9 @@ def add_content_slide(
     speaker_notes: str = ""
 ) -> None:
     """
-    Add executive-style content slide with title and bullet points.
+    Add blog-style content slide with title and bullet points.
+
+    Features warm background and larger, more readable typography.
 
     Args:
         prs: Presentation object
@@ -132,33 +136,33 @@ def add_content_slide(
     slide_layout = prs.slide_layouts[6]  # Blank for custom styling
     slide = prs.slides.add_slide(slide_layout)
 
-    # Add accent bar at top
+    # Add accent bar at top (blog-style)
     accent_bar = slide.shapes.add_shape(
         1,  # Rectangle
         Inches(0), Inches(0),
-        prs.slide_width, Inches(0.08)
+        prs.slide_width, Inches(0.1)
     )
     accent_bar.fill.solid()
     accent_bar.fill.fore_color.rgb = THEME_COLORS["accent"]
     accent_bar.line.fill.background()
 
-    # Title with left-aligned professional style
+    # Title with left-aligned blog style (larger)
     title_box = slide.shapes.add_textbox(
-        Inches(0.6), Inches(0.3),
-        Inches(8.8), Inches(0.8)
+        Inches(0.6), Inches(0.35),
+        Inches(8.8), Inches(0.9)
     )
     tf = title_box.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     p.text = title
-    p.font.size = Pt(32)
+    p.font.size = Pt(36)
     p.font.color.rgb = THEME_COLORS["ink"]
     p.font.bold = True
 
-    # Content area
+    # Content area (blog-style with more spacing)
     content_box = slide.shapes.add_textbox(
-        Inches(0.6), Inches(1.3),
-        Inches(8.8), Inches(4)
+        Inches(0.6), Inches(1.4),
+        Inches(8.8), Inches(3.8)
     )
     tf = content_box.text_frame
     tf.word_wrap = True
@@ -174,14 +178,14 @@ def add_content_slide(
 
         if is_bullets:
             p.text = f"•  {clean_item}"
-            p.font.size = Pt(20)
+            p.font.size = Pt(22)
             p.font.color.rgb = THEME_COLORS["ink"]
-            p.space_after = Pt(12)
+            p.space_after = Pt(16)
         else:
             p.text = clean_item
-            p.font.size = Pt(18)
+            p.font.size = Pt(20)
             p.font.color.rgb = THEME_COLORS["muted"]
-            p.space_after = Pt(10)
+            p.space_after = Pt(14)
 
     # Add speaker notes if provided
     if speaker_notes:
@@ -189,12 +193,12 @@ def add_content_slide(
         notes_tf = notes_slide.notes_text_frame
         notes_tf.text = speaker_notes
 
-    logger.debug(f"Added content slide: {title} ({len(content)} items)")
+    logger.debug(f"Added blog-style content slide: {title} ({len(content)} items)")
 
 
 def add_section_header_slide(prs: Presentation, section_title: str) -> None:
     """
-    Add executive section header slide with dark background.
+    Add blog-style section header slide with warm teal background.
 
     Args:
         prs: Presentation object
@@ -203,48 +207,46 @@ def add_section_header_slide(prs: Presentation, section_title: str) -> None:
     slide_layout = prs.slide_layouts[6]  # Blank layout
     slide = prs.slides.add_slide(slide_layout)
 
-    # Dark background
+    # Warm teal background (blog-like)
     background = slide.background
     fill = background.fill
     fill.solid()
     fill.fore_color.rgb = THEME_COLORS["dark_bg"]
 
-    # Accent bar on left side
+    # Accent bar on left side (thicker for blog style)
     accent_bar = slide.shapes.add_shape(
         1,  # Rectangle
         Inches(0), Inches(0),
-        Inches(0.15), prs.slide_height
+        Inches(0.2), prs.slide_height
     )
     accent_bar.fill.solid()
     accent_bar.fill.fore_color.rgb = THEME_COLORS["accent"]
     accent_bar.line.fill.background()
 
-    # Section number/indicator
-    indicator = slide.shapes.add_textbox(
-        Inches(0.5), Inches(2),
-        Inches(1), Inches(0.5)
+    # Section indicator (decorative line)
+    indicator = slide.shapes.add_shape(
+        1,  # Rectangle
+        Inches(0.6), Inches(2.3),
+        Inches(1.5), Inches(0.06)
     )
-    tf = indicator.text_frame
-    p = tf.paragraphs[0]
-    p.text = "—"
-    p.font.size = Pt(36)
-    p.font.color.rgb = THEME_COLORS["accent"]
-    p.font.bold = True
+    indicator.fill.solid()
+    indicator.fill.fore_color.rgb = THEME_COLORS["accent"]
+    indicator.line.fill.background()
 
-    # Section title - large and bold
+    # Section title - large and bold (blog-like)
     title_box = slide.shapes.add_textbox(
-        Inches(0.5), Inches(2.3),
+        Inches(0.6), Inches(2.5),
         Inches(9), Inches(1.5)
     )
     tf = title_box.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     p.text = section_title
-    p.font.size = Pt(44)
+    p.font.size = Pt(48)
     p.font.color.rgb = THEME_COLORS["background"]
     p.font.bold = True
 
-    logger.debug(f"Added section header: {section_title}")
+    logger.debug(f"Added blog-style section header: {section_title}")
 
 
 def add_image_slide(
