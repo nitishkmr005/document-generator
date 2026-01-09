@@ -12,6 +12,7 @@ Think step by step:
 6. Write a brief description (1 sentence, max 15 words) explaining the goal of the prompt
 7. If applicable, define an argument-hint that describes the expected inputs for the prompt
 8. Save the resulting prompt in a file`${promptFileName}.prompt.md`, where `${promptFileName}` is the concise action-oriented title in kebab-case format (e.g., `explain-code`, `generate-tests`, `refactor-functionality`)
+9. Save the generated prompt file in `docs/pattern/slash-commands/`
 
 
 Here's an example of the expected output format:

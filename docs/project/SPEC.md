@@ -37,6 +37,14 @@ Provide a reliable, Python-native way to transform mixed-source content into con
 3. Pure Python implementation (no Node.js dependencies)
 4. Containerized for portability
 
+## Project Phases
+- MVP: End-to-end document generation
+- v1: Parse documents with Docling or MarkItDown
+- v2: Multi-source synthesis from a single subfolder
+- v3: LLM summarization and content creation (slides/SVG)
+- v4: Refactor to clean architecture, config, and env
+- v5: Reorganize `docs/` and reuse Claude Code workflows
+
 ## Features
 
 ### Input Formats
