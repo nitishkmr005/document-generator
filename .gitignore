@@ -1,5 +1,4 @@
 .trees
-.claude
 .venv
 .env
 .ruff_cache
