@@ -98,7 +98,7 @@ def add_title_slide(prs: Presentation, title: str, subtitle: str = "") -> None:
     p = tf.paragraphs[0]
     p.text = title
     p.font.name = TITLE_FONT_NAME
-    p.font.size = Pt(44)
+    p.font.size = Pt(40)
     p.font.color.rgb = THEME_COLORS["ink"]
     p.font.bold = True
     p.alignment = PP_ALIGN.LEFT
@@ -106,15 +106,15 @@ def add_title_slide(prs: Presentation, title: str, subtitle: str = "") -> None:
     # Subtitle
     if subtitle:
         subtitle_box = slide.shapes.add_textbox(
-            Inches(0.7), Inches(3.1),
-            Inches(8.5), Inches(0.9)
+            Inches(0.7), Inches(3.5),
+            Inches(8.5), Inches(0.7)
         )
         tf = subtitle_box.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = subtitle
         p.font.name = BODY_FONT_NAME
-        p.font.size = Pt(18)
+        p.font.size = Pt(16)
         p.font.color.rgb = THEME_COLORS["muted"]
         p.alignment = PP_ALIGN.LEFT
 
@@ -333,7 +333,7 @@ def add_image_slide(
     p = text_frame.paragraphs[0]
     p.text = title
     p.font.name = TITLE_FONT_NAME
-    p.font.size = Pt(28)
+    p.font.size = Pt(26)
     p.font.color.rgb = THEME_COLORS["ink"]
     p.font.bold = True
 
@@ -425,7 +425,7 @@ def add_executive_summary_slide(
 
     # Key points with numbered indicators
     for i, point in enumerate(summary_points[:5]):  # Max 5 points
-        y_pos = 1.1 + i * 0.8
+        y_pos = 1.05 + i * 0.7
 
         # Number circle indicator
         num_circle = slide.shapes.add_shape(
@@ -454,7 +454,7 @@ def add_executive_summary_slide(
         # Point text
         point_box = slide.shapes.add_textbox(
             Inches(1.0), Inches(y_pos),
-            Inches(8.4), Inches(0.7)
+            Inches(8.6), Inches(0.6)
         )
         tf = point_box.text_frame
         tf.word_wrap = True
@@ -462,7 +462,7 @@ def add_executive_summary_slide(
         clean_point = point.lstrip("•-* ").strip()
         p.text = clean_point
         p.font.name = BODY_FONT_NAME
-        p.font.size = Pt(16)
+        p.font.size = Pt(14)
         p.font.color.rgb = THEME_COLORS["ink"]
 
     logger.debug(f"Added executive summary slide: {len(summary_points)} points")
