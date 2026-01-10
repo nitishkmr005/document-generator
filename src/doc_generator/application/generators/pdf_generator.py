@@ -5,11 +5,13 @@ Generates blog-style PDF documents from structured markdown content with
 inline visualizations.
 """
 
+from datetime import datetime
 from pathlib import Path
+import re
 
 from loguru import logger
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
 from ...domain.exceptions import GenerationError
 from ...infrastructure.pdf_utils import (
@@ -219,6 +221,8 @@ class PDFGenerator:
             section_images: Dict mapping section_id -> image info (from Gemini)
         """
         section_images = section_images or {}
+        display_title = self._resolve_display_title(title, markdown_content)
+
         # Create document with blog-like margins
         doc = SimpleDocTemplate(
             str(output_path),
@@ -227,22 +231,44 @@ class PDFGenerator:
             leftMargin=60,
             topMargin=60,
             bottomMargin=48,
-            title=title,
+            title=display_title,
             author=metadata.get("author", ""),
         )
 
         story = []
 
-        # Hero title section (blog-like)
-        story.append(Spacer(1, 24))
-        story.append(Paragraph(inline_md(title), self.styles["TitleCover"]))
+        # Cover page
+        story.append(Spacer(1, 48))
+        cover_kicker = metadata.get("content_type", "Document").replace("_", " ").title()
+        story.append(Paragraph(inline_md(cover_kicker), self.styles["CoverKicker"]))
+        story.append(Paragraph(inline_md(display_title), self.styles["TitleCover"]))
 
         subtitle = metadata.get("subtitle", metadata.get("url", ""))
         if subtitle:
             story.append(Paragraph(inline_md(subtitle), self.styles["SubtitleCover"]))
 
+        cover_lines = self._build_cover_metadata(metadata)
+        if cover_lines:
+            story.append(Spacer(1, 12))
+            for line in cover_lines:
+                story.append(Paragraph(inline_md(line), self.styles["CoverMeta"]))
+
+        story.append(Spacer(1, 16))
+        story.extend(make_section_divider(self.styles))
+        story.append(PageBreak())
+
         # Add executive summary if available
         exec_summary = metadata.get("executive_summary", "")
+
+        # Table of contents (blog-like navigation)
+        headings = self._filter_cover_heading(
+            extract_headings(markdown_content),
+            display_title
+        )
+        if headings:
+            story.extend(make_table_of_contents(headings, self.styles))
+            story.append(PageBreak())
+
         if exec_summary:
             story.append(Spacer(1, 12))
             story.append(make_banner("Executive Summary", self.styles))
@@ -257,13 +283,6 @@ class PDFGenerator:
                 elif kind == "para" and content_item.strip():
                     story.append(Paragraph(inline_md(content_item), self.styles["BodyCustom"]))
             story.append(Spacer(1, 12))
-
-        story.append(Spacer(1, 16))
-
-        # Table of contents (blog-like navigation)
-        headings = extract_headings(markdown_content)
-        if headings:
-            story.extend(make_table_of_contents(headings, self.styles))
             story.extend(make_section_divider(self.styles))
 
         # Track which visualizations we've used (for any remaining at end)
@@ -271,6 +290,7 @@ class PDFGenerator:
 
         # Track section index for section images
         section_index = -1  # Will be incremented on first ## header
+        skipped_cover_h1 = False
 
         # Parse and add markdown content with inline visualizations
         for kind, content_item in parse_markdown_lines(markdown_content):
@@ -278,6 +298,9 @@ class PDFGenerator:
                 story.append(Spacer(1, 12))
 
             elif kind == "h1":
+                if not skipped_cover_h1 and self._normalize_title(content_item) == self._normalize_title(display_title):
+                    skipped_cover_h1 = True
+                    continue
                 # Major section - add divider before
                 story.extend(make_section_divider(self.styles))
                 story.append(Paragraph(inline_md(content_item), self.styles["Heading2Custom"]))
@@ -450,3 +473,93 @@ class PDFGenerator:
             image_cache=self.image_cache,
             rasterize_func=rasterize_svg
         )
+
+    def _resolve_display_title(self, metadata_title: str, markdown_content: str) -> str:
+        raw_title = (metadata_title or "").strip()
+        markdown_title = self._extract_markdown_title(markdown_content)
+        cleaned_meta = self._clean_title(raw_title)
+
+        if markdown_title and (not raw_title or self._looks_like_placeholder(raw_title)):
+            return markdown_title
+
+        return cleaned_meta or markdown_title or "Document"
+
+    def _extract_markdown_title(self, markdown_content: str) -> str:
+        match = re.search(r"^#\s+(.+)$", markdown_content, re.MULTILINE)
+        return match.group(1).strip() if match else ""
+
+    def _looks_like_placeholder(self, title: str) -> bool:
+        if "/" in title or "\\" in title:
+            return True
+        if re.search(r"\.(pdf|docx|pptx|md|txt)$", title, re.IGNORECASE):
+            return True
+        if "_" in title and " " not in title:
+            return True
+        return False
+
+    def _clean_title(self, title: str) -> str:
+        if not title:
+            return ""
+        cleaned = title.strip()
+        if "/" in cleaned or "\\" in cleaned:
+            parts = [part for part in cleaned.split() if "/" not in part and "\\" not in part]
+            cleaned = " ".join(parts) if parts else Path(cleaned).stem
+        if re.search(r"\.(pdf|docx|pptx|md|txt)$", cleaned, re.IGNORECASE):
+            cleaned = Path(cleaned).stem
+        cleaned = cleaned.replace("_", " ").strip()
+        return re.sub(r"\s+", " ", cleaned)
+
+    def _build_cover_metadata(self, metadata: dict) -> list[str]:
+        lines = []
+        author = metadata.get("author")
+        authors = metadata.get("authors")
+        if authors and isinstance(authors, list):
+            author = ", ".join(authors)
+        if author:
+            lines.append(f"**Author:** {author}")
+
+        generated_date = metadata.get("generated_date")
+        formatted_date = self._format_date(generated_date)
+        if formatted_date:
+            lines.append(f"**Generated:** {formatted_date}")
+
+        source_files = metadata.get("source_files")
+        if source_files:
+            lines.append(f"**Sources:** {len(source_files)} files")
+        else:
+            source_file = metadata.get("source_file")
+            if source_file:
+                lines.append(f"**Source:** {Path(source_file).name}")
+
+        content_type = metadata.get("content_type")
+        if content_type:
+            lines.append(f"**Content Type:** {content_type.replace('_', ' ').title()}")
+
+        return lines
+
+    def _format_date(self, value: str | datetime | None) -> str:
+        if not value:
+            return ""
+        if isinstance(value, datetime):
+            return value.strftime("%b %d, %Y")
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value).strftime("%b %d, %Y")
+            except ValueError:
+                return value
+        return str(value)
+
+    def _normalize_title(self, title: str) -> str:
+        return re.sub(r"\s+", " ", title or "").strip().lower()
+
+    def _filter_cover_heading(
+        self,
+        headings: list[tuple[int, str]],
+        cover_title: str
+    ) -> list[tuple[int, str]]:
+        filtered = []
+        for level, heading in headings:
+            if level == 1 and self._normalize_title(heading) == self._normalize_title(cover_title):
+                continue
+            filtered.append((level, heading))
+        return filtered

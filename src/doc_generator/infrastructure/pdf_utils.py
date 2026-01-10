@@ -709,6 +709,26 @@ def create_custom_styles() -> dict:
         spaceAfter=24,
     ))
 
+    styles.add(ParagraphStyle(
+        name="CoverKicker",
+        parent=styles["BodyText"],
+        fontName="Helvetica-Bold",
+        fontSize=10,
+        leading=14,
+        textColor=PALETTE["accent"],
+        spaceAfter=6,
+    ))
+
+    styles.add(ParagraphStyle(
+        name="CoverMeta",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=11,
+        leading=16,
+        textColor=PALETTE["muted"],
+        spaceAfter=4,
+    ))
+
     # Table of Contents styles
     styles.add(ParagraphStyle(
         name="TOCHeading",
