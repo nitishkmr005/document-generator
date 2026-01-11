@@ -108,6 +108,7 @@ class CacheService:
         request: GenerateRequest,
         output_path: Path,
         metadata: dict,
+        file_path: Optional[str] = None,
     ) -> str:
         """Store cache entry.
 
@@ -122,9 +123,13 @@ class CacheService:
         key = self.generate_cache_key(request)
         cache_file = self.cache_dir / f"{key}.json"
 
+        if file_path is None:
+            file_path = str(output_path)
+
         data = {
             "key": key,
             "output_path": str(output_path),
+            "file_path": file_path,
             "metadata": metadata,
             "created_at": time.time(),
         }
@@ -181,4 +186,3 @@ class CacheService:
             "cache_size_bytes": total_size,
             "cache_dir": str(self.cache_dir),
         }
-

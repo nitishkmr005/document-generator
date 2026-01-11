@@ -62,8 +62,33 @@ async def event_generator(
         cached = cache_service.get(request)
         if cached:
             logger.info(f"Cache hit! Returning cached result from {cached.get('created_at')}")
+            cached_download_url = cached.get("download_url") or cached.get("output_path", "")
+            cached_file_path = cached.get("file_path", "")
+            if not cached_file_path and cached_download_url:
+                if "/api/download/" in cached_download_url:
+                    cached_file_path = cached_download_url.split("/api/download/", 1)[1]
+                    cached_file_path = cached_file_path.split("?", 1)[0]
+                else:
+                    cached_path = Path(cached_download_url)
+                    if cached_path.is_absolute():
+                        try:
+                            cached_file_path = str(
+                                cached_path.relative_to(generation_service.storage.base_output_dir)
+                            )
+                        except ValueError:
+                            cached_file_path = cached_path.name
+                    else:
+                        cached_file_path = str(cached_path)
+
+            if cached_file_path:
+                cached_output_path = generation_service.storage.base_output_dir / cached_file_path
+                download_url = generation_service.storage.get_download_url(cached_output_path)
+            else:
+                download_url = cached_download_url
+
             event = CacheHitEvent(
-                download_url=cached["output_path"],
+                download_url=download_url,
+                file_path=cached_file_path,
                 cached_at=datetime.datetime.fromtimestamp(
                     cached["created_at"]
                 ).isoformat(),
@@ -85,9 +110,11 @@ async def event_generator(
         # Cache successful completions
         if isinstance(event, CompleteEvent):
             logger.info(f"Generation complete, caching result: {event.download_url}")
+            output_path = generation_service.storage.base_output_dir / event.file_path
             cache_service.set(
                 request=request,
-                output_path=Path(event.download_url),
+                output_path=output_path,
+                file_path=event.file_path,
                 metadata=event.metadata.model_dump(),
             )
 
@@ -127,4 +154,3 @@ async def generate_document(
             cache_service=cache_service,
         )
     )
-

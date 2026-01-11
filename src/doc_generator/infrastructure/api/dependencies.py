@@ -53,6 +53,7 @@ def get_api_key_for_provider(provider: Provider, keys: APIKeys) -> str:
         HTTPException: If the required API key is missing
     """
     key_map = {
+        Provider.GEMINI: (keys.google, "X-Google-Key"),
         Provider.GOOGLE: (keys.google, "X-Google-Key"),
         Provider.OPENAI: (keys.openai, "X-OpenAI-Key"),
         Provider.ANTHROPIC: (keys.anthropic, "X-Anthropic-Key"),

@@ -33,6 +33,7 @@ class CompleteEvent(BaseModel):
     status: GenerationStatus = GenerationStatus.COMPLETE
     progress: int = 100
     download_url: str
+    file_path: str
     expires_in: int = 3600
     metadata: CompletionMetadata
 
@@ -41,6 +42,7 @@ class CacheHitEvent(BaseModel):
     status: GenerationStatus = GenerationStatus.CACHE_HIT
     progress: int = 100
     download_url: str
+    file_path: str
     expires_in: int = 3600
     cached_at: str
 

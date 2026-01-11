@@ -12,6 +12,7 @@ class OutputFormat(str, Enum):
 
 
 class Provider(str, Enum):
+    GEMINI = "gemini"
     GOOGLE = "google"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -82,7 +83,7 @@ class GenerateRequest(BaseModel):
                 {"type": "url", "url": "https://example.com/doc"},
                 {"type": "text", "content": "Some text content..."}
             ],
-            "provider": "google"
+            "provider": "gemini"
         }
     """
     output_format: OutputFormat
@@ -90,9 +91,8 @@ class GenerateRequest(BaseModel):
         description="List of sources (file, url, or text)",
         min_length=1,
     )
-    provider: Provider = Provider.GOOGLE
+    provider: Provider = Provider.GEMINI
     model: str = "gemini-3-pro-preview"
     image_model: str = "gemini-3-pro-image-preview"
     preferences: Preferences = Field(default_factory=Preferences)
     cache: CacheOptions = Field(default_factory=CacheOptions)
-

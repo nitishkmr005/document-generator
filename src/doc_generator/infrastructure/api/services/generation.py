@@ -90,15 +90,18 @@ class GenerationService:
             )
 
             # Set API key for the provider
-            self._configure_api_key(request.provider.value, api_key)
+            provider_name = request.provider.value
+            if provider_name == "google":
+                provider_name = "gemini"
+            self._configure_api_key(provider_name, api_key)
 
             # Create LLM service with the configured provider
             llm_service = LLMService(
-                provider=request.provider.value,
+                provider=provider_name,
                 model=request.model,
             )
 
-            log_success(f"LLM configured: {request.provider.value}/{request.model}")
+            log_success(f"LLM configured: {provider_name}/{request.model}")
             yield ProgressEvent(
                 status=GenerationStatus.TRANSFORMING,
                 progress=40,
@@ -174,6 +177,15 @@ class GenerationService:
             else:
                 logger.warning(f"Output path not found: {output_path}")
                 download_url = f"/api/download/{Path(output_path).name if output_path else 'error.pdf'}"
+            file_path = ""
+            if output_path:
+                output_path_obj = Path(output_path)
+                try:
+                    file_path = str(output_path_obj.relative_to(self.storage.base_output_dir))
+                except ValueError:
+                    file_path = output_path_obj.name
+            else:
+                file_path = "error.pdf"
 
             # Extract metadata from result
             structured_content = result.get("structured_content", {})
@@ -207,6 +219,7 @@ class GenerationService:
             # Complete
             yield CompleteEvent(
                 download_url=download_url,
+                file_path=file_path,
                 expires_in=3600,
                 metadata=CompletionMetadata(
                     title=title,
@@ -232,6 +245,7 @@ class GenerationService:
         """
         key_map = {
             "google": "GOOGLE_API_KEY",
+            "gemini": "GEMINI_API_KEY",
             "openai": "OPENAI_API_KEY",
             "anthropic": "ANTHROPIC_API_KEY",
         }

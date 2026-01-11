@@ -67,7 +67,7 @@ class LLMService:
         # Try to determine which API to use
         self.claude_api_key = api_key or os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
         self.openai_api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.gemini_api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.gemini_api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         
         self.model = model
         self.client = None
