@@ -94,7 +94,7 @@ class GenerateRequest(BaseModel):
     )
     provider: Provider = Provider.GEMINI
     model: str = "gemini-2.5-flash"
-    image_model: str = "gemini-2.5-flash"
+    image_model: str = "gemini-2.5-flash-image"
     preferences: Preferences = Field(default_factory=Preferences)
     cache: CacheOptions = Field(default_factory=CacheOptions)
 
@@ -110,7 +110,7 @@ class GenerateRequest(BaseModel):
                     ],
                     "provider": "gemini",
                     "model": "gemini-2.5-flash",
-                    "image_model": "gemini-2.5-flash",
+                    "image_model": "gemini-2.5-flash-image",
                     "preferences": {
                         "audience": "technical",
                         "image_style": "auto",

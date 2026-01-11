@@ -69,9 +69,9 @@ parsers:
 
 # LLM service settings
 llm:
-  model: "gemini-3-pro-preview"
+  model: "gemini-2.5-pro"
   content_provider: "gemini"
-  content_model: "gemini-3-pro-preview"
+  content_model: "gemini-2.5-pro"
   max_summary_points: 5
   max_slides: 10
   max_tokens_summary: 500
@@ -112,7 +112,7 @@ image_generation:
   default_provider: "gemini"
 
   # Gemini Imagen settings
-  gemini_model: "gemini-3-pro-image-preview"
+  gemini_model: "gemini-2.5-flash-image"
   gemini_rate_limit: 20 # images per minute
   gemini_request_delay: 3.0 # seconds between requests
 

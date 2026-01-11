@@ -187,7 +187,7 @@ class ImageGenerationSettings(BaseSettings):
     default_provider: str = "auto"
 
     # Gemini settings
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-2.5-flash-image"
     gemini_rate_limit: int = 20  # images per minute
     gemini_request_delay: float = 3.0  # seconds between requests
 

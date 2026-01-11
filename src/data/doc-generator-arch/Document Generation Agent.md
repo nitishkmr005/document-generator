@@ -364,7 +364,7 @@ curl -N -X POST http://localhost:8000/api/generate \
     "output_format": "pdf",
     "provider": "gemini",
     "model": "gemini-2.5-flash",
-    "image_model": "gemini-2.5-flash",
+    "image_model": "gemini-2.5-flash-image",
     "sources": [
       {"type": "file", "file_id": "f_abc123"},
       {"type": "url", "url": "https://example.com/article"},
