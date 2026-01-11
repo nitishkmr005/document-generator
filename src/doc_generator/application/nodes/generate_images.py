@@ -29,6 +29,7 @@ from ...infrastructure.image import (
     GeminiImageGenerator,
     encode_image_base64,
 )
+from ...infrastructure.observability.opik import log_llm_call
 from ...infrastructure.settings import get_settings
 
 # Try to import Gemini client for prompt generation
@@ -191,11 +192,21 @@ class GeminiPromptGenerator:
         prompt += "- Return ONLY the final image prompt text.\n\n"
         prompt += f"Content:\n{content_preview}\n"
 
+        model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
-            model=self.settings.llm.content_model or self.settings.llm.model,
+            model=model,
             contents=prompt,
         )
-        return (response.text or "").strip()
+        response_text = (response.text or "").strip()
+        log_llm_call(
+            name="image_prompt",
+            prompt=prompt,
+            response=response_text,
+            provider="gemini",
+            model=model,
+            metadata={"section_title": section_title, "style_hint": style_hint},
+        )
+        return response_text
 
 
 class GeminiImageAlignmentValidator:
@@ -227,16 +238,29 @@ class GeminiImageAlignmentValidator:
         prompt = (
             "Check if this image aligns with the section content below. "
             "Confirm the image title text matches the section title. "
-            "Return JSON only: {\"aligned\": true|false, \"notes\": \"short reason\"}.\n\n"
+            "Return JSON only with keys: "
+            "{\"aligned\": true|false, "
+            "\"notes\": \"short reason\", "
+            "\"visual_feedbacks\": [\"short visual issue/strength\"], "
+            "\"labels_or_text_feedback\": [\"label/text issue/strength\"]}.\n\n"
             f"Section Title: {section_title}\n\n"
             f"Section Content:\n{content[:2000]}"
         )
 
+        model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
-            model=self.settings.llm.content_model or self.settings.llm.model,
+            model=model,
             contents=[prompt, image_part],
         )
         text = (response.text or "").strip()
+        log_llm_call(
+            name="image_alignment",
+            prompt=prompt,
+            response=text,
+            provider="gemini",
+            model=model,
+            metadata={"section_title": section_title},
+        )
         try:
             return json.loads(text)
         except json.JSONDecodeError:
@@ -261,11 +285,20 @@ class GeminiImageAlignmentValidator:
             f"Original Prompt:\n{original_prompt}\n\n"
             f"Alignment Notes:\n{alignment_notes}\n"
         )
+        model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
-            model=self.settings.llm.content_model or self.settings.llm.model,
+            model=model,
             contents=prompt,
         )
         revised = (response.text or "").strip()
+        log_llm_call(
+            name="image_prompt_improvement",
+            prompt=prompt,
+            response=revised,
+            provider="gemini",
+            model=model,
+            metadata={"section_title": section_title},
+        )
         return revised or original_prompt
 
 
@@ -302,11 +335,21 @@ class GeminiImageDescriber:
             f"Section Title: {section_title}\n\n"
             f"Section Content:\n{content[:2000]}"
         )
+        model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
-            model=self.settings.llm.content_model or self.settings.llm.model,
+            model=model,
             contents=[prompt, image_part],
         )
-        return (response.text or "").strip()
+        response_text = (response.text or "").strip()
+        log_llm_call(
+            name="image_description",
+            prompt=prompt,
+            response=response_text,
+            provider="gemini",
+            model=model,
+            metadata={"section_title": section_title},
+        )
+        return response_text
 
 
 class ConceptExtractor:
@@ -359,11 +402,20 @@ class ConceptExtractor:
                 content=content_preview
             )
             full_prompt = f"{CONCEPT_EXTRACTION_SYSTEM_PROMPT}\n\n{prompt}"
+            model = self.settings.llm.content_model or self.settings.llm.model
             response = self.client.models.generate_content(
-                model=self.settings.llm.content_model or self.settings.llm.model,
+                model=model,
                 contents=full_prompt,
             )
             response_text = (response.text or "").strip()
+            log_llm_call(
+                name="image_concept_extraction",
+                prompt=full_prompt,
+                response=response_text,
+                provider="gemini",
+                model=model,
+                metadata={"section_title": section_title},
+            )
             json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
             if json_match:
                 result = json.loads(json_match.group())
@@ -728,7 +780,7 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
         # Initialize components
         detector = ImageTypeDetector()
-        gemini_gen = GeminiImageGenerator()
+        gemini_gen = GeminiImageGenerator(model=metadata.get("image_model"))
         alignment_validator = GeminiImageAlignmentValidator()
         describer = GeminiImageDescriber()
 
@@ -746,6 +798,14 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
             # Auto-detect image type
             decision = detector.detect(section_title, section_content)
+            requested_style = metadata.get("image_style", "auto")
+            if requested_style and requested_style != "auto":
+                if requested_style == "decorative":
+                    decision.image_type = ImageType.DECORATIVE
+                elif requested_style == "mermaid":
+                    decision.image_type = ImageType.MERMAID
+                else:
+                    decision.image_type = ImageType.INFOGRAPHIC
             logger.debug(
                 f"Section '{section_title}': {decision.image_type.value} "
                 f"(confidence: {decision.confidence:.2f})"
@@ -812,6 +872,12 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
                     if gemini_gen.is_available():
                         notes = alignment_result.get("notes", "")
+                        visual_feedbacks = alignment_result.get("visual_feedbacks") or []
+                        label_feedbacks = alignment_result.get("labels_or_text_feedback") or []
+                        if visual_feedbacks:
+                            notes += f"\nVisual feedbacks: {', '.join(visual_feedbacks)}"
+                        if label_feedbacks:
+                            notes += f"\nLabels/text feedback: {', '.join(label_feedbacks)}"
                         revised_prompt = alignment_validator.improve_prompt(
                             section_title=section_title,
                             content=section_content,

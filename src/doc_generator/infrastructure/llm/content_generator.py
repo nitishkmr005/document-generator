@@ -1056,6 +1056,7 @@ Generate the blog post middle sections:"""
         prompt = self._build_visual_data_prompt(marker, context)
 
         try:
+            start_time = time.perf_counter()
             if self.visual_provider == "claude":
                 response = self.visual_client.messages.create(
                     model=self.visual_model,
@@ -1064,6 +1065,16 @@ Generate the blog post middle sections:"""
                     messages=[{"role": "user", "content": prompt}]
                 )
                 result = response.content[0].text
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                log_llm_call(
+                    name="visual_data",
+                    prompt=prompt,
+                    response=result,
+                    provider=self.visual_provider,
+                    model=self.visual_model,
+                    duration_ms=duration_ms,
+                    metadata={"visual_type": marker.visual_type, "title": marker.title},
+                )
             else:  # OpenAI fallback
                 response = self.visual_client.chat.completions.create(
                     model=self.visual_model,
@@ -1076,6 +1087,21 @@ Generate the blog post middle sections:"""
                     ]
                 )
                 result = response.choices[0].message.content
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                usage = getattr(response, "usage", None)
+                input_tokens = getattr(usage, "prompt_tokens", None) if usage else None
+                output_tokens = getattr(usage, "completion_tokens", None) if usage else None
+                log_llm_call(
+                    name="visual_data",
+                    prompt=prompt,
+                    response=result,
+                    provider=self.visual_provider,
+                    model=self.visual_model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    duration_ms=duration_ms,
+                    metadata={"visual_type": marker.visual_type, "title": marker.title},
+                )
 
             # Parse JSON from response
             if "```json" in result:

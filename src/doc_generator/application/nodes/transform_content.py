@@ -119,10 +119,14 @@ def transform_content_node(state: WorkflowState) -> WorkflowState:
             logger.info("LLM Content Generator available - transforming to blog format")
             
             # Transform content using LLM
+            max_tokens = metadata.get("max_tokens")
+            if not max_tokens:
+                max_tokens = 8000
             generated = content_generator.generate_blog_content(
                 raw_content=content,
                 content_type=content_type,
-                topic=topic
+                topic=topic,
+                max_tokens=max_tokens,
             )
             
             # Store generated content

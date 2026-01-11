@@ -14,6 +14,7 @@ from typing import Optional
 from loguru import logger
 
 from ...domain.content_types import ImageType
+from ..observability.opik import log_llm_call
 from ..settings import get_settings
 
 try:
@@ -36,7 +37,7 @@ class GeminiImageGenerator:
     _models_used: set[str] = set()
     _call_details: list[dict] = []
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """
         Initialize Gemini image generator.
 
@@ -46,6 +47,7 @@ class GeminiImageGenerator:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.client = None
         self.settings = get_settings().image_generation
+        self._model_override = model
 
         # Rate limiting state
         self._last_request_time: float = 0
@@ -54,7 +56,8 @@ class GeminiImageGenerator:
 
         if self.api_key and GENAI_AVAILABLE:
             self.client = genai.Client(api_key=self.api_key)
-            logger.info(f"Gemini image generator initialized with model: {self.settings.gemini_model}")
+            model_name = self._model_override or self.settings.gemini_model
+            logger.info(f"Gemini image generator initialized with model: {model_name}")
         else:
             if not self.api_key:
                 logger.warning("No Gemini API key provided - image generation disabled")
@@ -187,11 +190,12 @@ Style requirements:
 
         try:
             GeminiImageGenerator._total_calls += 1
-            if self.settings.gemini_model:
-                GeminiImageGenerator._models_used.add(self.settings.gemini_model)
+            model_name = self._model_override or self.settings.gemini_model
+            if model_name:
+                GeminiImageGenerator._models_used.add(model_name)
             logger.opt(colors=True).info(
                 "<magenta>Gemini image call</magenta> model={} type={} section={}",
-                self.settings.gemini_model,
+                model_name,
                 image_type.value,
                 section_title
             )
@@ -199,7 +203,7 @@ Style requirements:
 
             # Create chat with image generation capabilities
             chat = self.client.chats.create(
-                model=self.settings.gemini_model,
+                model=model_name,
                 config=types.GenerateContentConfig(
                     response_modalities=['IMAGE']
                 )
@@ -223,15 +227,32 @@ Style requirements:
                             "kind": "image",
                             "step": "image_generate",
                             "provider": "gemini",
-                            "model": self.settings.gemini_model,
+                            "model": model_name,
                             "duration_ms": duration_ms,
                             "input_tokens": None,
                             "output_tokens": None,
                         })
+                        log_llm_call(
+                            name="image_generate",
+                            prompt=enhanced_prompt,
+                            response=f"image_saved:{output_path}",
+                            provider="gemini",
+                            model=model_name,
+                            duration_ms=duration_ms,
+                            metadata={"image_type": image_type.value, "section_title": section_title},
+                        )
                         logger.success(f"Generated image saved: {output_path}")
                         return output_path
 
             logger.warning(f"No image in response for: {section_title}")
+            log_llm_call(
+                name="image_generate",
+                prompt=enhanced_prompt,
+                response="no_image_in_response",
+                provider="gemini",
+                model=model_name,
+                metadata={"image_type": image_type.value, "section_title": section_title},
+            )
             return None
 
         except Exception as e:

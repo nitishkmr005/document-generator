@@ -11,12 +11,14 @@ architecture diagrams, flowcharts, mind maps, and comparison visuals.
 import json
 import math
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
 from anthropic import Anthropic
 from loguru import logger
 
+from ..observability.opik import log_llm_call
 from ..settings import get_settings
 
 
@@ -98,6 +100,7 @@ Requirements:
 Return ONLY the SVG code, no explanations or markdown code blocks."""
 
         try:
+            start_time = time.perf_counter()
             response = self.client.messages.create(
                 model=self.llm_settings.claude_model,
                 max_tokens=self.llm_settings.claude_max_tokens,
@@ -119,6 +122,16 @@ Return ONLY the SVG code, no explanations or markdown code blocks."""
                     svg_code = "\n".join(svg_code.split("\n")[1:])
 
             svg_code = svg_code.strip()
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            log_llm_call(
+                name="svg_architecture",
+                prompt=prompt,
+                response=svg_code,
+                provider="claude",
+                model=self.llm_settings.claude_model,
+                duration_ms=duration_ms,
+                metadata={"title": title},
+            )
 
             if output_path:
                 self._save_svg(svg_code, output_path)
@@ -177,6 +190,7 @@ Requirements:
 Return ONLY the SVG code, no explanations or markdown code blocks."""
 
         try:
+            start_time = time.perf_counter()
             response = self.client.messages.create(
                 model=self.llm_settings.claude_model,
                 max_tokens=self.llm_settings.claude_max_tokens,
@@ -198,6 +212,16 @@ Return ONLY the SVG code, no explanations or markdown code blocks."""
                     svg_code = "\n".join(svg_code.split("\n")[1:])
 
             svg_code = svg_code.strip()
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            log_llm_call(
+                name="svg_mind_map",
+                prompt=prompt,
+                response=svg_code,
+                provider="claude",
+                model=self.llm_settings.claude_model,
+                duration_ms=duration_ms,
+                metadata={"title": title},
+            )
 
             if output_path:
                 self._save_svg(svg_code, output_path)
@@ -256,6 +280,7 @@ Requirements:
 Return ONLY the SVG code, no explanations or markdown code blocks."""
 
         try:
+            start_time = time.perf_counter()
             response = self.client.messages.create(
                 model=self.llm_settings.claude_model,
                 max_tokens=self.llm_settings.claude_max_tokens,
@@ -277,6 +302,16 @@ Return ONLY the SVG code, no explanations or markdown code blocks."""
                     svg_code = "\n".join(svg_code.split("\n")[1:])
 
             svg_code = svg_code.strip()
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            log_llm_call(
+                name="svg_comparison",
+                prompt=prompt,
+                response=svg_code,
+                provider="claude",
+                model=self.llm_settings.claude_model,
+                duration_ms=duration_ms,
+                metadata={"title": title},
+            )
 
             if output_path:
                 self._save_svg(svg_code, output_path)
@@ -336,6 +371,7 @@ Requirements:
 Return ONLY the SVG code, no explanations or markdown code blocks."""
 
         try:
+            start_time = time.perf_counter()
             response = self.client.messages.create(
                 model=self.llm_settings.claude_model,
                 max_tokens=self.llm_settings.claude_max_tokens,
@@ -357,6 +393,16 @@ Return ONLY the SVG code, no explanations or markdown code blocks."""
                     svg_code = "\n".join(svg_code.split("\n")[1:])
 
             svg_code = svg_code.strip()
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            log_llm_call(
+                name="svg_flowchart",
+                prompt=prompt,
+                response=svg_code,
+                provider="claude",
+                model=self.llm_settings.claude_model,
+                duration_ms=duration_ms,
+                metadata={"title": title},
+            )
 
             if output_path:
                 self._save_svg(svg_code, output_path)
@@ -416,6 +462,7 @@ Requirements:
 Return ONLY the SVG code, no explanations or markdown code blocks."""
 
         try:
+            start_time = time.perf_counter()
             response = self.client.messages.create(
                 model=self.llm_settings.claude_model,
                 max_tokens=self.llm_settings.claude_max_tokens,
@@ -437,6 +484,16 @@ Return ONLY the SVG code, no explanations or markdown code blocks."""
                     svg_code = "\n".join(svg_code.split("\n")[1:])
 
             svg_code = svg_code.strip()
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            log_llm_call(
+                name="svg_concept_map",
+                prompt=prompt,
+                response=svg_code,
+                provider="claude",
+                model=self.llm_settings.claude_model,
+                duration_ms=duration_ms,
+                metadata={"title": title},
+            )
 
             if output_path:
                 self._save_svg(svg_code, output_path)

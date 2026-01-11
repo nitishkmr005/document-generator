@@ -17,7 +17,7 @@ This system automates the full path. It ingests multiple sources, normalizes the
 At a high level, the workflow looks like this:
 
 ```
-Detect format -> Parse content -> Transform content -> Generate images -> Validate images -> Generate output -> Validate
+Detect format -> Parse content -> Transform content -> Generate images -> Generate output -> Validate
 ```
 
 Every step is a **LangGraph node** that mutates a shared state object. That makes retries safe, keeps metadata consistent, and allows the pipeline to stay deterministic across runs.
@@ -32,12 +32,6 @@ parse_content
 transform_content
         v
 generate_images
-        v
-validate_images
-        v
-generate_output
-        v
-validate_images
         v
 generate_output
         v
@@ -108,11 +102,21 @@ The transformation stage produces more than just markdown:
 - **Visual markers**: optional `[VISUAL:...]` hints for diagrams
 - **Executive summary**: short, high-level summary of the content
 - **Slide structure** (PPTX only): slide titles and bullets optimized for presentation
-- **Chart suggestions**: candidate charts derived from the content
-
 If the LLM is unavailable, the pipeline falls back to cleaned markdown while still trying to generate executive summaries and slides if possible.
 
 [VISUAL:flowchart:Content Structuring:Raw content -> LLM structuring -> numbered sections -> visual markers]
+
+### API-Driven Model and Preference Controls (FastAPI)
+
+When invoked via the API, request parameters drive runtime behavior rather than hardcoded defaults:
+
+- `model`: LLM content model for summaries and slide structure
+- `image_model`: Gemini image model for image generation
+- `preferences.max_tokens`: token budget for blog generation
+- `preferences.temperature`: summary/slide creativity level
+- `preferences.max_slides` and `preferences.max_summary_points`: limits for PPTX + summaries
+- `preferences.image_style`: overrides auto-detection (infographic, decorative, mermaid)
+- `preferences.image_alignment_retries`: image alignment retry budget
 
 ---
 
@@ -150,19 +154,19 @@ If an image is regenerated for the same section, it is saved as:
 output/<file_id>/images/<section-title>_2.png
 ```
 
-After generation, a **Gemini alignment check** verifies that the image matches the section content **and** that the embedded title text matches the section title. If it does not align, the system:
+After generation, a **Gemini alignment check** verifies that the image matches the section content **and** that the embedded title text matches the section title. The validator returns `aligned`, `notes`, plus `visual_feedbacks` and `labels_or_text_feedback` for more specific corrections. If it does not align, the system:
 
 1. Revises the prompt using the alignment feedback
 2. Regenerates the image
 3. Re-validates the image
 
-This loop is implemented as a **LangGraph sub-cycle** between `generate_images` and `validate_images`. It retries only the misaligned sections and stops after three attempts per section. The separate LangGraph retry loop is reserved for output validation, not image generation.
+This loop is implemented inside `generate_images` (not a separate LangGraph node). It retries only the misaligned sections and stops after three attempts per section. The separate LangGraph retry loop is reserved for output validation, not image generation.
 
 ### Image Descriptions (New)
 
 Once a section image is generated, the system uses the LLM to write a short **blog-style description** of the image. This paragraph is saved alongside the image and inserted **directly below the image** in the PDF output, so visuals always have a narrative explanation.
 
-[VISUAL:flowchart:Image Generation Loop:Section text -> concept extraction -> prompt -> Gemini image -> validate_images -> prompt feedback -> regenerate (max 3)]
+[VISUAL:flowchart:Image Alignment Loop:Section text -> concept extraction -> prompt -> Gemini image -> alignment check -> prompt feedback -> regenerate (max 3)]
 
 ---
 
@@ -204,6 +208,19 @@ Validation checks the output file before the workflow finishes:
 If validation fails, **LangGraph loops back to `generate_output`** and retries up to three times. Parsing and content transformation are not re-run; only the output generation step is retried.
 
 [VISUAL:flowchart:Validation Gate:Generate output -> validate_output -> pass/fail retry (max 3)]
+
+---
+
+## Observability (Opik)
+
+All LLM calls are traced to Opik when `COMET_API_KEY` is set. Traces include:
+
+- Content generation calls (outline + chunked blog generation)
+- Summary/slide structure generation
+- Image prompt generation and alignment feedback
+- Gemini image generation prompts (logged as `image_generate`)
+
+The default Opik project name is **document generator** (override with `OPIK_PROJECT_NAME`).
 
 ---
 

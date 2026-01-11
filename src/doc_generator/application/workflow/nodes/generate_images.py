@@ -238,7 +238,11 @@ class GeminiImageAlignmentValidator:
         prompt = (
             "Check if this image aligns with the section content below. "
             "Confirm the image title text matches the section title. "
-            "Return JSON only: {\"aligned\": true|false, \"notes\": \"short reason\"}.\n\n"
+            "Return JSON only with keys: "
+            "{\"aligned\": true|false, "
+            "\"notes\": \"short reason\", "
+            "\"visual_feedbacks\": [\"short visual issue/strength\"], "
+            "\"labels_or_text_feedback\": [\"label/text issue/strength\"]}.\n\n"
             f"Section Title: {section_title}\n\n"
             f"Section Content:\n{content[:2000]}"
         )
@@ -776,7 +780,7 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
         # Initialize components
         detector = ImageTypeDetector()
-        gemini_gen = GeminiImageGenerator()
+        gemini_gen = GeminiImageGenerator(model=metadata.get("image_model"))
         alignment_validator = GeminiImageAlignmentValidator()
         describer = GeminiImageDescriber()
 
@@ -794,6 +798,14 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
             # Auto-detect image type
             decision = detector.detect(section_title, section_content)
+            requested_style = metadata.get("image_style", "auto")
+            if requested_style and requested_style != "auto":
+                if requested_style == "decorative":
+                    decision.image_type = ImageType.DECORATIVE
+                elif requested_style == "mermaid":
+                    decision.image_type = ImageType.MERMAID
+                else:
+                    decision.image_type = ImageType.INFOGRAPHIC
             logger.debug(
                 f"Section '{section_title}': {decision.image_type.value} "
                 f"(confidence: {decision.confidence:.2f})"
@@ -860,6 +872,12 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
                     if gemini_gen.is_available():
                         notes = alignment_result.get("notes", "")
+                        visual_feedbacks = alignment_result.get("visual_feedbacks") or []
+                        label_feedbacks = alignment_result.get("labels_or_text_feedback") or []
+                        if visual_feedbacks:
+                            notes += f"\nVisual feedbacks: {', '.join(visual_feedbacks)}"
+                        if label_feedbacks:
+                            notes += f"\nLabels/text feedback: {', '.join(label_feedbacks)}"
                         revised_prompt = alignment_validator.improve_prompt(
                             section_title=section_title,
                             content=section_content,

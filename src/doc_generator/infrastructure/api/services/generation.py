@@ -102,6 +102,12 @@ class GenerationService:
             llm_service = LLMService(
                 provider=provider_name,
                 model=request.model,
+                max_summary_points=request.preferences.max_summary_points,
+                max_slides=request.preferences.max_slides,
+                max_tokens_summary=request.preferences.max_tokens,
+                max_tokens_slides=request.preferences.max_tokens,
+                temperature_summary=request.preferences.temperature,
+                temperature_slides=request.preferences.temperature,
             )
 
             log_success(f"LLM configured: {provider_name}/{request.model}")
@@ -130,6 +136,9 @@ class GenerationService:
                     metadata={
                         "provider": request.provider.value,
                         "model": request.model,
+                        "image_model": request.image_model,
+                        "image_style": request.preferences.image_style.value,
+                        "max_tokens": request.preferences.max_tokens,
                         "file_id": file_id,
                         "image_alignment_retries": request.preferences.image_alignment_retries,
                     },

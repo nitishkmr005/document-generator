@@ -43,7 +43,10 @@ def _get_client() -> Any | None:
 
     if _client is None:
         try:
-            _client = Opik(api_key=os.getenv("COMET_API_KEY"))
+            _client = Opik(
+                api_key=os.getenv("COMET_API_KEY"),
+                project_name=os.getenv("OPIK_PROJECT_NAME", "document-generator"),
+            )
         except TypeError:
             try:
                 _client = Opik()
@@ -52,6 +55,47 @@ def _get_client() -> Any | None:
                 _enabled = False
                 return None
     return _client
+
+
+def _start_span(name: str, metadata: dict[str, Any] | None = None) -> Any | None:
+    client = _get_client()
+    if client is None:
+        return None
+
+    for attr in ("span", "start_span"):
+        if hasattr(client, attr):
+            try:
+                return getattr(client, attr)(name=name, metadata=metadata)
+            except TypeError:
+                try:
+                    return getattr(client, attr)(name=name)
+                except Exception:
+                    return None
+
+    if hasattr(client, "trace"):
+        try:
+            return client.trace(name=name, metadata=metadata or {})
+        except Exception:
+            return None
+
+    return None
+
+
+def _end_span(span: Any | None, output: str, metadata: dict[str, Any] | None = None) -> None:
+    if span is None:
+        return
+    meta = metadata or {}
+    for attr in ("end", "finish", "close", "log"):
+        if hasattr(span, attr):
+            try:
+                getattr(span, attr)(output=output, metadata=meta)
+                return
+            except TypeError:
+                try:
+                    getattr(span, attr)(output)
+                    return
+                except Exception:
+                    continue
 
 
 def log_llm_call(
@@ -88,6 +132,8 @@ def log_llm_call(
     prompt_text = _truncate(prompt)
     response_text = _truncate(response)
 
+    span = _start_span(name=f"llm:{name}", metadata=meta)
+
     # Try native helper if available.
     try:
         if hasattr(client, "log_llm_call"):
@@ -97,6 +143,7 @@ def log_llm_call(
                 output=response_text,
                 metadata=meta,
             )
+            _end_span(span, response_text, meta)
             return
     except Exception as exc:
         logger.debug(f"Opik log_llm_call failed: {exc}")
@@ -113,6 +160,8 @@ def log_llm_call(
                 trace.end(output=response_text, metadata=meta)
             elif hasattr(trace, "log"):
                 trace.log(output=response_text, metadata=meta)
+            _end_span(span, response_text, meta)
             return
     except Exception as exc:
         logger.debug(f"Opik trace failed: {exc}")
+    _end_span(span, response_text, meta)
