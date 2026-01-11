@@ -2,9 +2,12 @@
 
 import hashlib
 import json
+import shutil
 import time
 from pathlib import Path
 from typing import Optional
+
+from loguru import logger
 
 from ..models.requests import GenerateRequest
 
@@ -59,19 +62,9 @@ class CacheService:
         canonical_json = json.dumps(canonical, sort_keys=True)
         return hashlib.sha256(canonical_json.encode()).hexdigest()
 
-    def _normalize_sources(self, sources) -> dict:
+    def _normalize_sources(self, sources: list) -> list:
         """Normalize sources for hashing."""
-        result = {
-            "primary": [self._normalize_source(s) for s in sources.primary],
-            "supporting": [self._normalize_source(s) for s in sources.supporting],
-            "reference": [self._normalize_source(s) for s in sources.reference],
-            "data": [self._normalize_source(s) for s in sources.data],
-            "other": {
-                k: [self._normalize_source(s) for s in v]
-                for k, v in sources.other.items()
-            },
-        }
-        return result
+        return [self._normalize_source(s) for s in sources]
 
     def _normalize_source(self, source) -> dict:
         """Normalize a single source for hashing."""
@@ -155,3 +148,37 @@ class CacheService:
             cache_file.unlink()
             return True
         return False
+
+    def clear_all(self) -> dict:
+        """Clear all cache entries.
+
+        Returns:
+            Dict with count of cleared items
+        """
+        cache_files = list(self.cache_dir.glob("*.json"))
+        count = len(cache_files)
+
+        for f in cache_files:
+            try:
+                f.unlink()
+            except OSError:
+                pass
+
+        logger.info(f"Cleared {count} cache entries")
+        return {"cleared_cache_entries": count}
+
+    def get_stats(self) -> dict:
+        """Get cache statistics.
+
+        Returns:
+            Dict with cache stats
+        """
+        cache_files = list(self.cache_dir.glob("*.json"))
+        total_size = sum(f.stat().st_size for f in cache_files if f.exists())
+
+        return {
+            "cache_entries": len(cache_files),
+            "cache_size_bytes": total_size,
+            "cache_dir": str(self.cache_dir),
+        }
+

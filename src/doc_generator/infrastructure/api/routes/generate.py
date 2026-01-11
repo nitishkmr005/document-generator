@@ -53,10 +53,15 @@ async def event_generator(
     Yields:
         SSE event dicts
     """
+    from loguru import logger
+    
+    logger.info(f"Starting generation for {len(request.sources)} sources, cache.reuse={request.cache.reuse}")
+    
     # Check cache first if reuse enabled
     if request.cache.reuse:
         cached = cache_service.get(request)
         if cached:
+            logger.info(f"Cache hit! Returning cached result from {cached.get('created_at')}")
             event = CacheHitEvent(
                 download_url=cached["output_path"],
                 cached_at=datetime.datetime.fromtimestamp(
@@ -65,16 +70,21 @@ async def event_generator(
             )
             yield {"data": event.model_dump_json()}
             return
+        else:
+            logger.info("Cache miss, proceeding with generation")
 
     # Generate document
+    logger.info("Starting document generation...")
     async for event in generation_service.generate(
         request=request,
         api_key=api_key,
     ):
+        logger.debug(f"Yielding event: {type(event).__name__}")
         yield {"data": event.model_dump_json()}
 
         # Cache successful completions
         if isinstance(event, CompleteEvent):
+            logger.info(f"Generation complete, caching result: {event.download_url}")
             cache_service.set(
                 request=request,
                 output_path=Path(event.download_url),
@@ -98,8 +108,13 @@ async def generate_document(
     Returns:
         SSE event stream
     """
+    from loguru import logger
+    
+    logger.info(f"=== Generate endpoint called: provider={request.provider}, format={request.output_format} ===")
+    
     # Validate API key for provider
     api_key = get_api_key_for_provider(request.provider, api_keys)
+    logger.debug(f"API key validated for provider {request.provider}")
 
     generation_service = get_generation_service()
     cache_service = get_cache_service()
@@ -112,3 +127,4 @@ async def generate_document(
             cache_service=cache_service,
         )
     )
+

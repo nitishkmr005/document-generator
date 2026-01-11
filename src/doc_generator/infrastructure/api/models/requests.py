@@ -58,14 +58,6 @@ SourceItem = Annotated[
 ]
 
 
-class SourceCategories(BaseModel):
-    primary: list[SourceItem] = Field(default_factory=list)
-    supporting: list[SourceItem] = Field(default_factory=list)
-    reference: list[SourceItem] = Field(default_factory=list)
-    data: list[SourceItem] = Field(default_factory=list)
-    other: dict[str, list[SourceItem]] = Field(default_factory=dict)
-
-
 class Preferences(BaseModel):
     audience: Audience = Audience.TECHNICAL
     image_style: ImageStyle = ImageStyle.AUTO
@@ -80,10 +72,27 @@ class CacheOptions(BaseModel):
 
 
 class GenerateRequest(BaseModel):
+    """Request model for document generation.
+    
+    Example:
+        {
+            "output_format": "pdf",
+            "sources": [
+                {"type": "file", "file_id": "f_abc123"},
+                {"type": "url", "url": "https://example.com/doc"},
+                {"type": "text", "content": "Some text content..."}
+            ],
+            "provider": "google"
+        }
+    """
     output_format: OutputFormat
-    sources: SourceCategories
+    sources: list[SourceItem] = Field(
+        description="List of sources (file, url, or text)",
+        min_length=1,
+    )
     provider: Provider = Provider.GOOGLE
     model: str = "gemini-3-pro-preview"
     image_model: str = "gemini-3-pro-image-preview"
     preferences: Preferences = Field(default_factory=Preferences)
     cache: CacheOptions = Field(default_factory=CacheOptions)
+
