@@ -4,7 +4,7 @@
 VENV_PYTHON := .venv/bin/python
 PYTHON := $(shell if [ -f $(VENV_PYTHON) ]; then echo $(VENV_PYTHON); elif command -v python3 >/dev/null 2>&1; then echo python3; else echo python; fi)
 
-.PHONY: setup-docgen test-docgen lint-docgen run-docgen docker-build docker-run docker-compose-up clean-docgen clean-venv help-docgen
+.PHONY: setup-docgen test-docgen lint-docgen run-docgen docker-build docker-run docker-compose-up clean-docgen clean-venv help-docgen run-api run-api-prod
 .PHONY: process-folder process-folder-fast batch-topics batch-topics-fast quick-pdf clear-cache clear-images list-topics help check-python check-deps
 .DEFAULT_GOAL := help
 
@@ -134,6 +134,21 @@ docker-run:  ## Run in Docker (make docker-run INPUT=src/data/file.md OUTPUT=pdf
 docker-compose-up:  ## Run with docker-compose
 	@echo "Starting docker-compose..."
 	@docker-compose up
+
+# ============================================================================
+# API Server Commands
+# ============================================================================
+
+run-api:  ## Run FastAPI server for document generation (development)
+	@echo "🚀 Starting Document Generator API..."
+	@echo "📖 OpenAPI docs: http://localhost:8000/docs"
+	@echo "📖 ReDoc: http://localhost:8000/redoc"
+	@echo ""
+	@uv run uvicorn doc_generator.infrastructure.api.main:app --reload --host 0.0.0.0 --port 8000
+
+run-api-prod:  ## Run FastAPI server for production (no reload)
+	@echo "🚀 Starting Document Generator API (production mode)..."
+	@uv run uvicorn doc_generator.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 # ============================================================================
 # Folder-Based Processing Commands

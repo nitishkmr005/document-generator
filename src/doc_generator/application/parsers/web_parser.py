@@ -10,7 +10,7 @@ from typing import Tuple
 from loguru import logger
 
 from ...domain.exceptions import ParseError
-from ...infrastructure.markitdown_adapter import convert_url_to_markdown, is_markitdown_available
+from ...infrastructure.parsers.markitdown import convert_url_to_markdown, is_markitdown_available
 
 
 class WebParser:

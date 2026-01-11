@@ -10,8 +10,8 @@ from loguru import logger
 
 from ...domain.exceptions import GenerationError
 from ...domain.models import WorkflowState
+from ...infrastructure.generators import get_generator
 from ...infrastructure.settings import get_settings
-from ..generators import get_generator
 
 
 def generate_output_node(state: WorkflowState) -> WorkflowState:
@@ -48,18 +48,32 @@ def generate_output_node(state: WorkflowState) -> WorkflowState:
 
             # Create topic-specific output directory
             # Get folder name from metadata or derive from input path
-            folder_name = state["metadata"].get("custom_filename")
+            folder_name = state["metadata"].get("custom_filename") or state["metadata"].get("file_id")
             if not folder_name:
                 input_path = state.get("input_path", "")
                 if input_path:
                     input_p = Path(input_path)
-                    # Use parent folder name if input is a file, or folder name if input is a folder
-                    folder_name = input_p.parent.name if input_p.is_file() else input_p.name
+                    # Look for file_id folder (f_xxx) in the path
+                    # New structure: output/f_xxx/source/file.md
+                    for part in input_p.parts:
+                        if part.startswith("f_"):
+                            folder_name = part
+                            break
+                    else:
+                        # Fallback: use parent folder name if no f_xxx found
+                        if input_p.parent.name == "source" and input_p.parent.parent.exists():
+                            folder_name = input_p.parent.parent.name
+                        else:
+                            folder_name = input_p.parent.name if input_p.is_file() else input_p.name
                 else:
                     folder_name = "output"
 
-            topic_output_dir = settings.generator.output_dir / folder_name
+            # Create the file_id folder and format-specific subfolder
+            output_format = state["output_format"]
+            topic_output_dir = settings.generator.output_dir / folder_name / output_format
             topic_output_dir.mkdir(parents=True, exist_ok=True)
+
+            logger.debug(f"Output will be saved to: {topic_output_dir}")
 
             # Generate output file in topic subfolder
             output_path = generator.generate(

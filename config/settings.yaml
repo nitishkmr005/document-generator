@@ -18,13 +18,12 @@ generator:
 
 # Logging configuration
 logging:
-  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
   format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
 
 # PDF generation settings
 pdf:
-  page_size: "letter"  # letter, a4, legal
-  image_cache_dir: "src/output/pdf_images"
+  page_size: "letter" # letter, a4, legal
   margin:
     top: 72
     bottom: 18
@@ -45,9 +44,9 @@ pdf:
 
 # PPTX generation settings
 pptx:
-  layout: "LAYOUT_16x9"  # 16:9 aspect ratio
-  slide_width: 960  # pixels
-  slide_height: 540  # pixels
+  layout: "LAYOUT_16x9" # 16:9 aspect ratio
+  slide_width: 960 # pixels
+  slide_height: 540 # pixels
 
   # Theme colors for presentations
   theme:
@@ -65,14 +64,14 @@ parsers:
 
   # Web parser settings
   web:
-    timeout: 10  # seconds
+    timeout: 10 # seconds
     user_agent: "doc-generator/0.1.0"
 
 # LLM service settings
 llm:
-  model: "gemini-3-pro-preview"
+  model: "gemini-2.5-pro"
   content_provider: "gemini"
-  content_model: "gemini-3-pro-preview"
+  content_model: "gemini-2.5-pro"
   max_summary_points: 5
   max_slides: 10
   max_tokens_summary: 500
@@ -81,24 +80,24 @@ llm:
   temperature_slides: 0.4
 
   # Claude API settings for SVG generation
-  claude_model: "claude-sonnet-4-20250514"  # Claude Sonnet 4.5
+  claude_model: "claude-sonnet-4-20250514" # Claude Sonnet 4.5
   claude_max_tokens: 4000
   claude_temperature: 0.3
-  use_claude_for_visuals: false  # DISABLED - using Gemini images only
+  use_claude_for_visuals: false # DISABLED - using Gemini images only
 
 # SVG generation settings (DISABLED - using Gemini images)
 svg:
   default_width: 800
   default_height: 500
   chart_colors:
-    - "#1E5D5A"  # Teal (primary)
-    - "#D76B38"  # Orange (accent)
-    - "#2E86AB"  # Blue
-    - "#A23B72"  # Magenta
-    - "#F18F01"  # Amber
-    - "#C73E1D"  # Red
-    - "#3A7CA5"  # Steel blue
-    - "#5C946E"  # Green
+    - "#1E5D5A" # Teal (primary)
+    - "#D76B38" # Orange (accent)
+    - "#2E86AB" # Blue
+    - "#A23B72" # Magenta
+    - "#F18F01" # Amber
+    - "#C73E1D" # Red
+    - "#3A7CA5" # Steel blue
+    - "#5C946E" # Green
   layer_colors:
     frontend: "#2E86AB"
     backend: "#1E5D5A"
@@ -111,22 +110,22 @@ svg:
 image_generation:
   # Provider: "gemini" for Gemini images only (no SVG)
   default_provider: "gemini"
-  
+
   # Gemini Imagen settings
-  gemini_model: "gemini-3-pro-image-preview"
-  gemini_rate_limit: 20  # images per minute
-  gemini_request_delay: 3.0  # seconds between requests
-  
+  gemini_model: "gemini-2.5-flash-image"
+  gemini_rate_limit: 20 # images per minute
+  gemini_request_delay: 3.0 # seconds between requests
+
   # Image storage and embedding
   images_dir: "src/output/images"
   embed_in_pdf: true
   embed_in_pptx: false
-  
+
   # Auto-detection options (what types to generate)
   enable_decorative_headers: true
   enable_infographics: true
-  enable_diagrams: false  # DISABLED - diagrams would use SVG
-  
+  enable_diagrams: false # DISABLED - diagrams would use SVG
+
   # Image quality settings
   default_width: 1024
   default_height: 768

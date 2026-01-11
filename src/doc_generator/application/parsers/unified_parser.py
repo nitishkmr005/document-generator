@@ -10,7 +10,7 @@ from typing import Tuple
 from loguru import logger
 
 from ...domain.exceptions import ParseError
-from ...infrastructure.docling_adapter import convert_document_to_markdown, is_docling_available
+from ...infrastructure.parsers.docling import convert_document_to_markdown, is_docling_available
 
 
 class UnifiedParser:

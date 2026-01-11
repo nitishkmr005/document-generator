@@ -49,7 +49,7 @@ class PdfSettings(BaseSettings):
     page_size: str = "letter"
     margin: PdfMarginSettings = Field(default_factory=PdfMarginSettings)
     palette: PdfPaletteSettings = Field(default_factory=PdfPaletteSettings)
-    image_cache_dir: str = "src/output/pdf_images"
+    # Note: image_cache_dir is deprecated - images are now stored per file_id
 
 
 class PptxThemeSettings(BaseSettings):
@@ -121,13 +121,13 @@ class LlmSettings(BaseSettings):
     """LLM service settings with separate configs for content and visuals."""
 
     # Content generation settings (OpenAI GPT-4o)
-    content_model: str = "gemini-3-pro-preview"
+    content_model: str = "gemini-2.5-flash"
     content_provider: str = "gemini"  # "gemini" or "openai"
     content_max_tokens: int = 8000
     content_temperature: float = 0.4
     
     # Legacy model setting (fallback)
-    model: str = "gemini-3-pro-preview"
+    model: str = "gemini-2.5-flash"
 
     
     # Summary and slide generation
@@ -187,7 +187,7 @@ class ImageGenerationSettings(BaseSettings):
     default_provider: str = "auto"
 
     # Gemini settings
-    gemini_model: str = "gemini-3-pro-image-preview"
+    gemini_model: str = "gemini-2.5-flash-image"
     gemini_rate_limit: int = 20  # images per minute
     gemini_request_delay: float = 3.0  # seconds between requests
 

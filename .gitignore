@@ -1,4 +1,5 @@
 .trees
+.worktrees
 .venv
 .env
 .ruff_cache

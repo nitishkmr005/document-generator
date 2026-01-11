@@ -43,6 +43,16 @@ dependencies = [
     # Utilities
     "pyyaml==6.0.2",
     "python-dotenv==1.0.0",  # .env file support
+
+    # FastAPI and streaming
+    "fastapi>=0.109.0",
+    "sse-starlette>=1.6.0",
+    "python-multipart>=0.0.6",
+    "aiofiles>=23.2.0",
+    "uvicorn>=0.27.0",
+
+    # Observability
+    "opik>=0.1.0",
 ]
 
 [project.optional-dependencies]

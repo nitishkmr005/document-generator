@@ -6,6 +6,7 @@ images and LLM-processed content.
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -95,14 +96,20 @@ def load_image_manifest(images_dir: Path) -> Optional[dict]:
 def save_image_manifest(
     images_dir: Path,
     content_hash: str,
-    section_titles: list[str]
+    section_titles: list[str],
+    descriptions: Optional[dict] = None,
+    section_map: Optional[dict] = None,
+    image_types: Optional[dict] = None,
 ) -> None:
     try:
         images_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = images_dir / "manifest.json"
         data = {
             "content_hash": content_hash,
-            "section_titles": section_titles
+            "section_titles": section_titles,
+            "descriptions": descriptions or {},
+            "section_map": section_map or {},
+            "image_types": image_types or {},
         }
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -112,7 +119,7 @@ def save_image_manifest(
 
 def load_existing_images(
     images_dir: Path = Path("src/output/images"),
-    expected_hash: Optional[str] = None
+    expected_hash: Optional[str] = None,
 ) -> dict:
     """
     Load existing section images from disk.
@@ -132,28 +139,68 @@ def load_existing_images(
         logger.warning(f"Images directory not found: {images_dir}")
         return section_images
     
+    descriptions = {}
+    section_map = {}
+    image_types = {}
     if expected_hash:
         manifest = load_image_manifest(images_dir)
         if not manifest or manifest.get("content_hash") != expected_hash:
             logger.info("Image cache skipped due to content hash mismatch")
             return section_images
+        descriptions = manifest.get("descriptions", {}) or {}
+        section_map = manifest.get("section_map", {}) or {}
+        image_types = manifest.get("image_types", {}) or {}
+
+    if section_map:
+        for section_id_str, title in section_map.items():
+            try:
+                section_id = int(section_id_str)
+            except ValueError:
+                continue
+            if not title:
+                continue
+            slug = re.sub(r"[^a-zA-Z0-9]+", "-", title.lower()).strip("-")
+            if not slug:
+                continue
+            candidates = []
+            base_path = images_dir / f"{slug}.png"
+            if base_path.exists():
+                candidates.append(base_path)
+            candidates.extend(sorted(images_dir.glob(f"{slug}_*.png")))
+            if not candidates:
+                continue
+            chosen = candidates[-1]
+            section_images[section_id] = {
+                "path": str(chosen),
+                "image_type": image_types.get(section_id_str, "infographic"),
+                "section_title": title,
+                "prompt": "Previously generated",
+                "confidence": 1.0,
+                "embed_base64": "",
+                "description": descriptions.get(section_id_str, ""),
+            }
+        if section_images:
+            logger.info(f"Loaded {len(section_images)} existing images from {images_dir}")
+            return section_images
 
     # Find all section images
-    for img_path in sorted(images_dir.glob("section_*_infographic.png")):
+    for img_path in sorted(images_dir.glob("section_*_*.png")):
         # Parse section ID from filename: section_0_infographic.png -> 0
         try:
-            filename = img_path.stem  # section_0_infographic
+            filename = img_path.stem  # section_0_infographic or section_0_infographic__desc
             parts = filename.split("_")
-            if len(parts) >= 2:
+            if len(parts) >= 3:
                 section_id = int(parts[1])
+                image_type = parts[2].split("__", 1)[0]
                 
                 section_images[section_id] = {
                     "path": str(img_path),
-                    "image_type": "infographic",
+                    "image_type": image_type or "infographic",
                     "section_title": f"Section {section_id}",
                     "prompt": "Previously generated",
                     "confidence": 1.0,
                     "embed_base64": "",  # Will be loaded if needed
+                    "description": descriptions.get(str(section_id), ""),
                 }
                 
                 logger.debug(f"Found existing image: section_{section_id}")

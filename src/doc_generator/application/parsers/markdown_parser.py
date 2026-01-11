@@ -10,7 +10,7 @@ from typing import Tuple
 from loguru import logger
 
 from ...domain.exceptions import ParseError
-from ...infrastructure.file_system import read_text_file, validate_file_exists
+from ...infrastructure.parsers.file_system import read_text_file, validate_file_exists
 from ...utils.markdown_utils import extract_frontmatter, strip_frontmatter
 
 

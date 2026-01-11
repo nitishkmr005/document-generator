@@ -1,0 +1,27 @@
+"""
+Prompt templates for LLM-powered document generation.
+
+Currently exports image prompt templates used by image generation nodes.
+"""
+
+from .image_prompts import (
+    CONCEPT_EXTRACTION_PROMPT,
+    CONCEPT_EXTRACTION_SYSTEM_PROMPT,
+    CONTENT_AWARE_IMAGE_PROMPT,
+    FALLBACK_PROMPTS,
+    IMAGE_DETECTION_PROMPT,
+    IMAGE_DETECTION_SYSTEM_PROMPT,
+    IMAGE_DESCRIPTION_PROMPT,
+    IMAGE_STYLE_TEMPLATES,
+)
+
+__all__ = [
+    "CONCEPT_EXTRACTION_PROMPT",
+    "CONCEPT_EXTRACTION_SYSTEM_PROMPT",
+    "CONTENT_AWARE_IMAGE_PROMPT",
+    "FALLBACK_PROMPTS",
+    "IMAGE_DETECTION_PROMPT",
+    "IMAGE_DETECTION_SYSTEM_PROMPT",
+    "IMAGE_DESCRIPTION_PROMPT",
+    "IMAGE_STYLE_TEMPLATES",
+]
