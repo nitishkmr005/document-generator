@@ -40,13 +40,25 @@ def enhance_content_node(state: WorkflowState) -> WorkflowState:
 
     enhancements_added = []
     
+    def _count_summary_points(summary) -> int:
+        """
+        Count bullet points in an executive summary.
+        Invoked by: src/doc_generator/application/nodes/enhance_content.py
+        """
+        if isinstance(summary, dict):
+            return len(summary.get("points", []))
+        if isinstance(summary, str):
+            lines = [line.strip() for line in summary.splitlines()]
+            return sum(1 for line in lines if line.startswith(("-", "•")))
+        return 0
+
     # Generate executive summary
     if not structured.get("executive_summary"):
         log_subsection("Generating Executive Summary")
         executive_summary = llm.generate_executive_summary(markdown)
         if executive_summary:
             structured["executive_summary"] = executive_summary
-            summary_points = len(executive_summary.get("points", []))
+            summary_points = _count_summary_points(executive_summary)
             log_metric("Summary Points", summary_points)
             enhancements_added.append(f"{summary_points} summary points")
 

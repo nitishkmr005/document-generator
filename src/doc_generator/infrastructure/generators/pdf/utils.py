@@ -32,21 +32,23 @@ from reportlab.platypus import (
 from ....utils.markdown_utils import strip_frontmatter  # noqa: F401
 from ...settings import get_settings
 
-# Corporate-ready color palette - Modern, professional styling
+# Modern blog-style color palette - Vibrant and readable
 _BASE_PALETTE = {
-    "ink": "#1a1a2e",         # Deep navy for text
-    "muted": "#4a5568",       # Sophisticated gray
-    "paper": "#fafafa",       # Clean white background
-    "panel": "#f7fafc",       # Light panel
-    "accent": "#2563eb",      # Professional blue
-    "accent_light": "#3b82f6", # Lighter blue for highlights
-    "teal": "#0d9488",        # Modern teal
-    "line": "#e2e8f0",        # Subtle dividers
-    "code": "#f1f5f9",        # Code background
-    "table": "#f8fafc",       # Table background
-    "success": "#10b981",     # Green for positive
-    "warning": "#f59e0b",     # Amber for warnings
-    "mermaid_bg": "#eef2ff",  # Light blue for diagrams
+    "ink": "#1e293b",           # Slate-800 (softer than pure black)
+    "muted": "#64748b",         # Slate-500 (modern gray)
+    "paper": "#ffffff",         # Pure white
+    "panel": "#f8fafc",         # Slate-50 (subtle background)
+    "accent": "#6366f1",        # Indigo-500 (vibrant primary)
+    "accent_light": "#818cf8",  # Indigo-400 (lighter variant)
+    "accent_dark": "#4f46e5",   # Indigo-600 (darker variant)
+    "teal": "#14b8a6",          # Teal-500 (secondary accent)
+    "line": "#e2e8f0",          # Slate-200 (subtle dividers)
+    "code": "#f1f5f9",          # Slate-100 (code background)
+    "table": "#f8fafc",         # Slate-50 (table background)
+    "success": "#22c55e",       # Green-500
+    "warning": "#f59e0b",       # Amber-500
+    "mermaid_bg": "#eef2ff",    # Indigo-50 for diagrams
+    "cover_bar": "#6366f1",     # Cover page accent bar
 }
 
 
@@ -696,37 +698,38 @@ def create_custom_styles() -> dict:
     """
     styles = getSampleStyleSheet()
 
-    # Title styles - Professional corporate header
+    # Title styles - Large, impactful blog header
     styles.add(ParagraphStyle(
         name="TitleCover",
         parent=styles["Title"],
         fontName="Helvetica-Bold",
-        fontSize=32,
-        leading=40,
+        fontSize=42,
+        leading=52,
         textColor=PALETTE["ink"],
-        spaceAfter=16,
-        spaceBefore=32,
-        alignment=0,  # Left align for corporate look
+        spaceAfter=20,
+        spaceBefore=40,
+        alignment=0,  # Left align for modern blog look
     ))
 
     styles.add(ParagraphStyle(
         name="SubtitleCover",
         parent=styles["BodyText"],
-        fontName="Helvetica",
-        fontSize=14,
-        leading=20,
+        fontName="Helvetica-Oblique",
+        fontSize=16,
+        leading=24,
         textColor=PALETTE["muted"],
-        spaceAfter=24,
+        spaceAfter=32,
     ))
 
     styles.add(ParagraphStyle(
         name="CoverKicker",
         parent=styles["BodyText"],
         fontName="Helvetica-Bold",
-        fontSize=10,
+        fontSize=11,
         leading=14,
         textColor=PALETTE["accent"],
-        spaceAfter=6,
+        spaceAfter=8,
+        textTransform="uppercase",
     ))
 
     styles.add(ParagraphStyle(
@@ -734,9 +737,9 @@ def create_custom_styles() -> dict:
         parent=styles["BodyText"],
         fontName="Helvetica",
         fontSize=11,
-        leading=16,
+        leading=18,
         textColor=PALETTE["muted"],
-        spaceAfter=4,
+        spaceAfter=6,
     ))
 
     # Table of Contents styles
@@ -772,39 +775,51 @@ def create_custom_styles() -> dict:
         textColor=colors.white,
     ))
 
-    # Heading styles - Clean corporate headings
+    # Heading styles - Clean hierarchy with accent colors
     styles.add(ParagraphStyle(
         name="Heading2Custom",
         parent=styles["Heading2"],
         fontName="Helvetica-Bold",
-        fontSize=22,
-        leading=28,
+        fontSize=26,
+        leading=34,
         textColor=PALETTE["ink"],
-        spaceBefore=24,
-        spaceAfter=12,
+        spaceBefore=28,
+        spaceAfter=14,
     ))
 
     styles.add(ParagraphStyle(
         name="Heading3Custom",
         parent=styles["Heading3"],
         fontName="Helvetica-Bold",
-        fontSize=16,
-        leading=22,
+        fontSize=18,
+        leading=26,
         textColor=PALETTE["accent"],
-        spaceBefore=18,
-        spaceAfter=8,
+        spaceBefore=20,
+        spaceAfter=10,
     ))
 
-    # Body text - Professional readable body
+    # Body text - Comfortable blog-style reading
     styles.add(ParagraphStyle(
         name="BodyCustom",
         parent=styles["BodyText"],
         fontName="Helvetica",
-        fontSize=11,
-        leading=18,
+        fontSize=12,
+        leading=20,
         textColor=PALETTE["muted"],
-        spaceAfter=10,
-        alignment=4,  # Justify for professional look
+        spaceAfter=12,
+        alignment=0,  # Left align for better readability
+    ))
+
+    # Lead paragraph - First paragraph with emphasis
+    styles.add(ParagraphStyle(
+        name="LeadParagraph",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=14,
+        leading=24,
+        textColor=PALETTE["ink"],
+        spaceAfter=16,
+        alignment=0,
     ))
 
     # Bullets - Clean corporate bullets

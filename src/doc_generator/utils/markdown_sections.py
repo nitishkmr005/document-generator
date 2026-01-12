@@ -16,7 +16,7 @@ def extract_section_number(title: str) -> tuple[int | None, str]:
         Tuple of (section_number or None, clean_title)
     Invoked by: src/doc_generator/application/utils/markdown_sections.py
     """
-    number_pattern = r"^(\\d+)[\\.:\\)\\s]+\\s*(.+)$"
+    number_pattern = r"^(\d+)[\.:)\s]+\s*(.+)$"
     match = re.match(number_pattern, title)
     if match:
         return int(match.group(1)), match.group(2).strip()
@@ -38,10 +38,10 @@ def extract_sections(markdown: str) -> list[dict]:
     Invoked by: src/doc_generator/application/nodes/generate_images.py, src/doc_generator/application/workflow/nodes/generate_images.py
     """
     sections = []
-    section_pattern = r"^##\\s*(.+?)\\s*$"
+    section_pattern = r"^##\s+(.+?)\s*$"
     matches = list(re.finditer(section_pattern, markdown, re.MULTILINE))
     if not matches:
-        section_pattern = r"^#\\s*(.+?)\\s*$"
+        section_pattern = r"^#\s+(.+?)\s*$"
         matches = list(re.finditer(section_pattern, markdown, re.MULTILINE))
     if not matches:
         return [{

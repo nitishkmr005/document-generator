@@ -10,7 +10,8 @@ import re
 
 from loguru import logger
 from reportlab.lib.pagesizes import A4, legal, letter
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
+from reportlab.lib.units import inch
+from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from ....domain.exceptions import GenerationError
 from .utils import (
@@ -168,24 +169,63 @@ class PDFGenerator:
 
         story = []
 
-        # Cover page
+        # ===== COVER PAGE =====
+        # Create a modern blog-style cover page
+        
+        # Accent bar at top (visual branding element)
+        from reportlab.lib import colors as rl_colors
+        accent_bar = Table(
+            [[""]],
+            colWidths=[6.9 * inch],
+            rowHeights=[8]
+        )
+        accent_bar.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#6366f1")),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(accent_bar)
         story.append(Spacer(1, 48))
-        cover_kicker = metadata.get("content_type", "Document").replace("_", " ").title()
+        
+        # Kicker (content type label)
+        cover_kicker = metadata.get("content_type", "Document").replace("_", " ").upper()
         story.append(Paragraph(inline_md(cover_kicker), self.styles["CoverKicker"]))
+        story.append(Spacer(1, 8))
+        
+        # Main title - Large and impactful
         story.append(Paragraph(inline_md(display_title), self.styles["TitleCover"]))
 
-        subtitle = metadata.get("subtitle", metadata.get("url", ""))
+        # Subtitle or URL
+        subtitle = metadata.get("subtitle", "")
+        if not subtitle and metadata.get("url"):
+            # Create a cleaner subtitle from URL if available
+            subtitle = "Generated from web content"
         if subtitle:
             story.append(Paragraph(inline_md(subtitle), self.styles["SubtitleCover"]))
 
+        # Decorative divider line
+        story.append(Spacer(1, 24))
+        divider_line = Table(
+            [[""]],
+            colWidths=[3 * inch],
+            rowHeights=[3]
+        )
+        divider_line.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#6366f1")),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(divider_line)
+        story.append(Spacer(1, 24))
+        
+        # Metadata section with clean formatting
         cover_lines = self._build_cover_metadata(metadata)
         if cover_lines:
-            story.append(Spacer(1, 12))
             for line in cover_lines:
                 story.append(Paragraph(inline_md(line), self.styles["CoverMeta"]))
+            story.append(Spacer(1, 16))
 
-        story.append(Spacer(1, 16))
-        story.extend(make_section_divider(self.styles))
+        story.append(Spacer(1, 32))
         story.append(PageBreak())
 
         # Add executive summary if available
@@ -322,7 +362,7 @@ class PDFGenerator:
         Resolve section ID from numbered headings, falling back to sequential IDs.
         Invoked by: src/doc_generator/infrastructure/generators/pdf/generator.py, src/doc_generator/infrastructure/generators/pptx/generator.py
         """
-        match = re.match(r"^(\\d+)[\\.:\\)\\s]+\\s*(.+)$", title)
+        match = re.match(r"^(\d+)[\.:)\s]+\s*(.+)$", title)
         if match:
             section_id = int(match.group(1))
             next_id = max(next_id, section_id + 1)
@@ -336,7 +376,7 @@ class PDFGenerator:
         Remove numeric prefixes from headings when present.
         Invoked by: src/doc_generator/infrastructure/generators/pdf/generator.py
         """
-        match = re.match(r"^\\d+[\\.:\\)\\s]+\\s*(.+)$", title or "")
+        match = re.match(r"^\d+[\.:)\s]+\s*(.+)$", title or "")
         return match.group(1).strip() if match else (title or "").strip()
 
     def _build_section_image_lookup(self, section_images: dict) -> dict[str, dict]:
