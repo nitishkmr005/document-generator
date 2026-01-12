@@ -14,7 +14,7 @@ from typing import Optional
 
 from loguru import logger
 
-from ....domain.prompts.image_prompts import (
+from ....domain.prompts.image.image_prompts import (
     CONCEPT_EXTRACTION_PROMPT,
     CONCEPT_EXTRACTION_SYSTEM_PROMPT,
     CONTENT_AWARE_IMAGE_PROMPT,

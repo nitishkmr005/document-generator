@@ -16,7 +16,7 @@ from loguru import logger
 
 from ..observability.opik import log_llm_call
 from ..settings import get_settings
-from ...domain.prompts.content_generator_prompts import (
+from ...domain.prompts.text.content_generator_prompts import (
     build_blog_from_outline_prompt,
     build_chunk_prompt,
     build_generation_prompt,

@@ -13,7 +13,7 @@ from loguru import logger
 
 from ..settings import get_settings
 from ..observability.opik import log_llm_call
-from ...domain.prompts.llm_service_prompts import (
+from ...domain.prompts.text.llm_service_prompts import (
     enhance_bullets_prompt,
     enhance_bullets_system_prompt,
     executive_summary_prompt,

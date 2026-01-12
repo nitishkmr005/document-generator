@@ -14,13 +14,13 @@ from typing import Optional
 
 from loguru import logger
 
-from ...domain.prompts.image_prompts import (
+from ...domain.prompts.image.image_prompts import (
     CONCEPT_EXTRACTION_PROMPT,
     CONCEPT_EXTRACTION_SYSTEM_PROMPT,
     CONTENT_AWARE_IMAGE_PROMPT,
     IMAGE_STYLE_TEMPLATES,
 )
-from ...domain.prompts.image_generation_prompts import (
+from ...domain.prompts.image.image_generation_prompts import (
     build_alignment_prompt,
     build_image_description_prompt,
     build_prompt_generator_prompt,

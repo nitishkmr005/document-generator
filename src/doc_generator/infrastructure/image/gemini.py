@@ -14,7 +14,7 @@ from typing import Optional
 from loguru import logger
 
 from ...domain.content_types import ImageType
-from ...domain.prompts.image_generation_prompts import build_gemini_image_prompt
+from ...domain.prompts.image.image_generation_prompts import build_gemini_image_prompt
 from ..observability.opik import log_llm_call
 from ..settings import get_settings
 
