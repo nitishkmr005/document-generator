@@ -445,13 +445,13 @@ class PPTXGenerator:
         return resolve_image_path(url)
 
     def _generate_section_slides(
-        """
-        Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
-        """
         self,
         markdown_content: str,
         section_images: dict
     ) -> tuple[list[dict], list[dict]]:
+        """
+        Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
+        """
         llm = get_llm_service()
         if not llm.is_available():
             return [], []
@@ -507,15 +507,15 @@ class PPTXGenerator:
         return sections
 
     def _add_llm_section_slides(
-        """
-        Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
-        """
         self,
         prs,
         slides: list[dict],
         sections: list[dict],
         section_images: dict
     ) -> None:
+        """
+        Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
+        """
         slide_map = {}
         for slide in slides:
             section_title = slide.get("section_title", slide.get("title", ""))
@@ -620,15 +620,15 @@ class PPTXGenerator:
         return re.sub(r"\s+", " ", cleaned)
 
     def _add_bullet_slide_series(
-        """
-        Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
-        """
         self,
         prs,
         title: str,
         bullets: list[str],
         speaker_notes: str = ""
     ) -> None:
+        """
+        Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
+        """
         chunks = list(self._chunk_items(bullets, self._max_bullets_per_slide))
         for idx, chunk in enumerate(chunks):
             slide_title = title if idx == 0 else f"{title} (cont.)"

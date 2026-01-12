@@ -598,13 +598,13 @@ class PDFGenerator:
         return re.sub(r"\s+", " ", title or "").strip().lower()
 
     def _filter_cover_heading(
-        """
-        Invoked by: src/doc_generator/infrastructure/generators/pdf/generator.py
-        """
         self,
         headings: list[tuple[int, str]],
         cover_title: str
     ) -> list[tuple[int, str]]:
+        """
+        Invoked by: src/doc_generator/infrastructure/generators/pdf/generator.py
+        """
         filtered = []
         for level, heading in headings:
             if level == 1 and self._normalize_title(heading) == self._normalize_title(cover_title):

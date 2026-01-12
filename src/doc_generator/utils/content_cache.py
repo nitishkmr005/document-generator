@@ -99,9 +99,6 @@ def load_image_manifest(images_dir: Path) -> Optional[dict]:
 
 
 def save_image_manifest(
-    """
-    Invoked by: src/doc_generator/application/nodes/generate_images.py, src/doc_generator/application/workflow/nodes/generate_images.py
-    """
     images_dir: Path,
     content_hash: str,
     section_titles: list[str],
@@ -109,6 +106,9 @@ def save_image_manifest(
     section_map: Optional[dict] = None,
     image_types: Optional[dict] = None,
 ) -> None:
+    """
+    Invoked by: src/doc_generator/application/nodes/generate_images.py, src/doc_generator/application/workflow/nodes/generate_images.py
+    """
     try:
         images_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = images_dir / "manifest.json"
