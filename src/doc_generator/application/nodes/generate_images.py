@@ -175,6 +175,183 @@ def _resolve_image_path(
     return images_dir / f"{title_slug}.png"
 
 
+def _resolve_images_dir(state: WorkflowState, settings) -> Path:
+    """
+    Resolve the images output directory for the current workflow run.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    metadata = state.get("metadata", {})
+    folder_name = metadata.get("custom_filename") or metadata.get("file_id")
+    if not folder_name:
+        input_path = state.get("input_path", "")
+        if input_path:
+            input_p = Path(input_path)
+            for part in input_p.parts:
+                if part.startswith("f_"):
+                    folder_name = part
+                    break
+            else:
+                if input_p.parent.name == "source" and input_p.parent.parent.exists():
+                    folder_name = input_p.parent.parent.name
+                else:
+                    folder_name = input_p.parent.name if input_p.is_file() else input_p.name
+        else:
+            folder_name = "output"
+
+    topic_output_dir = settings.generator.output_dir / folder_name
+    images_dir = topic_output_dir / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    return images_dir
+
+
+def _should_skip_generation(metadata: dict, settings) -> bool:
+    """
+    Determine if image generation should be skipped for this run.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    if "skip_image_generation" in metadata:
+        return metadata.get("skip_image_generation", False)
+    return settings.generator.reuse_cache_by_default
+
+
+def _init_image_components(metadata: dict, settings):
+    """
+    Initialize image generation helpers based on configuration.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    detector = ImageTypeDetector()
+    provider = metadata.get("image_provider") or settings.image_generation.default_provider
+    gemini_gen = None
+    if provider == "gemini":
+        gemini_gen = GeminiImageGenerator(model=metadata.get("image_model"))
+    else:
+        logger.info(f"Image provider '{provider}' not supported for raster generation")
+    alignment_validator = GeminiImageAlignmentValidator()
+    describer = GeminiImageDescriber()
+    return detector, gemini_gen, alignment_validator, describer
+
+
+def _apply_requested_style(decision: ImageDecision, requested_style: str | None) -> None:
+    """
+    Apply an explicit image style override from metadata.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    if not requested_style or requested_style == "auto":
+        return
+    if requested_style == "decorative":
+        decision.image_type = ImageType.DECORATIVE
+    elif requested_style == "mermaid":
+        decision.image_type = ImageType.MERMAID
+    else:
+        decision.image_type = ImageType.INFOGRAPHIC
+
+
+def _should_skip_image_type(decision: ImageDecision, settings) -> bool:
+    """
+    Check feature flags to decide if this image type should be skipped.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    if decision.image_type == ImageType.INFOGRAPHIC and not settings.image_generation.enable_infographics:
+        return True
+    if decision.image_type == ImageType.DECORATIVE and not settings.image_generation.enable_decorative_headers:
+        return True
+    if decision.image_type == ImageType.MERMAID and not settings.image_generation.enable_diagrams:
+        return True
+    return False
+
+
+def _generate_raster_image(
+    *,
+    images_dir: Path,
+    section_id: int,
+    section_title: str,
+    section_content: str,
+    decision: ImageDecision,
+    prompt_used: str,
+    gemini_gen: GeminiImageGenerator | None,
+    alignment_validator: GeminiImageAlignmentValidator,
+    max_attempts: int,
+) -> tuple[Path | None, str, dict, int, int]:
+    """
+    Generate or reuse a raster image with optional alignment feedback.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    if (not gemini_gen or not gemini_gen.is_available()) and not alignment_validator.is_available():
+        logger.debug(f"Gemini not available, skipping {decision.image_type.value}")
+        return None, prompt_used, {}, 0, 0
+
+    image_path: Optional[Path] = None
+    alignment_result: dict = {}
+    attempts = 0
+    reused_count = 0
+
+    for attempt_index in range(1, max_attempts + 1):
+        output_path = _resolve_image_path(
+            images_dir,
+            section_title,
+            section_id,
+            attempt_index,
+        )
+
+        if attempt_index == 1 and output_path.exists():
+            logger.info(f"Reusing existing image for section {section_id}: {section_title}")
+            image_path = output_path
+            reused_count += 1
+        elif gemini_gen and gemini_gen.is_available():
+            image_path = gemini_gen.generate_image(
+                prompt=prompt_used,
+                image_type=decision.image_type,
+                section_title=section_title,
+                output_path=output_path
+            )
+        else:
+            image_path = None
+
+        attempts = attempt_index
+
+        if not image_path or not image_path.exists():
+            logger.warning(
+                f"Image generation failed for '{section_title}' "
+                f"(attempt {attempt_index}/{max_attempts})"
+            )
+            continue
+
+        if not alignment_validator.is_available():
+            break
+
+        alignment_result = alignment_validator.validate(
+            section_title=section_title,
+            content=section_content,
+            image_path=image_path,
+        )
+
+        if alignment_result.get("aligned") is not False:
+            break
+
+        if gemini_gen and gemini_gen.is_available():
+            notes = alignment_result.get("notes", "")
+            visual_feedbacks = alignment_result.get("visual_feedbacks") or []
+            label_feedbacks = alignment_result.get("labels_or_text_feedback") or []
+            if visual_feedbacks:
+                notes += f"\nVisual feedbacks: {', '.join(visual_feedbacks)}"
+            if label_feedbacks:
+                notes += f"\nLabels/text feedback: {', '.join(label_feedbacks)}"
+            revised_prompt = alignment_validator.improve_prompt(
+                section_title=section_title,
+                content=section_content,
+                original_prompt=prompt_used,
+                alignment_notes=notes,
+            )
+            if revised_prompt != prompt_used:
+                logger.info(
+                    f"Updated prompt after alignment feedback for '{section_title}' "
+                    f"(attempt {attempt_index}/{max_attempts})"
+                )
+            prompt_used = revised_prompt or prompt_used
+
+    return image_path, prompt_used, alignment_result, attempts, reused_count
+
+
 class GeminiPromptGenerator:
     """Generate image prompts using Gemini LLM based on section content."""
 
@@ -768,43 +945,10 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
         settings = get_settings()
         metadata = state.get("metadata", {})
-
-        # Create topic-specific images directory
-        # Get folder name from metadata or derive from input path
-        folder_name = metadata.get("custom_filename") or metadata.get("file_id")
-        if not folder_name:
-            input_path = state.get("input_path", "")
-            if input_path:
-                input_p = Path(input_path)
-                # Look for file_id folder (f_xxx) in the path
-                # New structure: output/f_xxx/source/file.md
-                for part in input_p.parts:
-                    if part.startswith("f_"):
-                        folder_name = part
-                        break
-                else:
-                    # Fallback: use parent folder name if no f_xxx found
-                    # For paths like output/source/file.md use grandparent
-                    if input_p.parent.name == "source" and input_p.parent.parent.exists():
-                        folder_name = input_p.parent.parent.name
-                    else:
-                        folder_name = input_p.parent.name if input_p.is_file() else input_p.name
-            else:
-                folder_name = "output"
-
-        topic_output_dir = settings.generator.output_dir / folder_name
-        images_dir = topic_output_dir / "images"
-        images_dir.mkdir(parents=True, exist_ok=True)
-
+        images_dir = _resolve_images_dir(state, settings)
         logger.debug(f"Images will be saved to: {images_dir}")
 
-        # Check for skip_image_generation flag
-        if "skip_image_generation" in metadata:
-            skip_generation = metadata.get("skip_image_generation", False)
-        else:
-            skip_generation = settings.generator.reuse_cache_by_default
-        
-        if skip_generation:
+        if _should_skip_generation(metadata, settings):
             # Load existing images instead of generating new ones (hash-verified)
             from ...utils.content_cache import load_existing_images
             content_hash = metadata.get("content_hash")
@@ -823,16 +967,7 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
         if not sections:
             return state
 
-        # Initialize components
-        detector = ImageTypeDetector()
-        provider = metadata.get("image_provider") or settings.image_generation.default_provider
-        gemini_gen = None
-        if provider == "gemini":
-            gemini_gen = GeminiImageGenerator(model=metadata.get("image_model"))
-        else:
-            logger.info(f"Image provider '{provider}' not supported for raster generation")
-        alignment_validator = GeminiImageAlignmentValidator()
-        describer = GeminiImageDescriber()
+        detector, gemini_gen, alignment_validator, describer = _init_image_components(metadata, settings)
 
         existing_images = structured_content.get("section_images", {})
         section_images = dict(existing_images)
@@ -848,14 +983,7 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
             # Auto-detect image type
             decision = detector.detect(section_title, section_content)
-            requested_style = metadata.get("image_style", "auto")
-            if requested_style and requested_style != "auto":
-                if requested_style == "decorative":
-                    decision.image_type = ImageType.DECORATIVE
-                elif requested_style == "mermaid":
-                    decision.image_type = ImageType.MERMAID
-                else:
-                    decision.image_type = ImageType.INFOGRAPHIC
+            _apply_requested_style(decision, metadata.get("image_style", "auto"))
             logger.debug(
                 f"Section '{section_title}': {decision.image_type.value} "
                 f"(confidence: {decision.confidence:.2f})"
@@ -864,91 +992,32 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
             if decision.image_type == ImageType.NONE:
                 skipped_count += 1
                 continue
-            if decision.image_type == ImageType.INFOGRAPHIC and not settings.image_generation.enable_infographics:
-                skipped_count += 1
-                continue
-            if decision.image_type == ImageType.DECORATIVE and not settings.image_generation.enable_decorative_headers:
-                skipped_count += 1
-                continue
-            if decision.image_type == ImageType.MERMAID and not settings.image_generation.enable_diagrams:
+            if _should_skip_image_type(decision, settings):
                 skipped_count += 1
                 continue
 
             # Generate image based on type
-            image_path: Optional[Path] = None
             prompt_used = existing_images.get(section_id, {}).get("prompt") or decision.prompt
             alignment_result = {}
             attempts = 0
             max_attempts = max(1, int(metadata.get("image_alignment_retries", 2)))
+            image_path: Optional[Path] = None
 
             if decision.image_type in (ImageType.INFOGRAPHIC, ImageType.DECORATIVE):
-                if (not gemini_gen or not gemini_gen.is_available()) and not alignment_validator.is_available():
-                    logger.debug(f"Gemini not available, skipping {decision.image_type.value}")
+                image_path, prompt_used, alignment_result, attempts, reused_delta = _generate_raster_image(
+                    images_dir=images_dir,
+                    section_id=section_id,
+                    section_title=section_title,
+                    section_content=section_content,
+                    decision=decision,
+                    prompt_used=prompt_used,
+                    gemini_gen=gemini_gen,
+                    alignment_validator=alignment_validator,
+                    max_attempts=max_attempts,
+                )
+                reused_count += reused_delta
+                if image_path is None:
                     continue
-
-                for attempt_index in range(1, max_attempts + 1):
-                    output_path = _resolve_image_path(
-                        images_dir,
-                        section_title,
-                        section_id,
-                        attempt_index,
-                    )
-
-                    if attempt_index == 1 and output_path.exists():
-                        logger.info(f"Reusing existing image for section {section_id}: {section_title}")
-                        image_path = output_path
-                        reused_count += 1
-                    elif gemini_gen and gemini_gen.is_available():
-                        image_path = gemini_gen.generate_image(
-                            prompt=prompt_used,
-                            image_type=decision.image_type,
-                            section_title=section_title,
-                            output_path=output_path
-                        )
-                    else:
-                        image_path = None
-
-                    attempts = attempt_index
-
-                    if not image_path or not image_path.exists():
-                        logger.warning(
-                            f"Image generation failed for '{section_title}' "
-                            f"(attempt {attempt_index}/{max_attempts})"
-                        )
-                        continue
-
-                    if not alignment_validator.is_available():
-                        break
-
-                    alignment_result = alignment_validator.validate(
-                        section_title=section_title,
-                        content=section_content,
-                        image_path=image_path,
-                    )
-
-                    if alignment_result.get("aligned") is not False:
-                        break
-
-                    if gemini_gen.is_available():
-                        notes = alignment_result.get("notes", "")
-                        visual_feedbacks = alignment_result.get("visual_feedbacks") or []
-                        label_feedbacks = alignment_result.get("labels_or_text_feedback") or []
-                        if visual_feedbacks:
-                            notes += f"\nVisual feedbacks: {', '.join(visual_feedbacks)}"
-                        if label_feedbacks:
-                            notes += f"\nLabels/text feedback: {', '.join(label_feedbacks)}"
-                        revised_prompt = alignment_validator.improve_prompt(
-                            section_title=section_title,
-                            content=section_content,
-                            original_prompt=prompt_used,
-                            alignment_notes=notes,
-                        )
-                        if revised_prompt != prompt_used:
-                            logger.info(
-                                f"Updated prompt after alignment feedback for '{section_title}' "
-                                f"(attempt {attempt_index}/{max_attempts})"
-                            )
-                        prompt_used = revised_prompt or prompt_used
 
             elif decision.image_type == ImageType.MERMAID:
                 # Mermaid diagrams are rendered inline by PDF generator
