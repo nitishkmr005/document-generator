@@ -1,27 +1,73 @@
 """
 Prompt templates for LLM-powered document generation.
 
-Currently exports image prompt templates used by image generation nodes.
+Exports prompt templates used by LLM content, image generation, and services.
 """
 
+from .content_generator_prompts import (
+    build_blog_from_outline_prompt,
+    build_chunk_prompt,
+    build_generation_prompt,
+    build_outline_prompt,
+    build_title_prompt,
+    get_content_system_prompt,
+)
+from .image_generation_prompts import (
+    build_alignment_prompt,
+    build_gemini_image_prompt,
+    build_image_description_prompt,
+    build_prompt_generator_prompt,
+    build_prompt_improvement_prompt,
+)
 from .image_prompts import (
     CONCEPT_EXTRACTION_PROMPT,
     CONCEPT_EXTRACTION_SYSTEM_PROMPT,
     CONTENT_AWARE_IMAGE_PROMPT,
-    FALLBACK_PROMPTS,
-    IMAGE_DETECTION_PROMPT,
-    IMAGE_DETECTION_SYSTEM_PROMPT,
     IMAGE_DESCRIPTION_PROMPT,
     IMAGE_STYLE_TEMPLATES,
 )
+from .llm_service_prompts import (
+    enhance_bullets_prompt,
+    enhance_bullets_system_prompt,
+    executive_summary_prompt,
+    executive_summary_system_prompt,
+    section_slide_structure_prompt,
+    section_slide_structure_system_prompt,
+    slide_structure_prompt,
+    slide_structure_system_prompt,
+    speaker_notes_prompt,
+    speaker_notes_system_prompt,
+    visualization_suggestions_prompt,
+    visualization_suggestions_system_prompt,
+)
 
 __all__ = [
+    "build_alignment_prompt",
+    "build_blog_from_outline_prompt",
+    "build_chunk_prompt",
+    "build_generation_prompt",
+    "build_gemini_image_prompt",
+    "build_image_description_prompt",
+    "build_outline_prompt",
+    "build_prompt_generator_prompt",
+    "build_prompt_improvement_prompt",
+    "build_title_prompt",
     "CONCEPT_EXTRACTION_PROMPT",
     "CONCEPT_EXTRACTION_SYSTEM_PROMPT",
     "CONTENT_AWARE_IMAGE_PROMPT",
-    "FALLBACK_PROMPTS",
-    "IMAGE_DETECTION_PROMPT",
-    "IMAGE_DETECTION_SYSTEM_PROMPT",
     "IMAGE_DESCRIPTION_PROMPT",
     "IMAGE_STYLE_TEMPLATES",
+    "enhance_bullets_prompt",
+    "enhance_bullets_system_prompt",
+    "executive_summary_prompt",
+    "executive_summary_system_prompt",
+    "get_content_system_prompt",
+    "section_slide_structure_prompt",
+    "section_slide_structure_system_prompt",
+    "slide_structure_prompt",
+    "slide_structure_system_prompt",
+    "speaker_notes_prompt",
+    "speaker_notes_system_prompt",
+    "visualization_suggestions_prompt",
+    "visualization_suggestions_system_prompt",
 ]

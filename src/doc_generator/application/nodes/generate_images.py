@@ -18,10 +18,13 @@ from ...domain.prompts.image_prompts import (
     CONCEPT_EXTRACTION_PROMPT,
     CONCEPT_EXTRACTION_SYSTEM_PROMPT,
     CONTENT_AWARE_IMAGE_PROMPT,
-    FALLBACK_PROMPTS,
-    IMAGE_DETECTION_PROMPT,
-    IMAGE_DETECTION_SYSTEM_PROMPT,
     IMAGE_STYLE_TEMPLATES,
+)
+from ...domain.prompts.image_generation_prompts import (
+    build_alignment_prompt,
+    build_image_description_prompt,
+    build_prompt_generator_prompt,
+    build_prompt_improvement_prompt,
 )
 from ...domain.content_types import ImageType
 from ...domain.models import ImageDecision, WorkflowState
@@ -47,6 +50,25 @@ try:
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
+
+
+def _get_gemini_api_key() -> str | None:
+    """
+    Resolve the Gemini API key from environment variables.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    import os
+    return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+
+def _create_gemini_client(api_key: str | None):
+    """
+    Create a Gemini client if possible.
+    Invoked by: src/doc_generator/application/nodes/generate_images.py
+    """
+    if api_key and GENAI_AVAILABLE:
+        return genai.Client(api_key=api_key)
+    return None
 
 
 def _extract_required_labels(section_title: str, content: str) -> list[str]:
@@ -160,14 +182,10 @@ class GeminiPromptGenerator:
         """
         Invoked by: (no references found)
         """
-        import os
-        self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        self.api_key = _get_gemini_api_key()
         self.settings = get_settings()
-        self.client = None
-
-        if self.api_key and GENAI_AVAILABLE:
-            self.client = genai.Client(api_key=self.api_key)
-        elif not GENAI_AVAILABLE:
+        self.client = _create_gemini_client(self.api_key)
+        if self.api_key and self.client is None:
             logger.warning("google-genai not installed - image prompt generation disabled")
 
     def is_available(self) -> bool:
@@ -193,28 +211,14 @@ class GeminiPromptGenerator:
         visual_title = visual_hint.get("title") if visual_hint else section_title
         visual_desc = visual_hint.get("description") if visual_hint else ""
 
-        style_requirements = (
-            "Use a clean block-diagram style: flat rounded rectangles, thin arrows, "
-            "muted teal/orange/gray palette, light background with subtle dotted grid. "
-            "Minimal icons only when needed, no photos, no textures."
+        prompt = build_prompt_generator_prompt(
+            section_title=section_title,
+            content_preview=content_preview,
+            style_hint=style_hint,
+            required_labels_str=required_labels_str,
+            visual_title=visual_title,
+            visual_desc=visual_desc,
         )
-        if style_hint in ("architecture_diagram", "process_flow"):
-            style_requirements += " Prefer left-to-right flow with labeled steps."
-
-        prompt = "Create an image prompt for a diagram.\n\n"
-        prompt += f"Title: {visual_title}\n"
-        if visual_desc:
-            prompt += f"Description: {visual_desc}\n"
-        prompt += f"Style: {style_hint.replace('_', ' ')}\n"
-        prompt += f"Required labels (verbatim): {required_labels_str}\n"
-        prompt += f"Style guide: {style_requirements}\n\n"
-        prompt += "Constraints:\n"
-        prompt += "- Use ONLY concepts present in the content below.\n"
-        prompt += "- Do NOT add new stages, tools, or labels.\n"
-        prompt += "- Avoid metaphorical objects (pipes, ropes, factories).\n"
-        prompt += f"- The image title text must exactly match: {section_title}.\n"
-        prompt += "- Return ONLY the final image prompt text.\n\n"
-        prompt += f"Content:\n{content_preview}\n"
 
         model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
@@ -240,14 +244,10 @@ class GeminiImageAlignmentValidator:
         """
         Invoked by: (no references found)
         """
-        import os
-        self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        self.api_key = _get_gemini_api_key()
         self.settings = get_settings()
-        self.client = None
-
-        if self.api_key and GENAI_AVAILABLE:
-            self.client = genai.Client(api_key=self.api_key)
-        elif not GENAI_AVAILABLE:
+        self.client = _create_gemini_client(self.api_key)
+        if self.api_key and self.client is None:
             logger.warning("google-genai not installed - image alignment validation disabled")
 
     def is_available(self) -> bool:
@@ -268,17 +268,7 @@ class GeminiImageAlignmentValidator:
             return {"aligned": False, "reason": "image_read_failed"}
 
         image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
-        prompt = (
-            "Check if this image aligns with the section content below. "
-            "Confirm the image title text matches the section title. "
-            "Return JSON only with keys: "
-            "{\"aligned\": true|false, "
-            "\"notes\": \"short reason\", "
-            "\"visual_feedbacks\": [\"short visual issue/strength\"], "
-            "\"labels_or_text_feedback\": [\"label/text issue/strength\"]}.\n\n"
-            f"Section Title: {section_title}\n\n"
-            f"Section Content:\n{content[:2000]}"
-        )
+        prompt = build_alignment_prompt(section_title, content)
 
         model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
@@ -313,13 +303,11 @@ class GeminiImageAlignmentValidator:
         if not self.is_available():
             return original_prompt
 
-        prompt = (
-            "Improve the image generation prompt to better align with the section content. "
-            "Use ONLY concepts present in the content. Return ONLY the revised prompt text.\n\n"
-            f"Section Title: {section_title}\n\n"
-            f"Section Content:\n{content[:2000]}\n\n"
-            f"Original Prompt:\n{original_prompt}\n\n"
-            f"Alignment Notes:\n{alignment_notes}\n"
+        prompt = build_prompt_improvement_prompt(
+            section_title=section_title,
+            content=content,
+            original_prompt=original_prompt,
+            alignment_notes=alignment_notes,
         )
         model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
@@ -345,14 +333,10 @@ class GeminiImageDescriber:
         """
         Invoked by: (no references found)
         """
-        import os
-        self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        self.api_key = _get_gemini_api_key()
         self.settings = get_settings()
-        self.client = None
-
-        if self.api_key and GENAI_AVAILABLE:
-            self.client = genai.Client(api_key=self.api_key)
-        elif not GENAI_AVAILABLE:
+        self.client = _create_gemini_client(self.api_key)
+        if self.api_key and self.client is None:
             logger.warning("google-genai not installed - image description disabled")
 
     def is_available(self) -> bool:
@@ -373,13 +357,7 @@ class GeminiImageDescriber:
             return ""
 
         image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
-        prompt = (
-            "Write a concise blog-style description of this image. "
-            "Use only what is visible and what is supported by the section content. "
-            "Keep it to 2-4 sentences.\n\n"
-            f"Section Title: {section_title}\n\n"
-            f"Section Content:\n{content[:2000]}"
-        )
+        prompt = build_image_description_prompt(section_title, content)
         model = self.settings.llm.content_model or self.settings.llm.model
         response = self.client.models.generate_content(
             model=model,
@@ -412,13 +390,11 @@ class ConceptExtractor:
         Initialize extractor with Gemini client (optional).
         Invoked by: (no references found)
         """
-        import os
-        self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        self.client = None
+        self.api_key = _get_gemini_api_key()
+        self.client = _create_gemini_client(self.api_key)
         self.settings = get_settings()
 
-        if self.api_key and GENAI_AVAILABLE:
-            self.client = genai.Client(api_key=self.api_key)
+        if self.client:
             logger.debug("Concept extractor initialized with Gemini")
         else:
             logger.warning("Gemini not available - concept extraction disabled")

@@ -14,8 +14,16 @@ from typing import Optional
 
 from loguru import logger
 
-from ..settings import get_settings
 from ..observability.opik import log_llm_call
+from ..settings import get_settings
+from ...domain.prompts.content_generator_prompts import (
+    build_blog_from_outline_prompt,
+    build_chunk_prompt,
+    build_generation_prompt,
+    build_outline_prompt,
+    build_title_prompt,
+    get_content_system_prompt,
+)
 
 try:
     from google import genai
@@ -46,7 +54,6 @@ class VisualMarker:
     title: str
     description: str
     position: int  # Character position in content
-    data: dict = field(default_factory=dict)  # Structured data for generation
 
 
 @dataclass
@@ -73,15 +80,6 @@ class LLMContentGenerator:
     - Numbered sections matching professional blog style
     """
     
-    # Section markers to split content on
-    SECTION_MARKERS = [
-        r'^Introduction\s*$',
-        r'^Recap\s',
-        r'^Overview\s',
-        r'^[A-Z][a-z]+\s+[A-Z][a-z]+\s*$',  # Two word section titles
-        r'^\d{1,2}:\d{2}\s*$',  # Timestamps as section breaks
-    ]
-
     _total_calls: int = 0
     _models_used: set[str] = set()
     _providers_used: set[str] = set()
@@ -119,6 +117,21 @@ class LLMContentGenerator:
         self.content_provider = self.settings.llm.content_provider or "openai"
         self.content_model = self.settings.llm.content_model or self.settings.llm.model
 
+        self._init_content_client()
+        
+        # Setup visual data client (OpenAI default, Claude optional)
+        self._init_visual_client()
+        
+        # Legacy compatibility
+        self.client = self.content_client
+        self.provider = self.content_provider
+        self.model = self.content_model
+
+    def _init_content_client(self) -> None:
+        """
+        Initialize the content generation client based on settings.
+        Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
+        """
         if self.content_provider == "gemini":
             if self.gemini_api_key and GENAI_AVAILABLE:
                 self.content_client = genai.Client(api_key=self.gemini_api_key)
@@ -126,24 +139,33 @@ class LLMContentGenerator:
             else:
                 logger.warning("Gemini requested but not available for content generation")
                 self.content_client = None
-        elif self.content_provider == "openai":
+            return
+
+        if self.content_provider == "openai":
             if self.openai_api_key and OPENAI_AVAILABLE:
                 self.content_client = OpenAI(api_key=self.openai_api_key)
                 logger.info(f"Content Generator initialized with OpenAI: {self.content_model}")
             else:
                 logger.warning("OpenAI requested but not available for content generation")
                 self.content_client = None
-        elif self.content_provider == "claude":
+            return
+
+        if self.content_provider == "claude":
             if self.claude_api_key and ANTHROPIC_AVAILABLE:
                 self.content_client = Anthropic(api_key=self.claude_api_key)
                 logger.info(f"Content Generator initialized with Claude: {self.content_model}")
             else:
                 logger.warning("Claude requested but not available for content generation")
                 self.content_client = None
-        else:
-            logger.warning("Unsupported content provider requested - content generation disabled")
-        
-        # Setup visual data client (OpenAI default, Claude optional)
+            return
+
+        logger.warning("Unsupported content provider requested - content generation disabled")
+
+    def _init_visual_client(self) -> None:
+        """
+        Initialize the visual data client based on settings.
+        Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
+        """
         svg_provider = self.settings.llm.svg_provider or "claude"
         if self.settings.llm.use_claude_for_visuals and svg_provider == "claude":
             if self.claude_api_key and ANTHROPIC_AVAILABLE:
@@ -153,18 +175,16 @@ class LLMContentGenerator:
                 logger.debug(f"Visual data client using Claude: {self.visual_model}")
             else:
                 logger.warning("Claude requested for visuals but not available")
-        elif self.openai_api_key and OPENAI_AVAILABLE:
+            return
+
+        if self.openai_api_key and OPENAI_AVAILABLE:
             self.visual_client = OpenAI(api_key=self.openai_api_key)
             self.visual_provider = "openai"
             self.visual_model = self.settings.llm.content_model
             logger.debug(f"Visual data client using OpenAI: {self.visual_model}")
-        else:
-            logger.warning("No visual data client available for diagram generation")
-        
-        # Legacy compatibility
-        self.client = self.content_client
-        self.provider = self.content_provider
-        self.model = self.content_model
+            return
+
+        logger.warning("No visual data client available for diagram generation")
     
     def is_available(self) -> bool:
         """
@@ -414,21 +434,7 @@ class LLMContentGenerator:
         if not self.is_available():
             return topic_hint.replace("-", " ").replace("_", " ").title() if topic_hint else "Document"
         
-        prompt = f"""Based on this educational content, generate a professional blog post title.
-
-The title should:
-- Be descriptive and engaging (5-10 words)
-- Follow pattern: "Main Topic: Descriptive Subtitle" 
-- NOT include course names, lecture numbers, or file names
-- Capture the main educational theme
-- Use ONLY topics and terms that appear in the content (no new topics)
-
-Content preview:
-{content[:4000]}
-
-Topic hint: {topic_hint if topic_hint else "Not provided"}
-
-Return ONLY the title, nothing else. No quotes, no explanation."""
+        prompt = build_title_prompt(content, topic_hint)
 
         try:
             self._record_usage(step="content_title")
@@ -537,78 +543,98 @@ Return ONLY the title, nothing else. No quotes, no explanation."""
         """
         self._record_usage(step=step)
         if self.content_provider == "gemini":
-            start_time = time.perf_counter()
-            full_prompt = f"{self._get_system_prompt()}\n\n{prompt}"
-            response = self.content_client.models.generate_content(
-                model=self.content_model,
-                contents=full_prompt
-            )
-            self._record_call_details(start_time, response, step=step)
-            response_text = (response.text or "").strip()
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            usage = getattr(response, "usage_metadata", None)
-            input_tokens = getattr(usage, "prompt_token_count", None) if usage else None
-            output_tokens = getattr(usage, "candidates_token_count", None) if usage else None
-            log_llm_call(
-                name=step,
-                prompt=full_prompt,
-                response=response_text,
-                provider=self.content_provider,
-                model=self.content_model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                duration_ms=duration_ms,
-            )
-            return response_text
+            return self._call_llm_gemini(prompt, step=step)
         if self.content_provider == "claude":
-            start_time = time.perf_counter()
-            response = self.content_client.messages.create(
-                model=self.content_model,
-                max_tokens=max_tokens,
-                temperature=self.settings.llm.content_temperature,
-                system=self._get_system_prompt(),
-                messages=[{"role": "user", "content": prompt}]
-            )
-            self._record_call_details(start_time, response, step=step)
-            response_text = response.content[0].text
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            log_llm_call(
-                name=step,
-                prompt=f"{self._get_system_prompt()}\n\n{prompt}",
-                response=response_text,
-                provider=self.content_provider,
-                model=self.content_model,
-                duration_ms=duration_ms,
-            )
-            return response_text
-        else:  # OpenAI
-            start_time = time.perf_counter()
-            response = self.content_client.chat.completions.create(
-                model=self.content_model,
-                max_completion_tokens=max_tokens,
-                temperature=self.settings.llm.content_temperature,
-                messages=[
-                    {"role": "system", "content": self._get_system_prompt()},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            self._record_call_details(start_time, response, step=step)
-            response_text = response.choices[0].message.content
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            usage = getattr(response, "usage", None)
-            input_tokens = getattr(usage, "prompt_tokens", None) if usage else None
-            output_tokens = getattr(usage, "completion_tokens", None) if usage else None
-            log_llm_call(
-                name=step,
-                prompt=f"{self._get_system_prompt()}\n\n{prompt}",
-                response=response_text,
-                provider=self.content_provider,
-                model=self.content_model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                duration_ms=duration_ms,
-            )
-            return response_text
+            return self._call_llm_claude(prompt, max_tokens=max_tokens, step=step)
+        return self._call_llm_openai(prompt, max_tokens=max_tokens, step=step)
+
+    def _call_llm_gemini(self, prompt: str, step: str) -> str:
+        """
+        Call Gemini for content generation.
+        Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
+        """
+        start_time = time.perf_counter()
+        full_prompt = f"{self._get_system_prompt()}\n\n{prompt}"
+        response = self.content_client.models.generate_content(
+            model=self.content_model,
+            contents=full_prompt
+        )
+        self._record_call_details(start_time, response, step=step)
+        response_text = (response.text or "").strip()
+        self._log_llm_call(step, full_prompt, response_text, start_time, response)
+        return response_text
+
+    def _call_llm_claude(self, prompt: str, max_tokens: int, step: str) -> str:
+        """
+        Call Claude for content generation.
+        Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
+        """
+        start_time = time.perf_counter()
+        response = self.content_client.messages.create(
+            model=self.content_model,
+            max_tokens=max_tokens,
+            temperature=self.settings.llm.content_temperature,
+            system=self._get_system_prompt(),
+            messages=[{"role": "user", "content": prompt}]
+        )
+        self._record_call_details(start_time, response, step=step)
+        response_text = response.content[0].text
+        self._log_llm_call(step, f"{self._get_system_prompt()}\n\n{prompt}", response_text, start_time, response)
+        return response_text
+
+    def _call_llm_openai(self, prompt: str, max_tokens: int, step: str) -> str:
+        """
+        Call OpenAI for content generation.
+        Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
+        """
+        start_time = time.perf_counter()
+        response = self.content_client.chat.completions.create(
+            model=self.content_model,
+            max_completion_tokens=max_tokens,
+            temperature=self.settings.llm.content_temperature,
+            messages=[
+                {"role": "system", "content": self._get_system_prompt()},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        self._record_call_details(start_time, response, step=step)
+        response_text = response.choices[0].message.content
+        self._log_llm_call(step, f"{self._get_system_prompt()}\n\n{prompt}", response_text, start_time, response)
+        return response_text
+
+    def _log_llm_call(
+        self,
+        step: str,
+        prompt: str,
+        response_text: str,
+        start_time: float,
+        response,
+    ) -> None:
+        """
+        Log an LLM call with best-effort token usage.
+        Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
+        """
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        usage_metadata = getattr(response, "usage_metadata", None)
+        usage = getattr(response, "usage", None)
+        input_tokens = None
+        output_tokens = None
+        if usage_metadata:
+            input_tokens = getattr(usage_metadata, "prompt_token_count", None)
+            output_tokens = getattr(usage_metadata, "candidates_token_count", None)
+        if usage:
+            input_tokens = getattr(usage, "prompt_tokens", input_tokens)
+            output_tokens = getattr(usage, "completion_tokens", output_tokens)
+        log_llm_call(
+            name=step,
+            prompt=prompt,
+            response=response_text,
+            provider=self.content_provider,
+            model=self.content_model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            duration_ms=duration_ms,
+        )
 
     def _record_usage(self, step: str) -> None:
         """
@@ -676,141 +702,21 @@ Return ONLY the title, nothing else. No quotes, no explanation."""
         Get the system prompt for content generation.
         Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
         """
-        return """You are an expert technical writer who transforms raw educational content 
-(like lecture transcripts, slides, and documents) into polished, comprehensive blog posts.
-
-Hard constraints:
-- Use ONLY the provided content; do not add new facts, examples, metrics, or external context
-- Do not guess or fill gaps with invented details
-- If a detail is missing in the source, omit it
-
-Your writing style:
-- Clear, professional, and suitable for technical audiences
-- Educational with detailed explanations
-- Well-organized with numbered sections (1., 1.1, etc.)
-- Use examples/comparisons only when they appear in the source
-
-Your expertise:
-- Removing timestamps, filler words, and conversational artifacts
-- Organizing content into logical numbered sections
-- Expanding brief points using only the source information
-- Identifying where diagrams would clarify concepts
-- Creating comprehensive coverage of all topics mentioned
-
-Output format:
-- Use ## for main sections with numbers (## 1. Section Name)
-- Use ### for subsections with numbers (### 1.1 Subsection)
-- Write full paragraphs, not bullet points
-- Include visual markers where helpful
-- Preserve ALL technical content - do not skip topics"""
+        return get_content_system_prompt()
     
     def _build_generation_prompt(self, content: str, content_type: str, topic: str, is_chunk: bool = False) -> str:
         """
         Build the prompt for single content generation.
         Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
         """
-        
-        type_instructions = {
-            "transcript": "This is a lecture transcript. Remove all timestamps and conversational elements while preserving ALL educational content.",
-            "document": "This is a document. Restructure it into a clear blog format with numbered sections.",
-            "slides": "These are slide contents. Expand the bullet points into comprehensive explanations.",
-            "mixed": "This is mixed content from multiple sources. Combine and structure into a cohesive blog post."
-        }
-        
-        instruction = type_instructions.get(content_type, type_instructions["document"])
-        
-        return f"""Transform the following content into a comprehensive, well-structured educational blog post.
-
-**Content Type**: {content_type}
-**Topic**: {topic or "Detect from content"}
-**Special Instructions**: {instruction}
-
-## Requirements
-
-1. **Structure**: 
-   - Use numbered sections: ## 1. Section Name, ## 2. Next Section
-   - Use numbered subsections: ### 1.1 Subsection Name
-   - Start with an introduction paragraph
-
-2. **Content Quality**:
-   - Write complete, detailed paragraphs (not bullet points)
-   - Explain ALL technical concepts thoroughly
-   - Include examples and comparisons only if present in the source
-   - Cover EVERY topic mentioned in the source - do not skip anything
-   - Typical section should be 200-400 words
-
-3. **Source Fidelity**:
-   - Use ONLY information present in the raw content
-   - Do not add new facts, examples, metrics, or external context
-   - Do not infer missing details; omit if not provided
-
-4. **Visual Markers**: Where a diagram would help, insert:
-   [VISUAL:type:Title:Brief description]
-   
-   ONLY use these types: architecture, flowchart, comparison, concept_map, mind_map
-   - architecture: for system components and their connections
-   - flowchart: for processes and decision flows  
-   - comparison: for comparing features/approaches
-   - concept_map: for related concepts and relationships
-   - mind_map: for hierarchical topic breakdown
-   
-   Example: [VISUAL:architecture:Transformer Architecture:Show encoder-decoder with attention layers]
-
-5. **Mermaid Diagrams**: For simple concepts, include inline mermaid:
-   ```mermaid
-   graph LR
-       A[Input] --> B[Process] --> C[Output]
-   ```
-
-6. **Formatting**:
-   - Use **bold** for key terms
-   - Use `code` for technical terms
-   - End with ## Key Takeaways section
-
-## Raw Content:
-
-{content}
-
----
-
-Generate the complete blog post. Start with # Title, then ## Introduction, then numbered sections:"""
+        return build_generation_prompt(content, content_type, topic, is_chunk=is_chunk)
 
     def _build_outline_prompt(self, content: str, content_type: str, topic: str) -> str:
         """
         Build the prompt for outline generation.
         Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
         """
-        type_instructions = {
-            "transcript": "This is a lecture transcript. Remove timestamps and preserve the educational structure.",
-            "document": "This is a document. Extract the logical section structure.",
-            "slides": "These are slide contents. Derive a narrative outline from the bullet points.",
-            "mixed": "This is mixed content from multiple sources. Combine into a cohesive outline."
-        }
-
-        instruction = type_instructions.get(content_type, type_instructions["document"])
-
-        return f"""Create a blog outline from the content below.
-
-**Content Type**: {content_type}
-**Topic**: {topic or "Detect from content"}
-**Special Instructions**: {instruction}
-
-Requirements:
-1. Use ONLY information present in the content. Do not add new topics or facts.
-2. Return markdown in this exact structure:
-   # Title
-   ## Outline
-   1. Section Title
-      1.1 Subsection Title
-      1.2 Subsection Title
-   2. Next Section Title
-3. Include an Introduction section and a Key Takeaways section in the outline.
-4. Use short, clear titles (3-8 words).
-
-Content:
-{content}
-
-Return ONLY the outline in markdown. No commentary."""
+        return build_outline_prompt(content, content_type, topic)
 
     def _build_blog_from_outline_prompt(
         self,
@@ -823,65 +729,7 @@ Return ONLY the outline in markdown. No commentary."""
         Build the prompt for blog generation using an outline.
         Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
         """
-        type_instructions = {
-            "transcript": "This is a lecture transcript. Remove all timestamps and conversational elements while preserving ALL educational content.",
-            "document": "This is a document. Restructure it into a clear blog format with numbered sections.",
-            "slides": "These are slide contents. Expand the bullet points into comprehensive explanations.",
-            "mixed": "This is mixed content from multiple sources. Combine and structure into a cohesive blog post."
-        }
-
-        instruction = type_instructions.get(content_type, type_instructions["document"])
-
-        return f"""Use the outline below to write the full blog post.
-
-**Content Type**: {content_type}
-**Topic**: {topic or "Detect from content"}
-**Special Instructions**: {instruction}
-
-## Outline
-{outline}
-
-## Requirements
-
-1. **Structure**:
-   - Follow the outline structure and section titles exactly.
-   - Use numbered sections: ## 1. Section Name, ## 2. Next Section
-   - Use numbered subsections: ### 1.1 Subsection Name
-   - Start with an introduction paragraph
-
-2. **Content Quality**:
-   - Write complete, detailed paragraphs (not bullet points)
-   - Explain ALL technical concepts thoroughly
-   - Include examples and comparisons only if present in the source
-   - Cover EVERY topic mentioned in the source - do not skip anything
-
-3. **Source Fidelity**:
-   - Use ONLY information present in the raw content
-   - Do not add new facts, examples, metrics, or external context
-   - Do not infer missing details; omit if not provided
-
-4. **Visual Markers**: Where a diagram would help, insert:
-   [VISUAL:type:Title:Brief description]
-   ONLY use these types: architecture, flowchart, comparison, concept_map, mind_map
-
-5. **Mermaid Diagrams**: For simple concepts, include inline mermaid:
-   ```mermaid
-   graph LR
-       A[Input] --> B[Process] --> C[Output]
-   ```
-
-6. **Formatting**:
-   - Use **bold** for key terms
-   - Use `code` for technical terms
-   - End with ## Key Takeaways section
-
-## Raw Content:
-
-{content}
-
----
-
-Generate the complete blog post. Start with # Title, then ## Introduction, then numbered sections:"""
+        return build_blog_from_outline_prompt(content, content_type, topic, outline)
     
     def _build_chunk_prompt(
         self,
@@ -897,84 +745,15 @@ Generate the complete blog post. Start with # Title, then ## Introduction, then 
         Build prompt for processing a content chunk.
         Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
         """
-        
-        position = "beginning" if chunk_index == 0 else "middle" if chunk_index < total_chunks - 1 else "end"
-        
-        outline_block = f"\nOutline:\n{outline}\n" if outline else ""
-        context = f"""You are processing part {chunk_index + 1} of {total_chunks} of a {content_type}.
-This is the {position} of the document.
-Topic: {topic}
-Start section numbering from: {section_start}
-Use the outline to keep section titles consistent; only write sections supported by this chunk.{outline_block}"""
-        
-        if chunk_index == 0:
-            # First chunk - include title and introduction
-            return f"""{context}
-
-Transform this content into the BEGINNING of a comprehensive blog post.
-
-Requirements:
-- Start with # [Generate appropriate title]
-- Include ## Introduction paragraph
-- Use numbered sections starting from ## {section_start}. Section Name
-- Write detailed paragraphs, not bullet points
-- Include [VISUAL:type:title:description] markers where diagrams would help
-  (ONLY use types: architecture, flowchart, comparison, concept_map, mind_map)
-- Cover ALL topics in this chunk - do not skip anything
-- Use ONLY information in this chunk; do not add new details
-
-Content:
-
-{chunk}
-
----
-
-Generate the blog post beginning:"""
-        
-        elif chunk_index == total_chunks - 1:
-            # Last chunk - include conclusion
-            return f"""{context}
-
-Transform this content into the FINAL sections of a blog post.
-
-Requirements:
-- Continue section numbering from {section_start}
-- Use numbered sections: ## {section_start}. Section Name
-- Write detailed paragraphs
-- Include visual markers where helpful
-- End with ## Key Takeaways section summarizing main points
-- Cover ALL topics in this chunk
-- Use ONLY information in this chunk; do not add new details
-
-Content:
-
-{chunk}
-
----
-
-Generate the blog post conclusion sections:"""
-        
-        else:
-            # Middle chunk
-            return f"""{context}
-
-Transform this content into MIDDLE sections of a blog post.
-
-Requirements:
-- Continue section numbering from {section_start}
-- Use numbered sections: ## {section_start}. Section Name
-- Write detailed paragraphs
-- Include visual markers where helpful
-- Cover ALL topics in this chunk - do not skip anything
-- Use ONLY information in this chunk; do not add new details
-
-Content:
-
-{chunk}
-
----
-
-Generate the blog post middle sections:"""
+        return build_chunk_prompt(
+            chunk=chunk,
+            chunk_index=chunk_index,
+            total_chunks=total_chunks,
+            content_type=content_type,
+            topic=topic,
+            section_start=section_start,
+            outline=outline,
+        )
     
     def _extract_visual_markers(self, text: str, start_index: int = 0) -> list[VisualMarker]:
         """
@@ -1106,135 +885,6 @@ Generate the blog post middle sections:"""
         if match:
             return match.group(1).strip()
         return fallback
-    
-    def generate_visual_data(self, marker: VisualMarker, context: str = "") -> dict:
-        """
-        Generate structured data for a visual marker using Claude (preferred for diagrams).
-
-        Args:
-            marker: The visual marker to generate data for
-            context: Surrounding content for context
-
-        Returns:
-            Structured data dictionary for SVG generation
-        Invoked by: (no references found)
-        """
-        # Use visual client (Claude preferred) for diagram data generation
-        if self.visual_client is None:
-            return {}
-
-        prompt = self._build_visual_data_prompt(marker, context)
-
-        try:
-            start_time = time.perf_counter()
-            if self.visual_provider == "claude":
-                response = self.visual_client.messages.create(
-                    model=self.visual_model,
-                    max_tokens=2000,
-                    temperature=self.settings.llm.svg_temperature,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                result = response.content[0].text
-                duration_ms = int((time.perf_counter() - start_time) * 1000)
-                log_llm_call(
-                    name="visual_data",
-                    prompt=prompt,
-                    response=result,
-                    provider=self.visual_provider,
-                    model=self.visual_model,
-                    duration_ms=duration_ms,
-                    metadata={"visual_type": marker.visual_type, "title": marker.title},
-                )
-            else:  # OpenAI fallback
-                response = self.visual_client.chat.completions.create(
-                    model=self.visual_model,
-                    max_completion_tokens=2000,
-                    temperature=self.settings.llm.svg_temperature,
-                    response_format={"type": "json_object"},
-                    messages=[
-                        {"role": "system", "content": "You are a diagram data generator. Always respond with valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                result = response.choices[0].message.content
-                duration_ms = int((time.perf_counter() - start_time) * 1000)
-                usage = getattr(response, "usage", None)
-                input_tokens = getattr(usage, "prompt_tokens", None) if usage else None
-                output_tokens = getattr(usage, "completion_tokens", None) if usage else None
-                log_llm_call(
-                    name="visual_data",
-                    prompt=prompt,
-                    response=result,
-                    provider=self.visual_provider,
-                    model=self.visual_model,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    duration_ms=duration_ms,
-                    metadata={"visual_type": marker.visual_type, "title": marker.title},
-                )
-
-            # Parse JSON from response
-            if "```json" in result:
-                result = result.split("```json")[1].split("```")[0]
-            elif "```" in result:
-                result = result.split("```")[1].split("```")[0]
-
-            data = json.loads(result.strip())
-            logger.debug(f"Generated visual data for {marker.title}: {list(data.keys())}")
-            return data
-
-        except Exception as e:
-            logger.error(f"Failed to generate visual data for {marker.title}: {e}")
-            return {}
-    
-    def _build_visual_data_prompt(self, marker: VisualMarker, context: str) -> str:
-        """
-        Build prompt for generating visual data.
-        Invoked by: src/doc_generator/infrastructure/llm/content_generator.py
-        """
-        
-        data_formats = {
-            "architecture": """{
-  "components": [{"id": "1", "name": "Component Name", "layer": "frontend|backend|database|external"}],
-  "connections": [{"from": "1", "to": "2", "label": "connection type"}]
-}""",
-            "flowchart": """{
-  "nodes": [{"id": "1", "type": "start|end|process|decision", "text": "Node text"}],
-  "edges": [{"from": "1", "to": "2", "label": "optional label"}]
-}""",
-            "comparison": """{
-  "items": ["Option A", "Option B"],
-  "categories": [{"name": "Category", "scores": [8, 6]}]
-}""",
-            "concept_map": """{
-  "concepts": [{"id": "1", "text": "Concept", "level": 0}],
-  "relationships": [{"from": "1", "to": "2", "label": "relates to"}]
-}""",
-            "mind_map": """{
-  "central": "Main Topic",
-  "branches": [{"text": "Branch 1", "children": ["Sub 1.1", "Sub 1.2"]}]
-}"""
-        }
-        
-        format_example = data_formats.get(marker.visual_type, data_formats["flowchart"])
-        
-        return f"""Generate structured data for a {marker.visual_type} diagram.
-
-**Title**: {marker.title}
-**Description**: {marker.description}
-**Context**: {context[:500] if context else "No additional context"}
-
-Generate JSON data in this format:
-{format_example}
-
-Requirements:
-- Keep text labels SHORT (max 20 characters) to prevent overlap
-- Include 4-8 elements for clarity
-- Make connections logical based on the description
-- Use clear, concise names
-
-Respond with ONLY valid JSON, no explanations:"""
-
 
 def get_content_generator(api_key: Optional[str] = None) -> LLMContentGenerator:
     """

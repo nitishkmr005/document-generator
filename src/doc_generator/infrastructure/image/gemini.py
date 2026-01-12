@@ -14,6 +14,7 @@ from typing import Optional
 from loguru import logger
 
 from ...domain.content_types import ImageType
+from ...domain.prompts.image_generation_prompts import build_gemini_image_prompt
 from ..observability.opik import log_llm_call
 from ..settings import get_settings
 
@@ -118,53 +119,7 @@ class GeminiImageGenerator:
         Invoked by: src/doc_generator/infrastructure/image/gemini.py
         """
         size_hint = f"- Target size: {self.settings.default_width}x{self.settings.default_height}px"
-        if image_type == ImageType.INFOGRAPHIC:
-            return f"""Create a vibrant, educational infographic that explains: {prompt}
-
-Style requirements:
-- Clean, modern infographic design
-- Use clear icons only when they represent actual concepts
-- Include clear labels and annotations
-- Use a professional color palette (blues, teals, oranges)
-- Make it suitable for inclusion in a professional document
-- No text-heavy design - focus on visual explanation
-- High contrast for readability when printed
-- Use ONLY the concepts in the prompt; do not add new information
-- Avoid metaphorical objects (pipes, ropes, factories) unless explicitly mentioned
-- For workflows/architectures, use flat rounded rectangles + arrows in a clean grid
-{size_hint}"""
-
-        elif image_type == ImageType.DECORATIVE:
-            return f"""Create a professional, thematic header image for: {prompt}
-
-Style requirements:
-- Abstract or semi-abstract design
-- Professional and modern aesthetic
-- Subtle and elegant - not distracting
-- Use muted, professional colors
-- Suitable as a section header in a document
-- Wide aspect ratio (16:9 or similar)
-- No text in the image
-- Use ONLY the concepts in the prompt; do not add new information
-{size_hint}"""
-
-        elif image_type == ImageType.MERMAID:
-            return f"""Create a professional, clean flowchart/diagram image that represents: {prompt}
-
-Style requirements:
-- Clean, modern diagram design with clear flow
-- Use boxes, arrows, and connections to show relationships
-- Professional color scheme (blues, grays, with accent colors)
-- Include clear labels for each step/component
-- Make it suitable for inclusion in a corporate document
-- High contrast for readability when printed
-- No watermarks or decorative elements
-- Focus on clarity and visual hierarchy
-- Use ONLY the concepts in the prompt; do not add new information
-{size_hint}"""
-
-        else:
-            return prompt
+        return build_gemini_image_prompt(image_type, prompt, size_hint)
 
     def generate_image(
         self,
