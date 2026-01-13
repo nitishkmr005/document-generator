@@ -9,6 +9,7 @@ from typing import Optional
 
 from loguru import logger
 
+from ...settings import get_settings
 from ..schemas.requests import GenerateRequest
 
 
@@ -17,7 +18,7 @@ class CacheService:
 
     def __init__(
         self,
-        cache_dir: Path = Path("src/output/cache"),
+        cache_dir: Path | None = None,
         ttl_seconds: int = 86400,  # 24 hours
     ):
         """Initialize cache service.
@@ -27,6 +28,8 @@ class CacheService:
             ttl_seconds: Time-to-live for cache entries
         Invoked by: (no references found)
         """
+        if cache_dir is None:
+            cache_dir = get_settings().generator.cache_dir
         self.cache_dir = Path(cache_dir)
         self.ttl_seconds = ttl_seconds
         self.cache_dir.mkdir(parents=True, exist_ok=True)

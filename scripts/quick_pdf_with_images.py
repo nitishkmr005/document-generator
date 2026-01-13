@@ -5,7 +5,7 @@ Quick PDF generation using existing images.
 Usage:
     python scripts/quick_pdf_with_images.py <input_file>
 
-This will generate a PDF using the existing images in src/output/images/
+This will generate a PDF using the existing images in src/data/output/images/
 without regenerating them.
 """
 
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python scripts/quick_pdf_with_images.py <input_file>")
         print("\nExample:")
-        print("  python scripts/quick_pdf_with_images.py src/data/llm-architectures/Transformers-Internals_slides.pdf")
+        print("  python scripts/quick_pdf_with_images.py src/data/input/llm-architectures/Transformers-Internals_slides.pdf")
         sys.exit(1)
     
     input_file = sys.argv[1]

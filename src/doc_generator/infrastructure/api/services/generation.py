@@ -14,6 +14,7 @@ from ....application.parsers import get_parser
 from ....domain.content_types import ContentFormat
 from ....infrastructure.llm import LLMService
 from ....infrastructure.logging_config import log_phase, log_separator, log_stats, log_success
+from ....infrastructure.settings import get_settings
 from ..schemas.requests import (
     FileSource,
     GenerateRequest,
@@ -321,8 +322,10 @@ class GenerationService:
             raise ValueError("No valid sources provided")
 
         combined = self._merge_markdown_sources(parsed_blocks)
-        # StorageService.upload_dir: base directory for temporary input file.
-        temp_path = self.storage.upload_dir / f"temp_input_{uuid.uuid4().hex}.md"
+        settings = get_settings()
+        temp_dir = settings.generator.temp_dir
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = temp_dir / f"temp_input_{uuid.uuid4().hex}.md"
         temp_path.write_text(combined, encoding="utf-8")
         logger.info(f"Created temp input file: {temp_path}")
         return temp_path, file_id

@@ -2,7 +2,7 @@
 """
 Batch process all topic folders in the data directory.
 
-This script discovers all subdirectories in src/data/ and processes each one
+This script discovers all subdirectories in src/data/input/ and processes each one
 as a separate topic, generating combined PDF and PPTX for each folder.
 
 Usage:
@@ -53,7 +53,7 @@ def discover_topic_folders(data_dir: Path) -> list[Path]:
 
 def batch_process_topics(
     data_dir: Path = Path("src/data"),
-    output_dir: Path = Path("src/output"),
+    output_dir: Path = Path("src/data/output"),
     skip_images: bool = False,
     api_key: str = None,
     verbose: bool = False
@@ -219,8 +219,8 @@ Examples:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="src/output",
-        help="Output directory (default: src/output)"
+        default="src/data/output",
+        help="Output directory (default: src/data/output)"
     )
     
     parser.add_argument(

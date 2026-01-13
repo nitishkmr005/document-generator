@@ -413,8 +413,8 @@ Examples:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="src/output",
-        help="Output directory (default: src/output)"
+        default="src/data/output",
+        help="Output directory (default: src/data/output)"
     )
 
     parser.add_argument(

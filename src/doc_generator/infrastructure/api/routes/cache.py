@@ -12,8 +12,8 @@ from ...settings import get_settings
 router = APIRouter(tags=["cache"])
 
 # Base output directory
-OUTPUT_BASE = Path("src/output")
-CACHE_DIR = OUTPUT_BASE / "cache"
+OUTPUT_BASE = get_settings().generator.output_dir
+CACHE_DIR = get_settings().generator.cache_dir
 
 
 class ClearResponse(BaseModel):

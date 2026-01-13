@@ -4,10 +4,11 @@
 
 generator:
   # Input/output directories
-  input_dir: "src/data"
-  output_dir: "src/output"
-  visuals_dir: "src/output/visuals"
-  temp_dir: "src/output/temp"
+  input_dir: "src/data/input"
+  output_dir: "src/data/output"
+  visuals_dir: "src/data/output/visuals"
+  temp_dir: "src/data/output/temp"
+  cache_dir: "src/data/cache"
 
   # Default output format (pdf or pptx)
   default_output_format: "pdf"
@@ -141,7 +142,7 @@ image_generation:
   gemini_request_delay: 3.0 # seconds between requests
 
   # Image storage and embedding
-  images_dir: "src/output/images"
+  images_dir: "src/data/output/images"
   embed_in_pdf: true
   embed_in_pptx: false
 

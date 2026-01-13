@@ -6,12 +6,13 @@ from pathlib import Path
 
 from loguru import logger
 
+from ..settings import get_settings
 
 class StorageService:
     """Manages uploads and generated outputs with organized folder structure.
     
     Directory structure:
-        output/
+        data/output/
             <file_id>/
                 source/      - Original uploaded files
                 images/      - Generated images
@@ -22,7 +23,8 @@ class StorageService:
 
     def __init__(
         self,
-        base_output_dir: Path = Path("src/output"),
+        base_output_dir: Path | None = None,
+        cache_dir: Path | None = None,
         base_url: str = "/api/download",
     ):
         """Initialize storage service.
@@ -32,8 +34,14 @@ class StorageService:
             base_url: Base URL for download links
         Invoked by: (no references found)
         """
+        settings = get_settings()
+        if base_output_dir is None:
+            base_output_dir = settings.generator.output_dir
+        if cache_dir is None:
+            cache_dir = settings.generator.cache_dir
+
         self.base_output_dir = Path(base_output_dir)
-        self.cache_dir = self.base_output_dir / "cache"
+        self.cache_dir = Path(cache_dir)
         self.base_url = base_url
 
         # Ensure base directories exist
@@ -78,7 +86,7 @@ class StorageService:
         """Save uploaded file and return file_id.
 
         Creates organized folder structure:
-        output/<file_id>/source/<original_filename>
+        data/output/<file_id>/source/<original_filename>
 
         Args:
             content: File content bytes
@@ -295,4 +303,3 @@ class StorageService:
         Invoked by: .claude/skills/pdf/scripts/convert_pdf_to_images.py, .claude/skills/pptx/ooxml/scripts/unpack.py, .claude/skills/skill-creator/scripts/package_skill.py, scripts/batch_process_topics.py, scripts/generate_from_folder.py, src/doc_generator/application/nodes/generate_images.py, src/doc_generator/application/nodes/generate_output.py, src/doc_generator/application/workflow/nodes/generate_images.py, src/doc_generator/application/workflow/nodes/generate_output.py, src/doc_generator/utils/content_merger.py
         """
         return self.base_output_dir
-

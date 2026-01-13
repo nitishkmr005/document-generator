@@ -211,8 +211,8 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python scripts/validate_pdf.py <pdf-file> [source-markdown-file]")
         print("\nExample:")
-        print("  python scripts/validate_pdf.py src/output/test/document.pdf")
-        print("  python scripts/validate_pdf.py src/output/test/document.pdf src/data/document.md")
+        print("  python scripts/validate_pdf.py src/data/output/test/document.pdf")
+        print("  python scripts/validate_pdf.py src/data/output/test/document.pdf src/data/input/document.md")
         sys.exit(1)
     
     pdf_path = Path(sys.argv[1])

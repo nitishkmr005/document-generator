@@ -32,7 +32,7 @@ def save_structured_content(
     Invoked by: src/doc_generator/application/nodes/generate_output.py, src/doc_generator/application/workflow/nodes/generate_output.py
     """
     if cache_dir is None:
-        cache_dir = get_settings().generator.output_dir / "cache"
+        cache_dir = get_settings().generator.cache_dir
     cache_dir.mkdir(parents=True, exist_ok=True)
     
     # Create cache filename from input path
@@ -68,7 +68,7 @@ def load_structured_content(
     Invoked by: src/doc_generator/application/nodes/transform_content.py, src/doc_generator/application/workflow/nodes/transform_content.py
     """
     if cache_dir is None:
-        cache_dir = get_settings().generator.output_dir / "cache"
+        cache_dir = get_settings().generator.cache_dir
     input_name = Path(input_path).stem
     cache_file = cache_dir / f"{input_name}_content_cache.json"
     
@@ -228,7 +228,7 @@ def load_existing_images(
     return section_images
 
 
-def clear_cache(cache_dir: Path = Path("src/output/cache")) -> None:
+def clear_cache(cache_dir: Path = Path("src/data/cache")) -> None:
     """
     Clear all cached content files.
     

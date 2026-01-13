@@ -68,7 +68,9 @@ Store in `src/data/logging/YYYY-MM-DD_HH-MM-SS_llm_calls.json`:
   "model": "gemini-2.5-pro",
   "input_tokens": 1234,
   "output_tokens": 456,
-  "latency_seconds": 2.34
+  "latency_seconds": 2.34,
+  "prompt": "[truncated to 4k]",
+  "response": "[truncated to 4k]"
 }
 ```
 

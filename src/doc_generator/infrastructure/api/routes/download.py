@@ -6,10 +6,12 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from loguru import logger
 
+from ...settings import get_settings
+
 router = APIRouter(tags=["download"])
 
 # Base output directory
-OUTPUT_BASE = Path("src/output")
+OUTPUT_BASE = get_settings().generator.output_dir
 
 
 def find_file(file_path: str) -> Path | None:

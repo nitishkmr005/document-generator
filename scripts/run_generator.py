@@ -33,13 +33,13 @@ def main():
         epilog="""
 Examples:
   # Markdown to PDF
-  python scripts/run_generator.py src/data/article.md --output pdf
+  python scripts/run_generator.py src/data/input/article.md --output pdf
 
   # Web article to PPTX (with LLM enhancement)
   python scripts/run_generator.py https://example.com/article --output pptx --api-key YOUR_KEY
 
   # PDF to PPTX (extract and convert)
-  python scripts/run_generator.py src/data/document.pdf --output pptx
+  python scripts/run_generator.py src/data/input/document.pdf --output pptx
 
   # With verbose logging
   python scripts/run_generator.py input.md --output pdf --verbose

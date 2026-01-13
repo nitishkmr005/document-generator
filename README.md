@@ -169,25 +169,25 @@ Edit `config/settings.yaml` to customize:
 make run-llm-architectures
 
 # Or use the shell script directly
-bash run.sh src/data/llm-architectures --verbose
+bash run.sh src/data/input/llm-architectures --verbose
 ```
 
 **Single File Processing**:
 ```bash
 # Using make (single output format)
-make run-docgen INPUT=src/data/article.md OUTPUT=pdf
+make run-docgen INPUT=src/data/input/article.md OUTPUT=pdf
 
 # Using run.sh (generates both PDF and PPTX)
-bash run.sh src/data/article.md --verbose
+bash run.sh src/data/input/article.md --verbose
 
 # Using Python directly
-python scripts/run_generator.py src/data/article.md --output pdf
+python scripts/run_generator.py src/data/input/article.md --output pdf
 ```
 
 **Folder Processing**:
 ```bash
 # Process all files in a folder
-python scripts/generate_from_folder.py src/data/llm-architectures --verbose
+python scripts/generate_from_folder.py src/data/input/llm-architectures --verbose
 
 # The script will:
 # 1. Parse all supported files (PDF, MD, TXT, DOCX, PPTX)
@@ -201,7 +201,7 @@ python scripts/generate_from_folder.py src/data/llm-architectures --verbose
 python scripts/run_generator.py https://example.com/article --output pptx
 
 # PDF to PPTX (extract and convert)
-python scripts/run_generator.py src/data/document.pdf --output pptx
+python scripts/run_generator.py src/data/input/document.pdf --output pptx
 
 # With verbose logging
 python scripts/run_generator.py input.md --output pdf --verbose
@@ -217,25 +217,25 @@ python scripts/run_generator.py input.md --output pdf --log-file output.log
 # Markdown to PDF
 docker run --rm \
   -v $(pwd)/src/data:/app/src/data \
-  -v $(pwd)/src/output:/app/src/output \
-  doc-generator:latest src/data/article.md --output pdf
+  -v $(pwd)/src/data/output:/app/src/data/output \
+  doc-generator:latest src/data/input/article.md --output pdf
 
 # Web article to PPTX (no input mount needed)
 docker run --rm \
-  -v $(pwd)/src/output:/app/src/output \
+  -v $(pwd)/src/data/output:/app/src/data/output \
   doc-generator:latest https://example.com/article --output pptx
 ```
 
 **Using Makefile**:
 ```bash
-make docker-run INPUT=src/data/article.md OUTPUT=pdf
+make docker-run INPUT=src/data/input/article.md OUTPUT=pdf
 ```
 
 **Using Docker Compose**:
 
 1. Edit `docker-compose.yaml` to set the command:
    ```yaml
-   command: ["src/data/sample.md", "--output", "pdf"]
+   command: ["src/data/input/sample.md", "--output", "pdf"]
    ```
 
 2. Run:
@@ -252,7 +252,7 @@ from doc_generator.application.graph_workflow import run_workflow
 
 # Run workflow
 result = run_workflow(
-    input_path="src/data/article.md",
+    input_path="src/data/input/article.md",
     output_format="pdf"
 )
 
@@ -335,9 +335,9 @@ docker push your-registry/doc-generator:v1.0.0
 docker run -d \
   --name doc-generator \
   -v /path/to/data:/app/src/data \
-  -v /path/to/output:/app/src/output \
+  -v /path/to/output:/app/src/data/output \
   -e LOG_LEVEL=INFO \
-  doc-generator:latest src/data/input.md --output pdf
+  doc-generator:latest src/data/input/article.md --output pdf
 ```
 
 ## Development

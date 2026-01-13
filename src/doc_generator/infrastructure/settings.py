@@ -173,10 +173,11 @@ class LoggingSettings(BaseSettings):
 class GeneratorSettings(BaseSettings):
     """Generator-specific settings."""
 
-    input_dir: Path = Path("src/data")
-    output_dir: Path = Path("src/output")
-    visuals_dir: Path = Path("src/output/visuals")
-    temp_dir: Path = Path("src/output/temp")
+    input_dir: Path = Path("src/data/input")
+    output_dir: Path = Path("src/data/output")
+    visuals_dir: Path = Path("src/data/output/visuals")
+    temp_dir: Path = Path("src/data/output/temp")
+    cache_dir: Path = Path("src/data/cache")
     default_output_format: str = "pdf"
     max_retries: int = Field(default=3, ge=1, le=10)
     reuse_cache_by_default: bool = True
@@ -226,7 +227,7 @@ class ImageGenerationSettings(BaseSettings):
     gemini_request_delay: float = 3.0  # seconds between requests
 
     # Image storage
-    images_dir: Path = Path("src/output/images")
+    images_dir: Path = Path("src/data/output/images")
     embed_in_pdf: bool = True
     embed_in_pptx: bool = False
 
