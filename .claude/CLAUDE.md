@@ -1,65 +1,51 @@
 # Claude Code Instructions
 
 ## Read Order (optimize context)
+
 1. `docs/project/STATUS.md` - current state
 2. `docs/project/SPEC.md` - what we're building
-3. `docs/architecture/architecture.md` - system design
-4. Code files only when needed
-
-## SPEC Format
-Keep `docs/project/SPEC.md` in this structure:
-- Project Name
-- Overview
-- Product Purpose
-- Who Is This Product For
-- Problems It Solves
-- What the Product Does
-- Functionality
-- Goals
-- Features (Input Formats, Output Formats, Advanced Features)
-- Tech Stack
-- Architecture
-- Constraints
-- Success Criteria
+3. Reference guides below as needed
 
 ## Commands
-```bash
-make setup | run | test | lint | all
-```
 
-## Layout
-```
-src/{project}/domain|application|infrastructure/
-docs/
-├── architecture/architecture.md
-├── claude-code/                   # hooks, mcp-servers, skills, subagents
-├── guides/setup.md
-├── learnings/YYYY-MM-DD-session.md
-├── plans/YYYY-MM-DD-topic.md
-└── project/                       # DECISIONS, MILESTONES, SPEC, STATUS
+```bash
+make setup    # Setup environment
+make run      # Run application
+make test     # Run tests (before commit)
+make lint     # Lint code (after changes)
+make help     # Show all commands
 ```
 
 ## Skills
-- `/session-start` - read STATUS, suggest tasks
+
 - `/session-end` - update STATUS, optional retro
 - `/update-status` - update STATUS.md
 - `/retro` - create learnings file
+- `/brainstorm` - ALWAYS before new project/feature
 
 ## Workflow
-1. Read docs first, code only when needed
-3. `make lint` after changes
-4. `make test` before commit
+
+1. **Brainstorm first** - before any new project or feature
+2. **Ask questions** - before creating any `.md` file
+3. **Read docs first** - code only when needed
+4. **Lint and test** - `make lint` after changes, `make test` before commit
 
 ## Principles
+
 - Simplicity over complexity
 - No premature abstraction
 - Evidence before assertions
 
-## Logging Format (Generic)
-Use a consistent, high-signal CLI log layout with a header, step list, optional LLM table, and completion summary. Keep it concise.
-Progress lines like `[1/5] Step Name` with short sub-lines (e.g., reuse/cache notes) are required. Use emojis where appropriate.
+## Reference Guides
 
-Notes:
-- Keep table columns aligned with fixed spacing.
-- Use seconds (two decimals).
-- Include LLM call table when available.
+Read these on first-time project setup or when starting specific tasks:
+
+| Guide                                              | When to Use                     |
+| -------------------------------------------------- | ------------------------------- |
+| [Architecture](docs/claude-code/architecture.md)   | Setting up clean architecture   |
+| [Setup](docs/claude-code/setup.md)                 | Python/uv/Docker/Makefile setup |
+| [Logging](docs/claude-code/logging.md)             | Loguru + Opik observability     |
+| [Documentation](docs/claude-code/documentation.md) | Creating any `.md` files        |
+| [SPEC Template](docs/claude-code/spec-template.md) | Writing product specifications  |
+| [Blog Template](docs/claude-code/blog-template.md) | Writing technical blogs         |
+| [Config](docs/claude-code/config.md)               | YAML + Pydantic + .env patterns |

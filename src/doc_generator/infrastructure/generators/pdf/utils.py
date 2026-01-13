@@ -92,11 +92,18 @@ def inline_md(text: str) -> str:
         Text with HTML formatting for ReportLab
     Invoked by: src/doc_generator/infrastructure/generators/pdf/utils.py, src/doc_generator/infrastructure/pdf_utils.py
     """
-    safe = html.escape(text)
-    safe = re.sub(r"`([^`]+)`", r"<font face='Courier'>\1</font>", safe)
-    safe = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", safe)
-    safe = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", safe)
-    return safe
+    parts = re.split(r"(`[^`]+`)", text)
+    rendered: list[str] = []
+    for part in parts:
+        if part.startswith("`") and part.endswith("`") and len(part) >= 2:
+            code = html.escape(part[1:-1])
+            rendered.append(f"<font face='Courier'>{code}</font>")
+            continue
+        safe = html.escape(part)
+        safe = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", safe)
+        safe = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", safe)
+        rendered.append(safe)
+    return "".join(rendered)
 
 
 def parse_table(table_lines: list[str]) -> list[list[str]]:
@@ -422,7 +429,7 @@ def make_image_flowable(
     return flow
 
 
-def make_code_block(code: str, styles: dict) -> Table:
+def make_code_block(code: str, styles: dict, max_height: float = 8.5 * inch) -> list:
     """
     Create formatted code block.
 
@@ -431,20 +438,31 @@ def make_code_block(code: str, styles: dict) -> Table:
         styles: ReportLab styles dictionary
 
     Returns:
-        Table flowable with code block styling
+        List of flowables with code block styling
     Invoked by: (no references found)
     """
-    block = Preformatted(code, styles["CodeBlock"])
-    table = Table([[block]], colWidths=[6.9 * inch])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), PALETTE["code"]),
-        ("BOX", (0, 0), (-1, -1), 0.8, PALETTE["line"]),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    return table
+    lines = code.splitlines() or [""]
+    leading = styles["CodeBlock"].leading or (styles["CodeBlock"].fontSize * 1.2)
+    max_lines = max(1, int((max_height - 12) // leading))
+
+    flow: list = []
+    for i in range(0, len(lines), max_lines):
+        chunk = "\n".join(lines[i:i + max_lines])
+        block = Preformatted(chunk, styles["CodeBlock"])
+        table = Table([[block]], colWidths=[6.9 * inch])
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), PALETTE["code"]),
+            ("BOX", (0, 0), (-1, -1), 0.8, PALETTE["line"]),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        flow.append(table)
+        if i + max_lines < len(lines):
+            flow.append(Spacer(1, 6))
+
+    return flow
 
 
 def render_mermaid(

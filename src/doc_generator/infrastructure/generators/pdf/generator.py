@@ -341,7 +341,7 @@ class PDFGenerator:
 
             elif kind == "code":
                 story.append(Spacer(1, 8))
-                story.append(make_code_block(content_item, self.styles))
+                story.extend(make_code_block(content_item, self.styles))
                 story.append(Spacer(1, 8))
 
             elif kind == "table":
