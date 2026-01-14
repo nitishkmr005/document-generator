@@ -27,6 +27,7 @@ class WorkflowState(TypedDict, total=False):
         metadata: Additional metadata (title, author, etc.)
         llm_service: Optional LLM service for content enhancement
     """
+
     input_path: str
     input_format: str
     output_format: str
@@ -49,8 +50,8 @@ class GeneratorConfig(BaseModel):
         max_retries: Maximum generation retries
     """
 
-    input_dir: Path = Field(default=Path("src/data/input"))
-    output_dir: Path = Field(default=Path("src/data/output"))
+    input_dir: Path = Field(default=Path("backend/data/input"))
+    output_dir: Path = Field(default=Path("backend/data/output"))
     default_output_format: OutputFormat = Field(default=OutputFormat.PDF)
     max_retries: int = Field(default=3, ge=1, le=5)
 

@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 _client: Any | None = None
 _enabled: bool | None = None
-_log_dir = Path("src/data/logging")
+_log_dir = Path("backend/data/logging")
 
 
 def _truncate(text: str | None, limit: int = 4000) -> str:
@@ -183,7 +183,9 @@ def _write_llm_call_log(
             "response": _truncate(response),
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
-            "latency_seconds": (duration_ms / 1000.0) if duration_ms is not None else None,
+            "latency_seconds": (
+                (duration_ms / 1000.0) if duration_ms is not None else None
+            ),
         }
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     except Exception as exc:

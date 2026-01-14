@@ -112,7 +112,9 @@ class PdfSettings(BaseSettings):
     palette: PdfPaletteSettings = Field(default_factory=PdfPaletteSettings)
     toc: PdfTocSettings = Field(default_factory=PdfTocSettings)
     code: PdfCodeSettings = Field(default_factory=PdfCodeSettings)
-    header_footer: PdfHeaderFooterSettings = Field(default_factory=PdfHeaderFooterSettings)
+    header_footer: PdfHeaderFooterSettings = Field(
+        default_factory=PdfHeaderFooterSettings
+    )
     typography: PdfTypographySettings = Field(default_factory=PdfTypographySettings)
     metadata: PdfMetadataSettings = Field(default_factory=PdfMetadataSettings)
     quality: PdfQualitySettings = Field(default_factory=PdfQualitySettings)
@@ -173,11 +175,11 @@ class LoggingSettings(BaseSettings):
 class GeneratorSettings(BaseSettings):
     """Generator-specific settings."""
 
-    input_dir: Path = Path("src/data/input")
-    output_dir: Path = Path("src/data/output")
-    visuals_dir: Path = Path("src/data/output/visuals")
-    temp_dir: Path = Path("src/data/output/temp")
-    cache_dir: Path = Path("src/data/cache")
+    input_dir: Path = Path("backend/data/input")
+    output_dir: Path = Path("backend/data/output")
+    visuals_dir: Path = Path("backend/data/output/visuals")
+    temp_dir: Path = Path("backend/data/output/temp")
+    cache_dir: Path = Path("backend/data/cache")
     default_output_format: str = "pdf"
     max_retries: int = Field(default=3, ge=1, le=10)
     reuse_cache_by_default: bool = True
@@ -196,11 +198,10 @@ class LlmSettings(BaseSettings):
     content_json_mode: bool = True
     content_single_chunk_char_limit: int = 30000
     content_chunk_char_limit: int = 30000
-    
+
     # Legacy model setting (fallback)
     model: str = "gemini-2.5-flash"
 
-    
     # Summary and slide generation
     max_summary_points: int = 5
     max_slides: int = 10
@@ -227,7 +228,7 @@ class ImageGenerationSettings(BaseSettings):
     gemini_request_delay: float = 3.0  # seconds between requests
 
     # Image storage
-    images_dir: Path = Path("src/data/output/images")
+    images_dir: Path = Path("backend/data/output/images")
     embed_in_pdf: bool = True
     embed_in_pptx: bool = False
 
@@ -255,7 +256,9 @@ class Settings(BaseSettings):
     pptx: PptxSettings = Field(default_factory=PptxSettings)
     parsers: ParserSettings = Field(default_factory=ParserSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
-    image_generation: ImageGenerationSettings = Field(default_factory=ImageGenerationSettings)
+    image_generation: ImageGenerationSettings = Field(
+        default_factory=ImageGenerationSettings
+    )
 
     class Config:
         env_prefix = "DOC_GENERATOR_"
