@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -30,9 +31,14 @@ export function GenerationProgress({
   metadata,
   onReset,
 }: GenerationProgressProps) {
+  const [showPreview, setShowPreview] = useState(true);
+
   if (state === "idle") {
     return null;
   }
+
+  const isPdf = downloadUrl?.toLowerCase().includes(".pdf") || downloadUrl?.includes("/pdf/");
+  const isPptx = downloadUrl?.toLowerCase().includes(".pptx") || downloadUrl?.includes("/pptx/");
 
   return (
     <Card className="w-full">
@@ -92,11 +98,29 @@ export function GenerationProgress({
               </AlertDescription>
             </Alert>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {downloadUrl && (
                 <Button asChild>
                   <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
                     Download Document
+                  </a>
+                </Button>
+              )}
+              {downloadUrl && isPdf && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowPreview(!showPreview)}
+                >
+                  {showPreview ? "Hide Preview" : "Show Preview"}
+                </Button>
+              )}
+              {downloadUrl && isPptx && (
+                <Button
+                  variant="secondary"
+                  asChild
+                >
+                  <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                    Open in New Tab
                   </a>
                 </Button>
               )}
@@ -106,6 +130,27 @@ export function GenerationProgress({
                 </Button>
               )}
             </div>
+
+            {/* PDF Preview */}
+            {downloadUrl && isPdf && showPreview && (
+              <div className="mt-4 border rounded-lg overflow-hidden bg-muted">
+                <div className="bg-muted px-4 py-2 border-b flex items-center justify-between">
+                  <span className="text-sm font-medium">Document Preview</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(downloadUrl, "_blank")}
+                  >
+                    Open in New Tab
+                  </Button>
+                </div>
+                <iframe
+                  src={downloadUrl}
+                  className="w-full h-[600px] border-0"
+                  title="Document Preview"
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -127,3 +172,4 @@ export function GenerationProgress({
     </Card>
   );
 }
+

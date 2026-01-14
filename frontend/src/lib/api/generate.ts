@@ -6,11 +6,11 @@ function getApiKeyHeader(provider: string): string {
   switch (provider.toLowerCase()) {
     case "gemini":
     case "google":
-      return "X-Gemini-Api-Key";
+      return "X-Google-Key";
     case "openai":
-      return "X-OpenAI-Api-Key";
+      return "X-OpenAI-Key";
     case "anthropic":
-      return "X-Anthropic-Api-Key";
+      return "X-Anthropic-Key";
     default:
       return "X-Api-Key";
   }
