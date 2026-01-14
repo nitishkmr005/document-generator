@@ -74,7 +74,7 @@ class GenerationService:
             yield ProgressEvent(
                 status=GenerationStatus.PARSING,
                 progress=5,
-                message="[1/5] Starting to parse sources...",
+                message="Preparing sources...",
             )
 
             input_path, file_id = await self._collect_sources(request)
@@ -83,16 +83,16 @@ class GenerationService:
             log_success(f"Parsed {source_count} source(s) → {input_path.name}")
             yield ProgressEvent(
                 status=GenerationStatus.PARSING,
-                progress=20,
-                message=f"[1/5] Parsed {source_count} sources",
+                progress=15,
+                message=f"Parsed {source_count} sources",
             )
 
             # Phase 2: Configure LLM
             log_phase(2, 5, "Configuring LLM")
             yield ProgressEvent(
                 status=GenerationStatus.TRANSFORMING,
-                progress=30,
-                message="[2/5] Configuring LLM...",
+                progress=20,
+                message="Configuring LLM...",
             )
 
             # Set API key for the provider
@@ -116,21 +116,45 @@ class GenerationService:
             log_success(f"LLM configured: {provider_name}/{request.model}")
             yield ProgressEvent(
                 status=GenerationStatus.TRANSFORMING,
-                progress=40,
-                message="[2/5] LLM configured",
+                progress=25,
+                message="LLM configured",
             )
 
             # Phase 3: Run the actual workflow
             log_phase(3, 5, "Running Generation Workflow")
-            yield ProgressEvent(
-                status=GenerationStatus.GENERATING_IMAGES,
-                progress=50,
-                message="[3/5] Running generation workflow...",
-            )
+
+            loop = asyncio.get_running_loop()
+            progress_queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+            workflow_status_map = {
+                "detect_format": GenerationStatus.PARSING,
+                "parse_content": GenerationStatus.PARSING,
+                "transform_content": GenerationStatus.TRANSFORMING,
+                "enhance_content": GenerationStatus.TRANSFORMING,
+                "generate_images": GenerationStatus.GENERATING_IMAGES,
+                "describe_images": GenerationStatus.GENERATING_IMAGES,
+                "persist_image_manifest": GenerationStatus.GENERATING_IMAGES,
+                "generate_output": GenerationStatus.GENERATING_OUTPUT,
+                "validate_output": GenerationStatus.GENERATING_OUTPUT,
+            }
+            workflow_progress_base = 30
+            workflow_progress_span = 60
+
+            def workflow_progress(
+                step_number: int,
+                total_steps: int,
+                node_name: str,
+                display_name: str,
+            ) -> None:
+                status = workflow_status_map.get(node_name, GenerationStatus.TRANSFORMING)
+                progress = workflow_progress_base + int(
+                    (step_number / max(total_steps, 1)) * workflow_progress_span
+                )
+                message = f"STEP {step_number}/{total_steps}: {display_name}"
+                event = ProgressEvent(status=status, progress=progress, message=message)
+                loop.call_soon_threadsafe(progress_queue.put_nowait, event)
 
             # Run workflow in thread pool to not block event loop
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
+            workflow_future = loop.run_in_executor(
                 self._executor,
                 lambda: run_workflow(
                     input_path=str(input_path),
@@ -145,16 +169,23 @@ class GenerationService:
                         "file_id": file_id,
                         "image_alignment_retries": request.preferences.image_alignment_retries,
                     },
+                    progress_callback=workflow_progress,
                 ),
             )
 
+            while True:
+                if workflow_future.done() and progress_queue.empty():
+                    break
+                try:
+                    event = await asyncio.wait_for(progress_queue.get(), timeout=0.2)
+                    yield event
+                except asyncio.TimeoutError:
+                    continue
+
+            result = await workflow_future
+
             output_path = result.get("output_path", "")
             log_success(f"Workflow complete → {Path(output_path).name if output_path else 'N/A'}")
-            yield ProgressEvent(
-                status=GenerationStatus.GENERATING_IMAGES,
-                progress=70,
-                message="[3/5] Workflow complete",
-            )
 
             # Phase 4: Check for errors
             errors = result.get("errors", [])
@@ -166,27 +197,12 @@ class GenerationService:
                 )
                 return
 
-            # Phase 4: Generate output
-            log_phase(4, 5, f"Building {request.output_format.value.upper()}")
-            yield ProgressEvent(
-                status=GenerationStatus.GENERATING_OUTPUT,
-                progress=80,
-                message=f"[4/5] Building {request.output_format.value.upper()}...",
-            )
-
-            log_success(f"Output generated: {Path(output_path).name if output_path else 'N/A'}")
-            yield ProgressEvent(
-                status=GenerationStatus.GENERATING_OUTPUT,
-                progress=90,
-                message="[4/5] Output generated",
-            )
-
             # Phase 5: Finalize
             log_phase(5, 5, "Finalizing")
             yield ProgressEvent(
                 status=GenerationStatus.UPLOADING,
                 progress=95,
-                message="[5/5] Finalizing...",
+                message="Finalizing...",
             )
 
             if output_path and Path(output_path).exists():

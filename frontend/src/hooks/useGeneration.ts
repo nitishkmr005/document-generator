@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { generateDocument, GenerateOptions } from "@/lib/api/generate";
+import { API_CONFIG } from "@/config/api";
 import {
   GenerateRequest,
   DEFAULT_PREFERENCES,
@@ -54,6 +55,17 @@ export function useGeneration(): UseGenerationResult {
     setMetadata(null);
   }, []);
 
+  const resolveDownloadUrl = useCallback((url: string) => {
+    if (!url) return url;
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    if (url.startsWith("/")) {
+      return `${API_CONFIG.baseUrl}${url}`;
+    }
+    return url;
+  }, []);
+
   const handleEvent = useCallback((event: GenerationEvent) => {
     if ("progress" in event && typeof event.progress === "number") {
       setProgress(event.progress);
@@ -61,7 +73,7 @@ export function useGeneration(): UseGenerationResult {
 
     if (isCompleteEvent(event)) {
       setState("complete");
-      setDownloadUrl(event.download_url);
+      setDownloadUrl(resolveDownloadUrl(event.download_url));
       setMetadata({
         title: event.metadata.title,
         pages: event.metadata.pages,
@@ -71,7 +83,7 @@ export function useGeneration(): UseGenerationResult {
       setStatus("Document generated successfully");
     } else if (isCacheHitEvent(event)) {
       setState("cache_hit");
-      setDownloadUrl(event.download_url);
+      setDownloadUrl(resolveDownloadUrl(event.download_url));
       setStatus(`Retrieved from cache (${event.cached_at})`);
     } else if (isErrorEvent(event)) {
       setState("error");

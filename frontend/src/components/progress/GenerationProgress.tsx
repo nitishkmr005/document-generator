@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -31,14 +31,64 @@ export function GenerationProgress({
   metadata,
   onReset,
 }: GenerationProgressProps) {
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [activeAction, setActiveAction] = useState<"download" | "preview" | null>(
+    null
+  );
 
   if (state === "idle") {
     return null;
   }
 
-  const isPdf = downloadUrl?.toLowerCase().includes(".pdf") || downloadUrl?.includes("/pdf/");
+  const isPdf =
+    downloadUrl?.toLowerCase().includes(".pdf") || downloadUrl?.includes("/pdf/");
   const isPptx = downloadUrl?.toLowerCase().includes(".pptx") || downloadUrl?.includes("/pptx/");
+
+  useEffect(() => {
+    if (!showPreview || !downloadUrl || !isPdf) {
+      setPreviewUrl(null);
+      setPreviewError(null);
+      setPreviewLoading(false);
+      return;
+    }
+
+    let active = true;
+    let objectUrl: string | null = null;
+    const controller = new AbortController();
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    fetch(downloadUrl, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Preview failed (${res.status})`);
+        }
+        return res.blob();
+      })
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (!active || controller.signal.aborted) return;
+        setPreviewError(err instanceof Error ? err.message : "Preview failed");
+      })
+      .finally(() => {
+        if (active) setPreviewLoading(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [downloadUrl, isPdf, showPreview]);
 
   return (
     <Card className="w-full">
@@ -100,7 +150,11 @@ export function GenerationProgress({
 
             <div className="flex flex-wrap gap-2">
               {downloadUrl && (
-                <Button asChild>
+                <Button
+                  asChild
+                  variant={activeAction === "download" ? "default" : "secondary"}
+                  onClick={() => setActiveAction("download")}
+                >
                   <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
                     Download Document
                   </a>
@@ -108,8 +162,11 @@ export function GenerationProgress({
               )}
               {downloadUrl && isPdf && (
                 <Button
-                  variant="secondary"
-                  onClick={() => setShowPreview(!showPreview)}
+                  variant={activeAction === "preview" ? "default" : "secondary"}
+                  onClick={() => {
+                    setActiveAction("preview");
+                    setShowPreview(!showPreview);
+                  }}
                 >
                   {showPreview ? "Hide Preview" : "Show Preview"}
                 </Button>
@@ -144,11 +201,19 @@ export function GenerationProgress({
                     Open in New Tab
                   </Button>
                 </div>
-                <iframe
-                  src={downloadUrl}
-                  className="w-full h-[600px] border-0"
-                  title="Document Preview"
-                />
+                {previewLoading && (
+                  <div className="p-6 text-sm text-muted-foreground">Loading preview...</div>
+                )}
+                {previewError && (
+                  <div className="p-6 text-sm text-red-500">{previewError}</div>
+                )}
+                {!previewLoading && !previewError && previewUrl && (
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-[600px] border-0"
+                    title="Document Preview"
+                  />
+                )}
               </div>
             )}
           </div>
@@ -172,4 +237,3 @@ export function GenerationProgress({
     </Card>
   );
 }
-

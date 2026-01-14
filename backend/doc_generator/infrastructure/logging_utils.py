@@ -5,9 +5,32 @@ Provides decorators and helpers for clear, visually separated logging
 that makes it easy to understand the workflow progress.
 """
 
+from contextvars import ContextVar
 from functools import wraps
 from typing import Callable
+
 from loguru import logger
+
+
+ProgressCallback = Callable[[int, int, str, str], None]
+_progress_callback: ContextVar[ProgressCallback | None] = ContextVar(
+    "progress_callback",
+    default=None,
+)
+
+
+def set_progress_callback(callback: ProgressCallback | None):
+    return _progress_callback.set(callback)
+
+
+def reset_progress_callback(token) -> None:
+    _progress_callback.reset(token)
+
+
+def _emit_progress(step_number: int, total_steps: int, node_name: str, display_name: str) -> None:
+    callback = _progress_callback.get()
+    if callback:
+        callback(step_number, total_steps, node_name, display_name)
 
 
 # Visual separators
@@ -27,6 +50,7 @@ def log_node_start(node_name: str, step_number: int, total_steps: int = 9) -> No
     """
     # Convert snake_case to Title Case
     display_name = node_name.replace("_", " ").title()
+    _emit_progress(step_number, total_steps, node_name, display_name)
     
     logger.opt(colors=True).info(
         f"\n{SEPARATOR_HEAVY}\n"

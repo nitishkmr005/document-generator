@@ -128,7 +128,8 @@ def run_workflow(
     output_format: str | None = None,
     output_path: str = "",
     llm_service = None,
-    metadata: dict = None
+    metadata: dict = None,
+    progress_callback=None,
 ) -> WorkflowState:
     """
     Run the document generation workflow.
@@ -150,6 +151,8 @@ def run_workflow(
         log_workflow_start,
         log_workflow_end,
         log_usage_summary,
+        reset_progress_callback,
+        set_progress_callback,
     )
     
     start_time = time.time()
@@ -184,7 +187,15 @@ def run_workflow(
     }
 
     # Execute workflow
-    result = workflow.invoke(initial_state)
+    token = None
+    if progress_callback is not None:
+        token = set_progress_callback(progress_callback)
+
+    try:
+        result = workflow.invoke(initial_state)
+    finally:
+        if token is not None:
+            reset_progress_callback(token)
     
     # Calculate duration
     duration_seconds = time.time() - start_time

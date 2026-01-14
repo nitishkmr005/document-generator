@@ -127,7 +127,8 @@ def run_workflow(
     output_format: str | None = None,
     output_path: str = "",
     llm_service = None,
-    metadata: dict = None
+    metadata: dict = None,
+    progress_callback=None,
 ) -> WorkflowState:
     """
     Run the document generation workflow.
@@ -172,7 +173,17 @@ def run_workflow(
     logger.info(f"Starting workflow: {input_path} -> {output_format}")
 
     # Execute workflow
-    result = workflow.invoke(initial_state)
+    from ...infrastructure.logging_utils import reset_progress_callback, set_progress_callback
+
+    token = None
+    if progress_callback is not None:
+        token = set_progress_callback(progress_callback)
+
+    try:
+        result = workflow.invoke(initial_state)
+    finally:
+        if token is not None:
+            reset_progress_callback(token)
 
     # Log results
     if result.get("errors"):
