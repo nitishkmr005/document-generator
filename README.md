@@ -1,18 +1,18 @@
 <div align="center">
 
-```ascii
-╔════════════════════════════════════════════════════════════════════╗
-║                                                                    ║
-║                          D O C G E N                               ║
-║                                                                    ║
-║              AI-Powered Document Generation Toolkit               ║
-║                                                                    ║
-╚════════════════════════════════════════════════════════════════════╝
-```
+<br/>
 
-### Transform any content into professional documents with AI
+# 📄 **DocGen**
 
-**From Research Papers to Pitch Decks • From Web Articles to Study Guides**
+<h3>AI-Powered Document Generation Toolkit</h3>
+
+<p>
+  <strong>Transform any content into professional documents with AI</strong>
+  <br/>
+  <em>From Research Papers to Pitch Decks • From Web Articles to Study Guides</em>
+</p>
+
+<br/>
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
