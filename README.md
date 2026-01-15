@@ -1,10 +1,8 @@
 <div align="center">
 
+<img src=".github/banner.svg" alt="DocGen - AI-Powered Document Generation Toolkit" width="100%"/>
+
 <br/>
-
-# 📄 **DocGen**
-
-<h3>AI-Powered Document Generation Toolkit</h3>
 
 <p>
   <strong>Transform any content into professional documents with AI</strong>

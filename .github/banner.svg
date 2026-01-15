@@ -1,0 +1,92 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="text-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e0e7ff;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="300" fill="url(#bg-gradient)" rx="20"/>
+
+  <!-- Decorative circles -->
+  <circle cx="100" cy="50" r="40" fill="rgba(255,255,255,0.1)"/>
+  <circle cx="1100" cy="250" r="60" fill="rgba(255,255,255,0.1)"/>
+  <circle cx="200" cy="250" r="30" fill="rgba(255,255,255,0.15)"/>
+  <circle cx="1050" cy="80" r="35" fill="rgba(255,255,255,0.12)"/>
+
+  <!-- Document icon -->
+  <g transform="translate(150, 90)">
+    <rect x="0" y="0" width="80" height="100" rx="8" fill="white" opacity="0.9"/>
+    <rect x="10" y="15" width="60" height="8" rx="4" fill="#667eea" opacity="0.6"/>
+    <rect x="10" y="35" width="60" height="8" rx="4" fill="#667eea" opacity="0.6"/>
+    <rect x="10" y="55" width="40" height="8" rx="4" fill="#667eea" opacity="0.6"/>
+    <rect x="10" y="75" width="50" height="8" rx="4" fill="#667eea" opacity="0.6"/>
+  </g>
+
+  <!-- Main title: DocGen -->
+  <text x="280" y="140"
+        font-family="'Arial Black', Arial, sans-serif"
+        font-size="72"
+        font-weight="900"
+        fill="url(#text-gradient)"
+        filter="url(#glow)">
+    DocGen
+  </text>
+
+  <!-- Subtitle -->
+  <text x="280" y="185"
+        font-family="Arial, sans-serif"
+        font-size="28"
+        font-weight="300"
+        fill="white"
+        opacity="0.95">
+    AI-Powered Document Generation Toolkit
+  </text>
+
+  <!-- Tagline -->
+  <text x="280" y="225"
+        font-family="Arial, sans-serif"
+        font-size="18"
+        font-weight="400"
+        fill="white"
+        opacity="0.85">
+    Transform any content into professional documents
+  </text>
+
+  <!-- Decorative line -->
+  <line x1="280" y1="235" x2="520" y2="235"
+        stroke="white"
+        stroke-width="2"
+        opacity="0.5"/>
+
+  <!-- Tech badges -->
+  <g transform="translate(950, 120)">
+    <!-- LangGraph badge -->
+    <rect x="0" y="0" width="180" height="35" rx="17.5" fill="rgba(255,255,255,0.2)"/>
+    <text x="90" y="23" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="white" text-anchor="middle">🔄 LangGraph</text>
+
+    <!-- Docling badge -->
+    <rect x="0" y="45" width="180" height="35" rx="17.5" fill="rgba(255,255,255,0.2)"/>
+    <text x="90" y="68" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="white" text-anchor="middle">📄 Docling</text>
+
+    <!-- LLMs badge -->
+    <rect x="0" y="90" width="180" height="35" rx="17.5" fill="rgba(255,255,255,0.2)"/>
+    <text x="90" y="113" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="white" text-anchor="middle">🤖 Modern LLMs</text>
+  </g>
+</svg>
