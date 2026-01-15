@@ -282,6 +282,7 @@ def _find_config_file() -> Optional[Path]:
         Path("config/settings.yaml"),
         Path("../config/settings.yaml"),
         Path(__file__).parent.parent.parent.parent / "config" / "settings.yaml",
+        Path(__file__).parent.parent.parent.parent / "backend" / "config" / "settings.yaml",
     ]
 
     for path in search_paths:
