@@ -30,6 +30,17 @@ export function Footer() {
         <p className="text-xs text-muted-foreground/50" suppressHydrationWarning>
           © 2026 PrismDocs. Open source document generation.
         </p>
+        <p className="text-xs text-muted-foreground/60 mt-1">
+          Made with ❤️ by{" "}
+          <Link
+            href="https://github.com/nitishkmr005"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-violet-500 hover:text-violet-600 transition-colors font-medium"
+          >
+            Nitish Harsoor
+          </Link>
+        </p>
       </div>
     </footer>
   );
