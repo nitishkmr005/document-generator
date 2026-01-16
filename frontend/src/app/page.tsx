@@ -3,115 +3,213 @@ import { Button } from "@/components/ui/button";
 
 function RefractionIllustration() {
   return (
-    <svg
-      viewBox="0 0 550 200"
-      className="w-full max-w-2xl mx-auto"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <linearGradient id="prism-fill" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style={{ stopColor: '#0891b2', stopOpacity: 0.95 }} />
-          <stop offset="50%" style={{ stopColor: '#7c3aed', stopOpacity: 0.95 }} />
-          <stop offset="100%" style={{ stopColor: '#c026d3', stopOpacity: 0.95 }} />
-        </linearGradient>
-        <linearGradient id="ray-teal" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style={{ stopColor: '#06d6a0' }} />
-          <stop offset="100%" style={{ stopColor: '#06d6a0', stopOpacity: 0.1 }} />
-        </linearGradient>
-        <linearGradient id="ray-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style={{ stopColor: '#0891b2' }} />
-          <stop offset="100%" style={{ stopColor: '#0891b2', stopOpacity: 0.1 }} />
-        </linearGradient>
-        <linearGradient id="ray-violet" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style={{ stopColor: '#7c3aed' }} />
-          <stop offset="100%" style={{ stopColor: '#7c3aed', stopOpacity: 0.1 }} />
-        </linearGradient>
-        <linearGradient id="ray-fuchsia" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style={{ stopColor: '#c026d3' }} />
-          <stop offset="100%" style={{ stopColor: '#c026d3', stopOpacity: 0.1 }} />
-        </linearGradient>
-        <linearGradient id="ray-rose" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style={{ stopColor: '#e11d48' }} />
-          <stop offset="100%" style={{ stopColor: '#e11d48', stopOpacity: 0.1 }} />
-        </linearGradient>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-          <feMerge>
-            <feMergeNode in="coloredBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-        <filter id="icon-shadow">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.15" />
-        </filter>
-      </defs>
+    <div className="relative w-full max-w-3xl mx-auto">
+      {/* Ambient glow background */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-cyan-500/20 via-violet-500/20 to-fuchsia-500/20 rounded-full blur-3xl animate-pulse" />
+      </div>
+      
+      <svg
+        viewBox="0 0 600 240"
+        className="w-full"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          {/* Enhanced prism gradient with 3D effect */}
+          <linearGradient id="prism-main" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style={{ stopColor: '#0891b2', stopOpacity: 1 }} />
+            <stop offset="50%" style={{ stopColor: '#7c3aed', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#c026d3', stopOpacity: 1 }} />
+          </linearGradient>
+          
+          {/* Prism highlight for 3D effect */}
+          <linearGradient id="prism-highlight" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style={{ stopColor: 'white', stopOpacity: 0.4 }} />
+            <stop offset="50%" style={{ stopColor: 'white', stopOpacity: 0.1 }} />
+            <stop offset="100%" style={{ stopColor: 'white', stopOpacity: 0 }} />
+          </linearGradient>
+          
+          {/* Prism shadow for depth */}
+          <linearGradient id="prism-shadow" x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style={{ stopColor: 'black', stopOpacity: 0 }} />
+            <stop offset="100%" style={{ stopColor: 'black', stopOpacity: 0.3 }} />
+          </linearGradient>
+          
+          {/* Rainbow ray gradients */}
+          <linearGradient id="ray-red" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#ef4444', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#ef4444', stopOpacity: 0 }} />
+          </linearGradient>
+          <linearGradient id="ray-orange" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#f97316', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#f97316', stopOpacity: 0 }} />
+          </linearGradient>
+          <linearGradient id="ray-yellow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#eab308', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#eab308', stopOpacity: 0 }} />
+          </linearGradient>
+          <linearGradient id="ray-green" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#22c55e', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#22c55e', stopOpacity: 0 }} />
+          </linearGradient>
+          <linearGradient id="ray-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#06b6d4', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#06b6d4', stopOpacity: 0 }} />
+          </linearGradient>
+          <linearGradient id="ray-blue" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#3b82f6', stopOpacity: 0 }} />
+          </linearGradient>
+          <linearGradient id="ray-violet" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#8b5cf6', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: 0 }} />
+          </linearGradient>
+          
+          {/* Input beam gradient */}
+          <linearGradient id="input-beam" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#f8fafc', stopOpacity: 0.3 }} />
+            <stop offset="100%" style={{ stopColor: '#f8fafc', stopOpacity: 0.9 }} />
+          </linearGradient>
+          
+          {/* Glow filters */}
+          <filter id="glow-strong">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          
+          <filter id="glow-soft">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          
+          <filter id="drop-shadow">
+            <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#7c3aed" floodOpacity="0.3" />
+          </filter>
+        </defs>
 
-      {/* Input Sources - Multiple icons */}
-      {/* PDF Icon */}
-      <g transform="translate(20, 35)" filter="url(#icon-shadow)">
-        <rect x="0" y="0" width="36" height="44" rx="4" fill="#fee2e2" stroke="#fca5a5" strokeWidth="1.5" />
-        <text x="18" y="28" textAnchor="middle" fontSize="10" fontWeight="600" fill="#dc2626">PDF</text>
-      </g>
+        {/* Input sources with modern card style */}
+        <g>
+          {/* PDF Source */}
+          <g transform="translate(30, 40)">
+            <rect x="0" y="0" width="50" height="40" rx="8" fill="white" className="dark:fill-slate-800" stroke="#e2e8f0" strokeWidth="1" />
+            <rect x="0" y="0" width="50" height="40" rx="8" fill="url(#prism-highlight)" />
+            <text x="25" y="25" textAnchor="middle" fontSize="12" fontWeight="600" fill="#dc2626">PDF</text>
+          </g>
+          
+          {/* URL Source */}
+          <g transform="translate(30, 100)">
+            <rect x="0" y="0" width="50" height="40" rx="8" fill="white" className="dark:fill-slate-800" stroke="#e2e8f0" strokeWidth="1" />
+            <rect x="0" y="0" width="50" height="40" rx="8" fill="url(#prism-highlight)" />
+            <circle cx="25" cy="18" r="8" fill="none" stroke="#2563eb" strokeWidth="1.5" />
+            <ellipse cx="25" cy="18" rx="3" ry="8" fill="none" stroke="#2563eb" strokeWidth="1" />
+            <text x="25" y="35" textAnchor="middle" fontSize="9" fontWeight="500" fill="#2563eb">URL</text>
+          </g>
+          
+          {/* Text Source */}
+          <g transform="translate(30, 160)">
+            <rect x="0" y="0" width="50" height="40" rx="8" fill="white" className="dark:fill-slate-800" stroke="#e2e8f0" strokeWidth="1" />
+            <rect x="0" y="0" width="50" height="40" rx="8" fill="url(#prism-highlight)" />
+            <text x="25" y="25" textAnchor="middle" fontSize="12" fontWeight="600" fill="#7c3aed">TXT</text>
+          </g>
+        </g>
 
-      {/* URL/Globe Icon */}
-      <g transform="translate(20, 90)" filter="url(#icon-shadow)">
-        <rect x="0" y="0" width="36" height="44" rx="4" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1.5" />
-        <circle cx="18" cy="20" r="10" fill="none" stroke="#2563eb" strokeWidth="1.5" />
-        <ellipse cx="18" cy="20" rx="4" ry="10" fill="none" stroke="#2563eb" strokeWidth="1" />
-        <line x1="8" y1="20" x2="28" y2="20" stroke="#2563eb" strokeWidth="1" />
-      </g>
+        {/* Converging input beams with arrows */}
+        <g>
+          {/* Arrow marker definition */}
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8" />
+            </marker>
+          </defs>
+          
+          {/* Input lines with arrows */}
+          <line x1="85" y1="60" x2="210" y2="115" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#arrow)">
+            <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
+          </line>
+          <line x1="85" y1="120" x2="210" y2="120" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#arrow)">
+            <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" begin="0.3s" />
+          </line>
+          <line x1="85" y1="180" x2="210" y2="125" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#arrow)">
+            <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" begin="0.6s" />
+          </line>
+        </g>
 
-      {/* DOCX Icon */}
-      <g transform="translate(20, 145)" filter="url(#icon-shadow)">
-        <rect x="0" y="0" width="36" height="44" rx="4" fill="#ddd6fe" stroke="#a78bfa" strokeWidth="1.5" />
-        <text x="18" y="28" textAnchor="middle" fontSize="9" fontWeight="600" fill="#7c3aed">DOCX</text>
-      </g>
+        {/* Central Prism with 3D effect and AI label */}
+        <g transform="translate(220, 50)" filter="url(#drop-shadow)">
+          {/* Main prism body */}
+          <polygon points="80,0 160,140 0,140" fill="url(#prism-main)" />
+          {/* Highlight face for 3D */}
+          <polygon points="80,0 160,140 80,140" fill="url(#prism-shadow)" />
+          {/* Top highlight edge */}
+          <polygon points="80,0 110,70 50,70" fill="url(#prism-highlight)" />
+          {/* Border */}
+          <polygon points="80,0 160,140 0,140" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
+          
+          {/* AI Label inside prism */}
+          <text x="80" y="95" textAnchor="middle" fontSize="24" fontWeight="700" fill="white" opacity="0.9" style={{ fontFamily: 'system-ui' }}>
+            AI
+          </text>
+          
+          {/* Inner glow */}
+          <circle cx="80" cy="90" r="30" fill="white" opacity="0.1">
+            <animate attributeName="r" values="25;35;25" dur="3s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.08;0.15;0.08" dur="3s" repeatCount="indefinite" />
+          </circle>
+        </g>
 
-      {/* Input labels */}
-      <g style={{ fontFamily: 'system-ui' }}>
-        <text x="66" y="62" fill="#64748b" fontSize="11" fontWeight="500">PDF</text>
-        <text x="66" y="117" fill="#64748b" fontSize="11" fontWeight="500">URL</text>
-        <text x="66" y="172" fill="#64748b" fontSize="11" fontWeight="500">DOCX</text>
-      </g>
+        {/* Rainbow output rays with staggered animations */}
+        <g transform="translate(380, 120)" filter="url(#glow-soft)">
+          {/* Red */}
+          <line x1="0" y1="0" x2="180" y2="-80" stroke="url(#ray-red)" strokeWidth="4" strokeLinecap="round">
+            <animate attributeName="x2" values="170;190;170" dur="2s" repeatCount="indefinite" />
+          </line>
+          {/* Orange */}
+          <line x1="0" y1="0" x2="190" y2="-55" stroke="url(#ray-orange)" strokeWidth="4" strokeLinecap="round">
+            <animate attributeName="x2" values="180;200;180" dur="2s" repeatCount="indefinite" begin="0.1s" />
+          </line>
+          {/* Yellow */}
+          <line x1="0" y1="0" x2="195" y2="-28" stroke="url(#ray-yellow)" strokeWidth="4" strokeLinecap="round">
+            <animate attributeName="x2" values="185;205;185" dur="2s" repeatCount="indefinite" begin="0.2s" />
+          </line>
+          {/* Green */}
+          <line x1="0" y1="0" x2="200" y2="0" stroke="url(#ray-green)" strokeWidth="4" strokeLinecap="round">
+            <animate attributeName="x2" values="190;210;190" dur="2s" repeatCount="indefinite" begin="0.3s" />
+          </line>
+          {/* Cyan */}
+          <line x1="0" y1="0" x2="195" y2="28" stroke="url(#ray-cyan)" strokeWidth="4" strokeLinecap="round">
+            <animate attributeName="x2" values="185;205;185" dur="2s" repeatCount="indefinite" begin="0.4s" />
+          </line>
+          {/* Blue */}
+          <line x1="0" y1="0" x2="190" y2="55" stroke="url(#ray-blue)" strokeWidth="4" strokeLinecap="round">
+            <animate attributeName="x2" values="180;200;180" dur="2s" repeatCount="indefinite" begin="0.5s" />
+          </line>
+          {/* Violet */}
+          <line x1="0" y1="0" x2="180" y2="80" stroke="url(#ray-violet)" strokeWidth="4" strokeLinecap="round">
+            <animate attributeName="x2" values="170;190;170" dur="2s" repeatCount="indefinite" begin="0.6s" />
+          </line>
+        </g>
 
-      {/* Converging beams from inputs to prism */}
-      <g>
-        {/* From PDF */}
-        <line x1="95" y1="57" x2="185" y2="100" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
-        {/* From URL */}
-        <line x1="95" y1="112" x2="185" y2="100" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
-        {/* From DOCX */}
-        <line x1="95" y1="167" x2="185" y2="100" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
-        {/* Arrow heads */}
-        <polygon points="185,100 175,95 175,105" fill="#94a3b8" />
-      </g>
-
-      {/* Prism */}
-      <g transform="translate(185, 45)" filter="url(#glow)">
-        <polygon points="55,0 110,110 0,110" fill="url(#prism-fill)" />
-        <polygon points="55,0 110,110 0,110" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-      </g>
-
-      {/* Output rays */}
-      <g transform="translate(295, 100)" filter="url(#glow)">
-        <line x1="0" y1="0" x2="150" y2="-60" stroke="url(#ray-teal)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="160" y2="-28" stroke="url(#ray-cyan)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="165" y2="5" stroke="url(#ray-violet)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="160" y2="40" stroke="url(#ray-fuchsia)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="145" y2="70" stroke="url(#ray-rose)" strokeWidth="3" strokeLinecap="round" />
-      </g>
-
-      {/* Output labels */}
-      <g style={{ fontFamily: 'system-ui' }}>
-        <text x="450" y="45" fill="#06d6a0" fontSize="13" fontWeight="600">PDF</text>
-        <text x="460" y="77" fill="#0891b2" fontSize="13" fontWeight="600">PPTX</text>
-        <text x="465" y="110" fill="#7c3aed" fontSize="13" fontWeight="600">Markdown</text>
-        <text x="460" y="143" fill="#c026d3" fontSize="13" fontWeight="600">Mind Map</text>
-        <text x="445" y="173" fill="#e11d48" fontSize="13" fontWeight="600">Podcast</text>
-      </g>
-    </svg>
+        {/* Output labels with modern styling */}
+        <g style={{ fontFamily: 'system-ui' }}>
+          <text x="560" y="45" textAnchor="end" fontSize="12" fontWeight="600" fill="#ef4444">PDF Report</text>
+          <text x="570" y="70" textAnchor="end" fontSize="12" fontWeight="600" fill="#f97316">Slides</text>
+          <text x="575" y="95" textAnchor="end" fontSize="12" fontWeight="600" fill="#eab308">Markdown</text>
+          <text x="580" y="120" textAnchor="end" fontSize="12" fontWeight="600" fill="#22c55e">Blog Post</text>
+          <text x="575" y="145" textAnchor="end" fontSize="12" fontWeight="600" fill="#06b6d4">Mind Map</text>
+          <text x="570" y="170" textAnchor="end" fontSize="12" fontWeight="600" fill="#3b82f6">FAQ Cards</text>
+          <text x="560" y="195" textAnchor="end" fontSize="12" fontWeight="600" fill="#8b5cf6">Podcast</text>
+        </g>
+      </svg>
+    </div>
   );
 }
+
 
 export default function HomePage() {
   return (
@@ -199,7 +297,7 @@ export default function HomePage() {
                 <circle cx="12" cy="14" r="2" fill="currentColor" stroke="none" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold">AI Prism</h3>
+            <h3 className="text-lg font-semibold">AI</h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
               Your content passes through our AI-powered prism, transforming and restructuring intelligently.
             </p>

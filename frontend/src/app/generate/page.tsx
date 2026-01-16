@@ -4,6 +4,9 @@ import { useCallback, useState } from "react";
 import { GenerateForm } from "@/components/forms/GenerateForm";
 import { GenerationProgress } from "@/components/progress/GenerationProgress";
 import { useGeneration, GenerationState } from "@/hooks/useGeneration";
+import { useAuth } from "@/hooks/useAuth";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { Button } from "@/components/ui/button";
 import {
   OutputFormat,
   Provider,
@@ -266,7 +269,7 @@ const features: Feature[] = [
   {
     id: "research",
     title: "Research Assistant",
-    description: "Summarize and analyze research",
+    description: "Summarize research & talk with AI Voice Agent",
     icon: (
       <svg
         className="w-7 h-7"
@@ -308,6 +311,15 @@ function FeatureTile({
       {feature.comingSoon && (
         <span className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground">
           Coming Soon
+        </span>
+      )}
+      {/* Voice Agent badge for Research Assistant */}
+      {feature.id === "research" && (
+        <span className="absolute top-3 left-3 px-2 py-0.5 text-xs font-medium rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93V7h2v1c0 2.76 2.24 5 5 5s5-2.24 5-5V7h2v1c0 4.08-3.06 7.44-7 7.93V18h3v2H9v-2h3v-2.07z"/>
+          </svg>
+          Voice AI
         </span>
       )}
       <div
@@ -396,6 +408,8 @@ function ProgressPanel({
 
 export default function GeneratePage() {
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const {
     state,
     progress,
@@ -410,11 +424,15 @@ export default function GeneratePage() {
   const handleFeatureSelect = useCallback(
     (feature: Feature) => {
       if (!feature.comingSoon) {
+        if (!isAuthenticated) {
+          setShowAuthModal(true);
+          return;
+        }
         setSelectedFeature(feature);
         reset(); // Reset any previous generation state
       }
     },
-    [reset]
+    [reset, isAuthenticated]
   );
 
   const handleBackToFeatures = useCallback(() => {
@@ -543,6 +561,9 @@ export default function GeneratePage() {
   // Show feature tiles
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
+      {/* Auth Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      
       <div className="mx-auto max-w-5xl space-y-8">
         <div className="text-center space-y-3">
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
@@ -551,6 +572,25 @@ export default function GeneratePage() {
           <p className="text-muted-foreground text-lg">
             Choose a format and we'll guide you through the process
           </p>
+          
+          {/* Sign-in prompt for non-authenticated users */}
+          {!authLoading && !isAuthenticated && (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="text-sm font-medium">
+                Please{" "}
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="underline hover:no-underline font-semibold"
+                >
+                  sign in
+                </button>
+                {" "}to start generating documents
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

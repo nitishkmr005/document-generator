@@ -92,6 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: { message: 'Supabase not configured' } as AuthError }
     }
 
+    // Store current path in a cookie so we can redirect back after auth
+    // Cookies persist across the OAuth redirect flow
+    const currentPath = window.location.pathname
+    document.cookie = `authRedirectPath=${encodeURIComponent(currentPath)}; path=/; max-age=300; SameSite=Lax`
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
