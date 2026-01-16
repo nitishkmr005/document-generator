@@ -11,7 +11,14 @@ import re
 from loguru import logger
 from reportlab.lib.pagesizes import A4, legal, letter
 from reportlab.lib.units import inch
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 from ....domain.exceptions import GenerationError
 from .utils import (
@@ -102,11 +109,7 @@ class PDFGenerator:
 
             # Create PDF
             self._create_pdf(
-                output_path,
-                title,
-                markdown_content,
-                metadata,
-                section_images
+                output_path, title, markdown_content, metadata, section_images
             )
 
             logger.info(f"PDF generated successfully: {output_path}")
@@ -123,7 +126,7 @@ class PDFGenerator:
         title: str,
         markdown_content: str,
         metadata: dict,
-        section_images: dict = None
+        section_images: dict = None,
     ) -> None:
         """
         Create blog-like PDF document with inline media.
@@ -157,7 +160,7 @@ class PDFGenerator:
 
         # Create document with configured margins
         from .page_template import NumberedCanvas
-        
+
         doc = SimpleDocTemplate(
             str(output_path),
             pagesize=pagesize,
@@ -168,57 +171,68 @@ class PDFGenerator:
             title=display_title,
             author=metadata.get("author", self.settings.pdf.metadata.default_author),
         )
-        
+
         # Add PDF metadata if enabled
         if self.settings.pdf.metadata.auto_add_metadata:
-            doc.author = metadata.get("author", self.settings.pdf.metadata.default_author)
+            doc.author = metadata.get(
+                "author", self.settings.pdf.metadata.default_author
+            )
             doc.creator = self.settings.pdf.metadata.default_creator
             doc.subject = metadata.get("subtitle", "")
-            
+
             # Add keywords from metadata
             keywords = metadata.get("keywords", [])
             if isinstance(keywords, list):
                 doc.keywords = ", ".join(keywords)
             elif isinstance(keywords, str):
                 doc.keywords = keywords
-        
+
         # Configure custom canvas for headers/footers
         def create_canvas(filename, **kwargs):
             canvas_obj = NumberedCanvas(filename, **kwargs)
             canvas_obj.doc_title = display_title
             canvas_obj.show_header = self.settings.pdf.header_footer.show_header
             canvas_obj.show_footer = self.settings.pdf.header_footer.show_footer
-            canvas_obj.show_page_numbers = self.settings.pdf.header_footer.show_page_numbers
-            canvas_obj.include_watermark = self.settings.pdf.header_footer.include_watermark
+            canvas_obj.show_page_numbers = (
+                self.settings.pdf.header_footer.show_page_numbers
+            )
+            canvas_obj.include_watermark = (
+                self.settings.pdf.header_footer.include_watermark
+            )
             canvas_obj.watermark_text = self.settings.pdf.header_footer.watermark_text
-            canvas_obj.watermark_opacity = self.settings.pdf.header_footer.watermark_opacity
+            canvas_obj.watermark_opacity = (
+                self.settings.pdf.header_footer.watermark_opacity
+            )
             return canvas_obj
 
         story = []
 
         # ===== COVER PAGE =====
         # Create a modern blog-style cover page
-        
+
         # Accent bar at top (visual branding element)
         from reportlab.lib import colors as rl_colors
-        accent_bar = Table(
-            [[""]],
-            colWidths=[6.9 * inch],
-            rowHeights=[8]
+
+        accent_bar = Table([[""]], colWidths=[6.9 * inch], rowHeights=[8])
+        accent_bar.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#6366f1")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
         )
-        accent_bar.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#6366f1")),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ]))
         story.append(accent_bar)
         story.append(Spacer(1, 48))
-        
+
         # Kicker (content type label)
-        cover_kicker = metadata.get("content_type", "Document").replace("_", " ").upper()
+        cover_kicker = (
+            metadata.get("content_type", "Document").replace("_", " ").upper()
+        )
         story.append(Paragraph(inline_md(cover_kicker), self.styles["CoverKicker"]))
         story.append(Spacer(1, 8))
-        
+
         # Main title - Large and impactful
         story.append(Paragraph(inline_md(display_title), self.styles["TitleCover"]))
 
@@ -232,19 +246,19 @@ class PDFGenerator:
 
         # Decorative divider line
         story.append(Spacer(1, 24))
-        divider_line = Table(
-            [[""]],
-            colWidths=[3 * inch],
-            rowHeights=[3]
+        divider_line = Table([[""]], colWidths=[3 * inch], rowHeights=[3])
+        divider_line.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#6366f1")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
         )
-        divider_line.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#6366f1")),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ]))
         story.append(divider_line)
         story.append(Spacer(1, 24))
-        
+
         # Metadata section with clean formatting
         cover_lines = self._build_cover_metadata(metadata)
         if cover_lines:
@@ -260,8 +274,7 @@ class PDFGenerator:
 
         # Table of contents (blog-like navigation)
         headings = self._filter_cover_heading(
-            extract_headings(markdown_content),
-            display_title
+            extract_headings(markdown_content), display_title
         )
         if headings:
             # Convert settings to dict for TOC function
@@ -269,14 +282,13 @@ class PDFGenerator:
                 "include_page_numbers": self.settings.pdf.toc.include_page_numbers,
                 "max_depth": self.settings.pdf.toc.max_depth,
                 "show_reading_time": self.settings.pdf.toc.show_reading_time,
-                "words_per_minute": self.settings.pdf.toc.words_per_minute
+                "words_per_minute": self.settings.pdf.toc.words_per_minute,
             }
-            story.extend(make_table_of_contents(
-                headings, 
-                self.styles, 
-                markdown_content,
-                toc_settings
-            ))
+            story.extend(
+                make_table_of_contents(
+                    headings, self.styles, markdown_content, toc_settings
+                )
+            )
             story.append(PageBreak())
 
         if exec_summary:
@@ -288,10 +300,16 @@ class PDFGenerator:
                 if kind == "bullets":
                     for item in content_item:
                         story.append(
-                            Paragraph(inline_md(item), self.styles["BulletCustom"], bulletText="•")
+                            Paragraph(
+                                inline_md(item),
+                                self.styles["BulletCustom"],
+                                bulletText="•",
+                            )
                         )
                 elif kind == "para" and content_item.strip():
-                    story.append(Paragraph(inline_md(content_item), self.styles["BodyCustom"]))
+                    story.append(
+                        Paragraph(inline_md(content_item), self.styles["BodyCustom"])
+                    )
             story.append(Spacer(1, 12))
             story.extend(make_section_divider(self.styles))
 
@@ -306,15 +324,21 @@ class PDFGenerator:
                 story.append(Spacer(1, 12))
 
             elif kind == "h1":
-                if not skipped_cover_h1 and self._normalize_title(content_item) == self._normalize_title(display_title):
+                if not skipped_cover_h1 and self._normalize_title(
+                    content_item
+                ) == self._normalize_title(display_title):
                     skipped_cover_h1 = True
                     continue
                 # Major section - add divider before
                 story.extend(make_section_divider(self.styles))
-                story.append(Paragraph(inline_md(content_item), self.styles["Heading2Custom"]))
+                story.append(
+                    Paragraph(inline_md(content_item), self.styles["Heading2Custom"])
+                )
 
             elif kind == "h2":
-                section_id, next_section_id = self._resolve_section_id(content_item, next_section_id)
+                section_id, next_section_id = self._resolve_section_id(
+                    content_item, next_section_id
+                )
                 story.append(Spacer(1, 16))
                 story.append(make_banner(content_item, self.styles))
                 story.append(Spacer(1, 12))
@@ -326,22 +350,32 @@ class PDFGenerator:
                 if img_info:
                     img_path = Path(img_info.get("path", ""))
                     if img_path.exists():
-                        story.extend(make_image_flowable(
-                            img_info.get("section_title", content_item),
-                            img_path,
-                            self.styles
-                        ))
+                        story.extend(
+                            make_image_flowable(
+                                img_info.get("section_title", content_item),
+                                img_path,
+                                self.styles,
+                            )
+                        )
                         description = (img_info.get("description") or "").strip()
                         if description:
-                            story.append(Paragraph(inline_md(description), self.styles["BodyCustom"]))
+                            story.append(
+                                Paragraph(
+                                    inline_md(description), self.styles["BodyCustom"]
+                                )
+                            )
                         story.append(Spacer(1, 12))
                         logger.debug(f"Embedded section image for: {content_item}")
 
             elif kind == "h3":
-                story.append(Paragraph(inline_md(content_item), self.styles["Heading3Custom"]))
+                story.append(
+                    Paragraph(inline_md(content_item), self.styles["Heading3Custom"])
+                )
 
             elif kind.startswith("h"):
-                story.append(Paragraph(inline_md(content_item), self.styles["Heading3Custom"]))
+                story.append(
+                    Paragraph(inline_md(content_item), self.styles["Heading3Custom"])
+                )
 
             elif kind == "visual_marker":
                 marker_title = content_item.get("title", "diagram")
@@ -357,7 +391,11 @@ class PDFGenerator:
                     story.extend(make_image_flowable(alt, image_path, self.styles))
                     story.append(Spacer(1, 12))
                 else:
-                    story.append(Paragraph(f"Image: {inline_md(alt)}", self.styles["ImageCaption"]))
+                    story.append(
+                        Paragraph(
+                            f"Image: {inline_md(alt)}", self.styles["ImageCaption"]
+                        )
+                    )
 
             elif kind == "quote":
                 story.append(Spacer(1, 8))
@@ -367,12 +405,16 @@ class PDFGenerator:
             elif kind == "bullets":
                 for item in content_item:
                     story.append(
-                        Paragraph(inline_md(item), self.styles["BulletCustom"], bulletText="•")
+                        Paragraph(
+                            inline_md(item), self.styles["BulletCustom"], bulletText="•"
+                        )
                     )
                 story.append(Spacer(1, 8))
 
             elif kind == "mermaid":
-                mermaid_flow = make_mermaid_flowable(content_item, self.styles, self.image_cache)
+                mermaid_flow = make_mermaid_flowable(
+                    content_item, self.styles, self.image_cache
+                )
                 if mermaid_flow:
                     story.append(Spacer(1, 12))
                     story.extend(mermaid_flow)
@@ -386,13 +428,13 @@ class PDFGenerator:
                     "syntax_highlighting": self.settings.pdf.code.syntax_highlighting,
                     "max_lines_per_page": self.settings.pdf.code.max_lines_per_page,
                     "font_size": self.settings.pdf.code.font_size,
-                    "line_number_color": self.settings.pdf.code.line_number_color
+                    "line_number_color": self.settings.pdf.code.line_number_color,
                 }
-                story.extend(make_code_block(
-                    content_item, 
-                    self.styles,
-                    code_settings=code_settings
-                ))
+                story.extend(
+                    make_code_block(
+                        content_item, self.styles, code_settings=code_settings
+                    )
+                )
                 story.append(Spacer(1, 8))
 
             elif kind == "table":
@@ -402,7 +444,9 @@ class PDFGenerator:
 
             else:  # para
                 if content_item.strip():
-                    story.append(Paragraph(inline_md(content_item), self.styles["BodyCustom"]))
+                    story.append(
+                        Paragraph(inline_md(content_item), self.styles["BodyCustom"])
+                    )
 
         # Build PDF with custom canvas
         element_count = len(story)
@@ -466,7 +510,9 @@ class PDFGenerator:
         markdown_title = self._extract_markdown_title(markdown_content)
         cleaned_meta = self._clean_title(raw_title)
 
-        if markdown_title and (not raw_title or self._looks_like_placeholder(raw_title)):
+        if markdown_title and (
+            not raw_title or self._looks_like_placeholder(raw_title)
+        ):
             return markdown_title
 
         return cleaned_meta or markdown_title or "Document"
@@ -498,7 +544,9 @@ class PDFGenerator:
             return ""
         cleaned = title.strip()
         if "/" in cleaned or "\\" in cleaned:
-            parts = [part for part in cleaned.split() if "/" not in part and "\\" not in part]
+            parts = [
+                part for part in cleaned.split() if "/" not in part and "\\" not in part
+            ]
             cleaned = " ".join(parts) if parts else Path(cleaned).stem
         if re.search(r"\.(pdf|docx|pptx|md|txt)$", cleaned, re.IGNORECASE):
             cleaned = Path(cleaned).stem
@@ -522,13 +570,8 @@ class PDFGenerator:
         if formatted_date:
             lines.append(f"**Generated:** {formatted_date}")
 
-        source_files = metadata.get("source_files")
-        if source_files:
-            lines.append(f"**Sources:** {len(source_files)} files")
-        else:
-            source_file = metadata.get("source_file")
-            if source_file:
-                lines.append(f"**Source:** {Path(source_file).name}")
+        # Add PrismDocs branding instead of source file names
+        lines.append("**Generated by:** PrismDocs")
 
         content_type = metadata.get("content_type")
         if content_type:
@@ -558,16 +601,16 @@ class PDFGenerator:
         return re.sub(r"\s+", " ", title or "").strip().lower()
 
     def _filter_cover_heading(
-        self,
-        headings: list[tuple[int, str]],
-        cover_title: str
+        self, headings: list[tuple[int, str]], cover_title: str
     ) -> list[tuple[int, str]]:
         """
         Invoked by: src/doc_generator/infrastructure/generators/pdf/generator.py
         """
         filtered = []
         for level, heading in headings:
-            if level == 1 and self._normalize_title(heading) == self._normalize_title(cover_title):
+            if level == 1 and self._normalize_title(heading) == self._normalize_title(
+                cover_title
+            ):
                 continue
             filtered.append((level, heading))
         return filtered
