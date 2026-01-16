@@ -4,39 +4,35 @@ import { Button } from "@/components/ui/button";
 function RefractionIllustration() {
   return (
     <svg
-      viewBox="0 0 400 200"
-      className="w-full max-w-md mx-auto"
+      viewBox="0 0 550 200"
+      className="w-full max-w-2xl mx-auto"
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
         <linearGradient id="prism-fill" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style={{ stopColor: '#0891b2', stopOpacity: 0.9 }} />
-          <stop offset="50%" style={{ stopColor: '#7c3aed', stopOpacity: 0.9 }} />
-          <stop offset="100%" style={{ stopColor: '#c026d3', stopOpacity: 0.9 }} />
-        </linearGradient>
-        <linearGradient id="input-beam" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style={{ stopColor: '#94a3b8', stopOpacity: 0 }} />
-          <stop offset="100%" style={{ stopColor: '#64748b' }} />
+          <stop offset="0%" style={{ stopColor: '#0891b2', stopOpacity: 0.95 }} />
+          <stop offset="50%" style={{ stopColor: '#7c3aed', stopOpacity: 0.95 }} />
+          <stop offset="100%" style={{ stopColor: '#c026d3', stopOpacity: 0.95 }} />
         </linearGradient>
         <linearGradient id="ray-teal" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" style={{ stopColor: '#06d6a0' }} />
-          <stop offset="100%" style={{ stopColor: '#06d6a0', stopOpacity: 0 }} />
+          <stop offset="100%" style={{ stopColor: '#06d6a0', stopOpacity: 0.1 }} />
         </linearGradient>
         <linearGradient id="ray-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" style={{ stopColor: '#0891b2' }} />
-          <stop offset="100%" style={{ stopColor: '#0891b2', stopOpacity: 0 }} />
+          <stop offset="100%" style={{ stopColor: '#0891b2', stopOpacity: 0.1 }} />
         </linearGradient>
         <linearGradient id="ray-violet" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" style={{ stopColor: '#7c3aed' }} />
-          <stop offset="100%" style={{ stopColor: '#7c3aed', stopOpacity: 0 }} />
+          <stop offset="100%" style={{ stopColor: '#7c3aed', stopOpacity: 0.1 }} />
         </linearGradient>
         <linearGradient id="ray-fuchsia" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" style={{ stopColor: '#c026d3' }} />
-          <stop offset="100%" style={{ stopColor: '#c026d3', stopOpacity: 0 }} />
+          <stop offset="100%" style={{ stopColor: '#c026d3', stopOpacity: 0.1 }} />
         </linearGradient>
         <linearGradient id="ray-rose" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" style={{ stopColor: '#e11d48' }} />
-          <stop offset="100%" style={{ stopColor: '#e11d48', stopOpacity: 0 }} />
+          <stop offset="100%" style={{ stopColor: '#e11d48', stopOpacity: 0.1 }} />
         </linearGradient>
         <filter id="glow">
           <feGaussianBlur stdDeviation="2" result="coloredBlur" />
@@ -45,42 +41,73 @@ function RefractionIllustration() {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <filter id="icon-shadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.15" />
+        </filter>
       </defs>
 
-      {/* Input document icon */}
-      <g transform="translate(30, 70)" className="animate-pulse" style={{ animationDuration: '3s' }}>
-        <rect x="0" y="0" width="40" height="50" rx="4" fill="#1e293b" stroke="#475569" strokeWidth="2" />
-        <rect x="8" y="10" width="24" height="3" rx="1" fill="#64748b" />
-        <rect x="8" y="18" width="20" height="3" rx="1" fill="#64748b" />
-        <rect x="8" y="26" width="22" height="3" rx="1" fill="#64748b" />
-        <rect x="8" y="34" width="16" height="3" rx="1" fill="#64748b" />
+      {/* Input Sources - Multiple icons */}
+      {/* PDF Icon */}
+      <g transform="translate(20, 35)" filter="url(#icon-shadow)">
+        <rect x="0" y="0" width="36" height="44" rx="4" fill="#fee2e2" stroke="#fca5a5" strokeWidth="1.5" />
+        <text x="18" y="28" textAnchor="middle" fontSize="10" fontWeight="600" fill="#dc2626">PDF</text>
       </g>
 
-      {/* Input beam */}
-      <line x1="80" y1="95" x2="160" y2="95" stroke="url(#input-beam)" strokeWidth="4" strokeLinecap="round" />
+      {/* URL/Globe Icon */}
+      <g transform="translate(20, 90)" filter="url(#icon-shadow)">
+        <rect x="0" y="0" width="36" height="44" rx="4" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1.5" />
+        <circle cx="18" cy="20" r="10" fill="none" stroke="#2563eb" strokeWidth="1.5" />
+        <ellipse cx="18" cy="20" rx="4" ry="10" fill="none" stroke="#2563eb" strokeWidth="1" />
+        <line x1="8" y1="20" x2="28" y2="20" stroke="#2563eb" strokeWidth="1" />
+      </g>
+
+      {/* DOCX Icon */}
+      <g transform="translate(20, 145)" filter="url(#icon-shadow)">
+        <rect x="0" y="0" width="36" height="44" rx="4" fill="#ddd6fe" stroke="#a78bfa" strokeWidth="1.5" />
+        <text x="18" y="28" textAnchor="middle" fontSize="9" fontWeight="600" fill="#7c3aed">DOCX</text>
+      </g>
+
+      {/* Input labels */}
+      <g style={{ fontFamily: 'system-ui' }}>
+        <text x="66" y="62" fill="#64748b" fontSize="11" fontWeight="500">PDF</text>
+        <text x="66" y="117" fill="#64748b" fontSize="11" fontWeight="500">URL</text>
+        <text x="66" y="172" fill="#64748b" fontSize="11" fontWeight="500">DOCX</text>
+      </g>
+
+      {/* Converging beams from inputs to prism */}
+      <g>
+        {/* From PDF */}
+        <line x1="95" y1="57" x2="185" y2="100" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+        {/* From URL */}
+        <line x1="95" y1="112" x2="185" y2="100" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+        {/* From DOCX */}
+        <line x1="95" y1="167" x2="185" y2="100" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+        {/* Arrow heads */}
+        <polygon points="185,100 175,95 175,105" fill="#94a3b8" />
+      </g>
 
       {/* Prism */}
-      <g transform="translate(160, 55)" filter="url(#glow)">
-        <polygon points="40,0 80,80 0,80" fill="url(#prism-fill)" />
-        <polygon points="40,0 80,80 0,80" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
+      <g transform="translate(185, 45)" filter="url(#glow)">
+        <polygon points="55,0 110,110 0,110" fill="url(#prism-fill)" />
+        <polygon points="55,0 110,110 0,110" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
       </g>
 
       {/* Output rays */}
-      <g transform="translate(240, 95)" filter="url(#glow)">
-        <line x1="0" y1="0" x2="120" y2="-55" stroke="url(#ray-teal)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="130" y2="-25" stroke="url(#ray-cyan)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="135" y2="5" stroke="url(#ray-violet)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="130" y2="35" stroke="url(#ray-fuchsia)" strokeWidth="3" strokeLinecap="round" />
-        <line x1="0" y1="0" x2="115" y2="60" stroke="url(#ray-rose)" strokeWidth="3" strokeLinecap="round" />
+      <g transform="translate(295, 100)" filter="url(#glow)">
+        <line x1="0" y1="0" x2="150" y2="-60" stroke="url(#ray-teal)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="0" y1="0" x2="160" y2="-28" stroke="url(#ray-cyan)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="0" y1="0" x2="165" y2="5" stroke="url(#ray-violet)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="0" y1="0" x2="160" y2="40" stroke="url(#ray-fuchsia)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="0" y1="0" x2="145" y2="70" stroke="url(#ray-rose)" strokeWidth="3" strokeLinecap="round" />
       </g>
 
       {/* Output labels */}
-      <g className="text-xs" style={{ fontFamily: 'system-ui' }}>
-        <text x="365" y="45" fill="#06d6a0" fontSize="11" fontWeight="500">PDF</text>
-        <text x="375" y="75" fill="#0891b2" fontSize="11" fontWeight="500">PPTX</text>
-        <text x="380" y="105" fill="#7c3aed" fontSize="11" fontWeight="500">Markdown</text>
-        <text x="375" y="135" fill="#c026d3" fontSize="11" fontWeight="500">Mind Map</text>
-        <text x="360" y="160" fill="#e11d48" fontSize="11" fontWeight="500">Podcast</text>
+      <g style={{ fontFamily: 'system-ui' }}>
+        <text x="450" y="45" fill="#06d6a0" fontSize="13" fontWeight="600">PDF</text>
+        <text x="460" y="77" fill="#0891b2" fontSize="13" fontWeight="600">PPTX</text>
+        <text x="465" y="110" fill="#7c3aed" fontSize="13" fontWeight="600">Markdown</text>
+        <text x="460" y="143" fill="#c026d3" fontSize="13" fontWeight="600">Mind Map</text>
+        <text x="445" y="173" fill="#e11d48" fontSize="13" fontWeight="600">Podcast</text>
       </g>
     </svg>
   );
@@ -99,9 +126,9 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl max-w-4xl">
-            One Source.{" "}
+            Multiple Sources.{" "}
             <span className="bg-gradient-to-r from-cyan-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent">
-              Infinite Formats.
+              Many Formats.
             </span>
           </h1>
 

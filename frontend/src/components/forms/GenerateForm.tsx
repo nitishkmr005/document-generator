@@ -24,6 +24,11 @@ import {
 } from "@/lib/types/requests";
 import { useUpload, UploadedFile } from "@/hooks/useUpload";
 
+interface OutputOption {
+  value: OutputFormat;
+  label: string;
+}
+
 interface GenerateFormProps {
   onSubmit: (
     sources: SourceItem[],
@@ -38,16 +43,28 @@ interface GenerateFormProps {
     imageApiKey?: string
   ) => void;
   isGenerating?: boolean;
+  defaultOutputFormat?: OutputFormat;
+  outputOptions?: OutputOption[];
 }
 
-export function GenerateForm({ onSubmit, isGenerating = false }: GenerateFormProps) {
+const defaultOutputOptions: OutputOption[] = [
+  { value: "pdf", label: "PDF Document" },
+  { value: "pptx", label: "PowerPoint Presentation" },
+];
+
+export function GenerateForm({
+  onSubmit,
+  isGenerating = false,
+  defaultOutputFormat = "pdf",
+  outputOptions = defaultOutputOptions,
+}: GenerateFormProps) {
   const [sourceTab, setSourceTab] = useState<"upload" | "url" | "text">("url");
   const [urlInput, setUrlInput] = useState("");
   const [urls, setUrls] = useState<string[]>([]);
   const [textContent, setTextContent] = useState("");
   const { uploading, uploadedFiles, error: uploadError, uploadFiles, removeFile } = useUpload();
 
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>("pdf");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>(defaultOutputFormat);
   const [provider, setProvider] = useState<Provider>("gemini");
   const [audience, setAudience] = useState<Audience>("technical");
   const [imageStyle, setImageStyle] = useState<ImageStyle>("auto");
@@ -251,8 +268,11 @@ export function GenerateForm({ onSubmit, isGenerating = false }: GenerateFormPro
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pdf">PDF Document</SelectItem>
-                <SelectItem value="pptx">PowerPoint Presentation</SelectItem>
+                {outputOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
