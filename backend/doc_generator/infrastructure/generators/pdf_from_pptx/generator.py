@@ -188,7 +188,8 @@ class PDFFromPPTXGenerator:
         Generate a PDF from structured content using slide-based layout.
 
         This is a fallback when LibreOffice is not available.
-        Creates a presentation-style PDF directly from the content.
+        Creates a presentation-style PDF directly from the content with
+        proper markdown rendering and slide-like visual styling.
 
         Args:
             content: Structured content dictionary
@@ -199,6 +200,8 @@ class PDFFromPPTXGenerator:
         Returns:
             Path to generated PDF
         """
+        import re
+        import html
         from datetime import datetime
         from reportlab.lib.pagesizes import landscape, A4
         from reportlab.lib.units import inch
@@ -208,16 +211,64 @@ class PDFFromPPTXGenerator:
             Paragraph,
             Spacer,
             PageBreak,
-            Image,
             Table,
             TableStyle,
+            KeepTogether,
         )
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
+        # Helper function to convert markdown to ReportLab HTML
+        def inline_md(text: str) -> str:
+            """Convert inline markdown formatting to HTML for ReportLab."""
+            if not text:
+                return ""
+
+            # Handle markdown links [text](url) -> clickable links
+            link_pattern = r"\[([^\]]+)\]\(([^\)]+)\)"
+            links = []
+
+            def replace_link(match):
+                text_part = match.group(1)
+                url = match.group(2)
+                links.append((text_part, url))
+                return f"__LINK_{len(links)-1}__"
+
+            text = re.sub(link_pattern, replace_link, text)
+
+            # Handle code blocks
+            parts = re.split(r"(`[^`]+`)", text)
+            rendered = []
+            for part in parts:
+                if part.startswith("`") and part.endswith("`") and len(part) >= 2:
+                    code = html.escape(part[1:-1])
+                    rendered.append(
+                        f"<font face='Courier' color='#6366f1'>{code}</font>"
+                    )
+                    continue
+                safe = html.escape(part)
+                # Bold **text**
+                safe = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", safe)
+                # Italic *text*
+                safe = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", safe)
+                rendered.append(safe)
+
+            result = "".join(rendered)
+
+            # Restore links
+            for i, (link_text, url) in enumerate(links):
+                placeholder = f"__LINK_{i}__"
+                link_html = f'<link href="{html.escape(url)}" color="blue"><u>{html.escape(link_text)}</u></link>'
+                result = result.replace(placeholder, link_html)
+
+            return result
+
         # Create PDF path
         pdf_filename = pptx_path.stem + ".pdf"
         pdf_path = output_dir / pdf_filename
+
+        # Slide dimensions (landscape A4)
+        page_width, page_height = landscape(A4)
 
         # Create document with landscape orientation (like slides)
         doc = SimpleDocTemplate(
@@ -229,39 +280,61 @@ class PDFFromPPTXGenerator:
             bottomMargin=0.5 * inch,
         )
 
+        # Color palette
+        ACCENT_COLOR = colors.HexColor("#6366f1")  # Indigo
+        DARK_TEXT = colors.HexColor("#1e293b")  # Slate-800
+        LIGHT_BG = colors.HexColor("#f8fafc")  # Slate-50
+        MUTED_TEXT = colors.HexColor("#64748b")  # Slate-500
+
         # Create styles
         styles = getSampleStyleSheet()
 
-        # Slide title style
-        slide_title_style = ParagraphStyle(
-            "SlideTitle",
-            parent=styles["Heading1"],
-            fontSize=32,
-            leading=38,
-            alignment=TA_CENTER,
-            spaceAfter=20,
-            textColor=colors.HexColor("#1a365d"),
-        )
-
-        # Title slide style
+        # Main title style (for cover slide)
         main_title_style = ParagraphStyle(
             "MainTitle",
             parent=styles["Title"],
-            fontSize=44,
-            leading=52,
+            fontSize=48,
+            leading=56,
             alignment=TA_CENTER,
-            spaceAfter=30,
-            textColor=colors.HexColor("#1a365d"),
+            spaceAfter=20,
+            textColor=DARK_TEXT,
+            fontName="Helvetica-Bold",
         )
 
         # Subtitle style
         subtitle_style = ParagraphStyle(
             "Subtitle",
             parent=styles["Normal"],
-            fontSize=18,
-            leading=22,
+            fontSize=20,
+            leading=26,
             alignment=TA_CENTER,
-            textColor=colors.HexColor("#4a5568"),
+            textColor=MUTED_TEXT,
+            fontName="Helvetica",
+        )
+
+        # Slide title style
+        slide_title_style = ParagraphStyle(
+            "SlideTitle",
+            parent=styles["Heading1"],
+            fontSize=32,
+            leading=40,
+            alignment=TA_CENTER,
+            spaceAfter=16,
+            textColor=DARK_TEXT,
+            fontName="Helvetica-Bold",
+        )
+
+        # Body text style
+        body_style = ParagraphStyle(
+            "SlideBody",
+            parent=styles["Normal"],
+            fontSize=18,
+            leading=28,
+            leftIndent=40,
+            spaceBefore=6,
+            spaceAfter=6,
+            textColor=DARK_TEXT,
+            fontName="Helvetica",
         )
 
         # Bullet style
@@ -270,10 +343,12 @@ class PDFFromPPTXGenerator:
             parent=styles["Normal"],
             fontSize=18,
             leading=28,
-            leftIndent=40,
-            bulletIndent=20,
-            spaceBefore=8,
-            textColor=colors.HexColor("#2d3748"),
+            leftIndent=60,
+            bulletIndent=40,
+            spaceBefore=6,
+            spaceAfter=6,
+            textColor=DARK_TEXT,
+            fontName="Helvetica",
         )
 
         # Build story (content)
@@ -284,67 +359,168 @@ class PDFFromPPTXGenerator:
         markdown_content = content.get("markdown", "")
         slides_data = content.get("slides", [])
 
-        # === Title Slide ===
+        # === Cover Slide ===
+        # Top accent bar
+        accent_bar = Table([[""]], colWidths=[page_width - 1.5 * inch], rowHeights=[8])
+        accent_bar.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), ACCENT_COLOR),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        story.append(accent_bar)
         story.append(Spacer(1, 2 * inch))
-        story.append(Paragraph(title, main_title_style))
+        story.append(Paragraph(inline_md(title), main_title_style))
         story.append(Spacer(1, 0.5 * inch))
 
-        # Add metadata as subtitle
+        # Decorative line under title
+        divider = Table([[""]], colWidths=[3 * inch], rowHeights=[4])
+        divider.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), ACCENT_COLOR),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ]
+            )
+        )
+        # Wrap in a table to center it
+        centered_divider = Table([[divider]], colWidths=[page_width - 1.5 * inch])
+        centered_divider.setStyle(
+            TableStyle(
+                [
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ]
+            )
+        )
+        story.append(centered_divider)
+        story.append(Spacer(1, 0.5 * inch))
+
+        # Metadata
         author = metadata.get("author", "")
         if author:
-            story.append(Paragraph(f"By {author}", subtitle_style))
+            story.append(Paragraph(f"By {inline_md(author)}", subtitle_style))
+            story.append(Spacer(1, 0.2 * inch))
 
         date_str = datetime.now().strftime("%B %d, %Y")
         story.append(Paragraph(date_str, subtitle_style))
         story.append(PageBreak())
 
         # === Content Slides ===
+        def create_slide_frame(slide_title: str, content_elements: list) -> list:
+            """Create a slide with visual framing."""
+            elements = []
+
+            # Top accent bar
+            elements.append(accent_bar)
+            elements.append(Spacer(1, 0.3 * inch))
+
+            # Slide title with background bar
+            title_table = Table(
+                [[Paragraph(inline_md(slide_title), slide_title_style)]],
+                colWidths=[page_width - 1.5 * inch],
+            )
+            title_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_BG),
+                        ("TOPPADDING", (0, 0), (-1, -1), 12),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ]
+                )
+            )
+            elements.append(title_table)
+            elements.append(Spacer(1, 0.3 * inch))
+
+            # Content
+            for elem in content_elements:
+                elements.append(elem)
+
+            elements.append(PageBreak())
+            return elements
+
         if slides_data:
             # Use LLM-generated slides structure
             for slide in slides_data:
                 slide_title = slide.get("title", "")
                 bullets = slide.get("bullets", [])
 
-                # Slide title
-                story.append(Spacer(1, 0.3 * inch))
-                story.append(Paragraph(slide_title, slide_title_style))
-                story.append(Spacer(1, 0.3 * inch))
-
-                # Slide bullets
+                content_elements = []
                 for bullet in bullets:
-                    story.append(Paragraph(f"• {bullet}", bullet_style))
+                    content_elements.append(
+                        Paragraph(f"• {inline_md(bullet)}", bullet_style)
+                    )
 
-                story.append(PageBreak())
+                story.extend(create_slide_frame(slide_title, content_elements))
         else:
             # Parse markdown content for slides
-            self._add_slides_from_markdown(
-                story, markdown_content, slide_title_style, bullet_style
+            self._add_slides_from_markdown_v2(
+                story,
+                markdown_content,
+                slide_title_style,
+                body_style,
+                bullet_style,
+                inline_md,
+                accent_bar,
+                LIGHT_BG,
+                page_width,
             )
 
         # Build PDF
         try:
             doc.build(story)
-            logger.info(f"Fallback PDF generated: {pdf_path}")
+            logger.info(f"Fallback PDF generated with slide styling: {pdf_path}")
             return str(pdf_path)
         except Exception as e:
             logger.error(f"Failed to generate fallback PDF: {e}")
             raise
 
-    def _add_slides_from_markdown(
-        self, story: list, markdown_content: str, title_style, bullet_style
+    def _add_slides_from_markdown_v2(
+        self,
+        story: list,
+        markdown_content: str,
+        title_style,
+        body_style,
+        bullet_style,
+        inline_md,
+        accent_bar,
+        light_bg,
+        page_width,
     ) -> None:
         """
-        Parse markdown and add slides to the PDF story.
+        Parse markdown and add slides to the PDF story with proper formatting.
 
         Args:
             story: ReportLab story list to append to
             markdown_content: Markdown content to parse
             title_style: Style for slide titles
+            body_style: Style for body paragraphs
             bullet_style: Style for bullet points
+            inline_md: Function to convert markdown to HTML
+            accent_bar: Accent bar table element
+            light_bg: Background color for titles
+            page_width: Page width for table sizing
         """
         import re
-        from reportlab.platypus import Spacer, Paragraph, PageBreak
+        from reportlab.platypus import Spacer, Paragraph, PageBreak, Table, TableStyle
         from reportlab.lib.units import inch
+        from reportlab.lib import colors
+
+        # Track seen section titles to prevent duplicates
+        seen_titles = set()
+
+        def normalize_title(t: str) -> str:
+            """Normalize title for duplicate detection."""
+            cleaned = re.sub(r"^\d+[\.:\)\s]+\s*", "", t.strip())
+            return re.sub(r"\s+", " ", cleaned).strip().lower()
 
         # Split content by H2 headings (slide boundaries)
         sections = re.split(r"^##\s+", markdown_content, flags=re.MULTILINE)
@@ -356,25 +532,147 @@ class PDFFromPPTXGenerator:
 
             # First line is the slide title
             slide_title = lines[0].strip()
-            story.append(Spacer(1, 0.3 * inch))
-            story.append(Paragraph(slide_title, title_style))
+
+            # Skip duplicate sections
+            normalized = normalize_title(slide_title)
+            if normalized in seen_titles:
+                continue
+            seen_titles.add(normalized)
+
+            # Create slide frame
+            story.append(accent_bar)
             story.append(Spacer(1, 0.3 * inch))
 
-            # Process remaining lines as bullets
+            # Slide title with background
+            title_table = Table(
+                [[Paragraph(inline_md(slide_title), title_style)]],
+                colWidths=[page_width - 1.5 * inch],
+            )
+            title_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, -1), light_bg),
+                        ("TOPPADDING", (0, 0), (-1, -1), 12),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ]
+                )
+            )
+            story.append(title_table)
+            story.append(Spacer(1, 0.3 * inch))
+
+            # Process remaining lines
+            current_paragraph = []
+
+            for line in lines[1:]:
+                line = line.strip()
+                if not line:
+                    # Flush current paragraph
+                    if current_paragraph:
+                        text = " ".join(current_paragraph)
+                        story.append(Paragraph(inline_md(text), body_style))
+                        current_paragraph = []
+                    continue
+
+                # Skip H3 and lower headings (they become sub-bullets or bold text)
+                if line.startswith("### "):
+                    # Sub-heading becomes bold paragraph
+                    if current_paragraph:
+                        text = " ".join(current_paragraph)
+                        story.append(Paragraph(inline_md(text), body_style))
+                        current_paragraph = []
+                    sub_title = line[4:].strip()
+                    story.append(Spacer(1, 0.1 * inch))
+                    story.append(
+                        Paragraph(f"<b>{inline_md(sub_title)}</b>", body_style)
+                    )
+                    continue
+
+                # Handle bullet points
+                if (
+                    line.startswith("- ")
+                    or line.startswith("* ")
+                    or line.startswith("• ")
+                ):
+                    # Flush current paragraph
+                    if current_paragraph:
+                        text = " ".join(current_paragraph)
+                        story.append(Paragraph(inline_md(text), body_style))
+                        current_paragraph = []
+
+                    bullet_text = line[2:] if not line.startswith("• ") else line[2:]
+                    story.append(Paragraph(f"• {inline_md(bullet_text)}", bullet_style))
+                elif line.startswith("#"):
+                    # Skip other headings within a slide
+                    continue
+                else:
+                    # Regular paragraph text - accumulate
+                    current_paragraph.append(line)
+
+            # Flush any remaining paragraph
+            if current_paragraph:
+                text = " ".join(current_paragraph)
+                story.append(Paragraph(inline_md(text), body_style))
+
+            story.append(PageBreak())
+
+    def _add_slides_from_markdown(
+        self, story: list, markdown_content: str, title_style, bullet_style
+    ) -> None:
+        """
+        Legacy method - redirects to v2 implementation.
+        Kept for backwards compatibility.
+        """
+        # This method is now superseded by _add_slides_from_markdown_v2
+        # but kept in case old code calls it
+        import re
+        import html
+        from reportlab.platypus import Spacer, Paragraph, PageBreak
+        from reportlab.lib.units import inch
+
+        def inline_md(text: str) -> str:
+            if not text:
+                return ""
+            parts = re.split(r"(`[^`]+`)", text)
+            rendered = []
+            for part in parts:
+                if part.startswith("`") and part.endswith("`") and len(part) >= 2:
+                    code = html.escape(part[1:-1])
+                    rendered.append(f"<font face='Courier'>{code}</font>")
+                    continue
+                safe = html.escape(part)
+                safe = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", safe)
+                safe = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", safe)
+                rendered.append(safe)
+            return "".join(rendered)
+
+        # Split content by H2 headings
+        sections = re.split(r"^##\s+", markdown_content, flags=re.MULTILINE)
+
+        for section in sections[1:]:
+            lines = section.strip().split("\n")
+            if not lines:
+                continue
+
+            slide_title = lines[0].strip()
+            story.append(Spacer(1, 0.3 * inch))
+            story.append(Paragraph(inline_md(slide_title), title_style))
+            story.append(Spacer(1, 0.3 * inch))
+
             for line in lines[1:]:
                 line = line.strip()
                 if not line:
                     continue
 
-                # Handle bullet points
                 if line.startswith("- ") or line.startswith("* "):
                     bullet_text = line[2:]
-                    story.append(Paragraph(f"• {bullet_text}", bullet_style))
+                    story.append(Paragraph(f"• {inline_md(bullet_text)}", bullet_style))
                 elif line.startswith("• "):
                     bullet_text = line[2:]
-                    story.append(Paragraph(f"• {bullet_text}", bullet_style))
+                    story.append(Paragraph(f"• {inline_md(bullet_text)}", bullet_style))
                 elif not line.startswith("#"):
-                    # Regular paragraph text
-                    story.append(Paragraph(f"• {line}", bullet_style))
+                    story.append(Paragraph(f"• {inline_md(line)}", bullet_style))
 
             story.append(PageBreak())
