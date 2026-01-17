@@ -71,11 +71,11 @@ const contentModelOptions: Record<Provider, ModelOption[]> = {
   anthropic: [
     {
       value: "anthropic.claude-haiku-4-5-20251001-v1:0",
-      label: "anthropic.claude-haiku-4-5-20251001-v1:0",
+      label: "claude-haiku-4-5-20251001",
     },
     {
       value: "anthropic.claude-sonnet-4-5-20250929-v1:0",
-      label: "anthropic.claude-sonnet-4-5-20250929-v1:0",
+      label: "claude-sonnet-4-5-20250929",
     },
   ],
   google: [
