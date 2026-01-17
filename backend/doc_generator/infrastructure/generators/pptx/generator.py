@@ -107,7 +107,9 @@ class PPTXGenerator:
             # Create output path
             # Get title for presentation content
             markdown_content = content.get("markdown", content.get("raw_content", ""))
-            title = self._resolve_display_title(metadata.get("title", "presentation"), markdown_content)
+            title = self._resolve_display_title(
+                metadata.get("title", "presentation"), markdown_content
+            )
 
             # Check for custom filename for output file
             if "custom_filename" in metadata:
@@ -124,7 +126,8 @@ class PPTXGenerator:
 
             # Check for LLM enhancements
             has_llm_enhancements = any(
-                key in content for key in ["slides", "executive_summary", "visualizations"]
+                key in content
+                for key in ["slides", "executive_summary", "visualizations"]
             )
 
             if has_llm_enhancements:
@@ -136,7 +139,7 @@ class PPTXGenerator:
                 title,
                 markdown_content,
                 metadata,
-                structured_content=content if has_llm_enhancements else None
+                structured_content=content if has_llm_enhancements else None,
             )
 
             logger.info(f"PPTX generated successfully: {output_path}")
@@ -153,7 +156,7 @@ class PPTXGenerator:
         title: str,
         markdown_content: str,
         metadata: dict,
-        structured_content: dict = None
+        structured_content: dict = None,
     ) -> None:
         """
         Create PowerPoint presentation.
@@ -186,32 +189,39 @@ class PPTXGenerator:
             executive_summary = structured_content.get("executive_summary", "")
             if executive_summary:
                 summary_points = [
-                    line.strip() for line in executive_summary.split("\n")
-                    if line.strip() and (line.strip().startswith("-") or line.strip().startswith("•"))
+                    line.strip()
+                    for line in executive_summary.split("\n")
+                    if line.strip()
+                    and (line.strip().startswith("-") or line.strip().startswith("•"))
                 ]
                 if summary_points:
-                    add_executive_summary_slide(prs, "Executive Summary", summary_points)
+                    add_executive_summary_slide(
+                        prs, "Executive Summary", summary_points
+                    )
                     logger.debug("Added executive summary slide")
 
             embed_images = metadata.get(
                 "embed_in_pptx",
                 self.settings.image_generation.embed_in_pptx,
             )
-            section_images = structured_content.get("section_images", {}) if embed_images else {}
-            slides, sections = self._generate_section_slides(markdown_content, section_images)
+            section_images = (
+                structured_content.get("section_images", {}) if embed_images else {}
+            )
+            slides, sections = self._generate_section_slides(
+                markdown_content, section_images
+            )
             if slides and sections:
                 self._add_llm_section_slides(prs, slides, sections, section_images)
             else:
                 self._add_slides_from_markdown(
-                    prs,
-                    markdown_content,
-                    allow_diagrams,
-                    section_images=section_images
+                    prs, markdown_content, allow_diagrams, section_images=section_images
                 )
 
         else:
             # No LLM enhancement - use markdown-based generation
-            self._add_slides_from_markdown(prs, markdown_content, allow_diagrams, section_images={})
+            self._add_slides_from_markdown(
+                prs, markdown_content, allow_diagrams, section_images={}
+            )
 
         # Save presentation
         save_presentation(prs, output_path)
@@ -235,10 +245,7 @@ class PPTXGenerator:
             if title and bullets:
                 normalized = self._expand_bullets(bullets)
                 self._add_bullet_slide_series(
-                    prs,
-                    title,
-                    normalized,
-                    speaker_notes=speaker_notes
+                    prs, title, normalized, speaker_notes=speaker_notes
                 )
 
         logger.debug(f"Added {len(slides)} LLM-generated slides")
@@ -269,7 +276,9 @@ class PPTXGenerator:
                 continue
 
             try:
-                add_image_slide(prs, title, img_path, f"{image_type.title()} for {title}")
+                add_image_slide(
+                    prs, title, img_path, f"{image_type.title()} for {title}"
+                )
                 logger.debug(f"Added {image_type} slide for section: {title}")
             except Exception as e:
                 logger.warning(f"Failed to add section image slide: {e}")
@@ -279,7 +288,7 @@ class PPTXGenerator:
         prs,
         markdown_content: str,
         allow_diagrams: bool = False,
-        section_images: dict | None = None
+        section_images: dict | None = None,
     ) -> None:
         """
         Parse markdown and add slides to presentation.
@@ -305,9 +314,7 @@ class PPTXGenerator:
                 # Flush current slide if any
                 if current_slide_title and current_slide_content:
                     self._add_bullet_slide_series(
-                        prs,
-                        current_slide_title,
-                        current_slide_content
+                        prs, current_slide_title, current_slide_content
                     )
                     current_slide_content = []
 
@@ -317,13 +324,13 @@ class PPTXGenerator:
 
             # H2 becomes slide title
             elif kind == "h2":
-                section_id, next_section_id = self._resolve_section_id(content_item, next_section_id)
+                section_id, next_section_id = self._resolve_section_id(
+                    content_item, next_section_id
+                )
                 # Flush current slide if any
                 if current_slide_title and current_slide_content:
                     self._add_bullet_slide_series(
-                        prs,
-                        current_slide_title,
-                        current_slide_content
+                        prs, current_slide_title, current_slide_content
                     )
 
                 if section_id in section_images:
@@ -331,7 +338,12 @@ class PPTXGenerator:
                     img_path = Path(img_info.get("path", ""))
                     if img_path.exists():
                         image_type = img_info.get("image_type", "image").title()
-                        add_image_slide(prs, content_item, img_path, f"{image_type} for {content_item}")
+                        add_image_slide(
+                            prs,
+                            content_item,
+                            img_path,
+                            f"{image_type} for {content_item}",
+                        )
 
                 # Start new slide
                 current_slide_title = content_item
@@ -359,9 +371,7 @@ class PPTXGenerator:
                 # Flush current slide if any
                 if current_slide_title and current_slide_content:
                     self._add_bullet_slide_series(
-                        prs,
-                        current_slide_title,
-                        current_slide_content
+                        prs, current_slide_title, current_slide_content
                     )
                     current_slide_content = []
                     current_slide_title = None
@@ -398,9 +408,7 @@ class PPTXGenerator:
         # Flush final slide
         if current_slide_title and current_slide_content:
             self._add_bullet_slide_series(
-                prs,
-                current_slide_title,
-                current_slide_content
+                prs, current_slide_title, current_slide_content
             )
 
     def _resolve_image_path(self, url: str) -> Path | None:
@@ -417,9 +425,7 @@ class PPTXGenerator:
         return resolve_image_path(url)
 
     def _generate_section_slides(
-        self,
-        markdown_content: str,
-        section_images: dict
+        self, markdown_content: str, section_images: dict
     ) -> tuple[list[dict], list[dict]]:
         """
         Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
@@ -435,11 +441,15 @@ class PPTXGenerator:
         slides = llm.generate_slide_structure_from_sections(sections)
         return slides, sections
 
-    def _extract_sections(self, markdown_content: str, section_images: dict) -> list[dict]:
+    def _extract_sections(
+        self, markdown_content: str, section_images: dict
+    ) -> list[dict]:
         """
+        Extract sections from markdown, deduplicating similar headings.
         Invoked by: src/doc_generator/application/nodes/generate_images.py, src/doc_generator/application/workflow/nodes/generate_images.py, src/doc_generator/infrastructure/generators/pptx/generator.py
         """
         sections = []
+        seen_normalized = set()
         current_title = None
         current_lines = []
         next_section_id = 1
@@ -448,25 +458,46 @@ class PPTXGenerator:
         for line in markdown_content.splitlines():
             match = re.match(r"^##\s+(.+)$", line)
             if match:
+                # Flush previous section
                 if current_title is not None:
-                    sections.append({
-                        "title": current_title,
-                        "section_id": current_section_id,
-                        "content": "\n".join(current_lines).strip()
-                    })
-                current_title = match.group(1).strip()
-                current_section_id, next_section_id = self._resolve_section_id(current_title, next_section_id)
+                    sections.append(
+                        {
+                            "title": current_title,
+                            "section_id": current_section_id,
+                            "content": "\n".join(current_lines).strip(),
+                        }
+                    )
+
+                new_title = match.group(1).strip()
+                normalized = self._normalize_section_title(new_title)
+
+                # Skip duplicate sections
+                if normalized in seen_normalized:
+                    logger.debug(f"Skipping duplicate section: {new_title}")
+                    current_title = None  # Don't process this section
+                    current_lines = []
+                    continue
+
+                seen_normalized.add(normalized)
+                current_title = new_title
+                current_section_id, next_section_id = self._resolve_section_id(
+                    current_title, next_section_id
+                )
                 current_lines = []
             elif current_title is not None:
                 current_lines.append(line)
 
+        # Flush final section
         if current_title is not None:
-            sections.append({
-                "title": current_title,
-                "section_id": current_section_id,
-                "content": "\n".join(current_lines).strip()
-            })
+            sections.append(
+                {
+                    "title": current_title,
+                    "section_id": current_section_id,
+                    "content": "\n".join(current_lines).strip(),
+                }
+            )
 
+        # Add image hints
         for section in sections:
             section_id = section.get("section_id")
             img_info = section_images.get(section_id)
@@ -479,11 +510,7 @@ class PPTXGenerator:
         return sections
 
     def _add_llm_section_slides(
-        self,
-        prs,
-        slides: list[dict],
-        sections: list[dict],
-        section_images: dict
+        self, prs, slides: list[dict], sections: list[dict], section_images: dict
     ) -> None:
         """
         Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
@@ -508,18 +535,34 @@ class PPTXGenerator:
                 img_path = Path(img_info.get("path", ""))
                 if img_path.exists():
                     image_type = img_info.get("image_type", "image").title()
-                    add_image_slide(prs, section_title, img_path, f"{image_type} for {section_title}")
+                    add_image_slide(
+                        prs,
+                        section_title,
+                        img_path,
+                        f"{image_type} for {section_title}",
+                    )
 
             bullets = slide.get("bullets", [])
             speaker_notes = slide.get("speaker_notes", "")
             if bullets:
-                self._add_bullet_slide_series(prs, section_title, bullets, speaker_notes=speaker_notes)
+                self._add_bullet_slide_series(
+                    prs, section_title, bullets, speaker_notes=speaker_notes
+                )
 
     def _normalize_title(self, title: str) -> str:
         """
         Invoked by: src/doc_generator/infrastructure/generators/pdf/generator.py, src/doc_generator/infrastructure/generators/pptx/generator.py
         """
         return re.sub(r"\s+", " ", title or "").strip().lower()
+
+    def _normalize_section_title(self, title: str) -> str:
+        """
+        Normalize section title for duplicate detection.
+        Removes leading numbers like "1." from "1. Introduction".
+        """
+        # Remove leading number patterns like "1.", "1)", "1:", "1 "
+        cleaned = re.sub(r"^\d+[\.:)\s]+\s*", "", (title or "").strip())
+        return re.sub(r"\s+", " ", cleaned).strip().lower()
 
     def _resolve_section_id(self, title: str, next_id: int) -> tuple[int, int]:
         """
@@ -535,13 +578,26 @@ class PPTXGenerator:
 
     def _extract_agenda(self, markdown_content: str) -> list[str]:
         """
+        Extract agenda items from markdown, deduplicating similar headings.
         Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
         """
         headings = []
+        seen_normalized = set()
+
         for match in re.finditer(r"^##\s+(.+)$", markdown_content, re.MULTILINE):
             heading = match.group(1).strip()
-            if heading:
-                headings.append(heading)
+            if not heading:
+                continue
+
+            # Normalize to detect duplicates like "Introduction" vs "1. Introduction"
+            normalized = self._normalize_section_title(heading)
+            if normalized in seen_normalized:
+                logger.debug(f"Skipping duplicate agenda item: {heading}")
+                continue
+
+            seen_normalized.add(normalized)
+            headings.append(heading)
+
         return headings[:6]
 
     def _resolve_display_title(self, metadata_title: str, markdown_content: str) -> str:
@@ -552,7 +608,9 @@ class PPTXGenerator:
         markdown_title = self._extract_markdown_title(markdown_content)
         cleaned_meta = self._clean_title(raw_title)
 
-        if markdown_title and (not raw_title or self._looks_like_placeholder(raw_title)):
+        if markdown_title and (
+            not raw_title or self._looks_like_placeholder(raw_title)
+        ):
             return markdown_title
 
         return cleaned_meta or markdown_title or "Presentation"
@@ -584,7 +642,9 @@ class PPTXGenerator:
             return ""
         cleaned = title.strip()
         if "/" in cleaned or "\\" in cleaned:
-            parts = [part for part in cleaned.split() if "/" not in part and "\\" not in part]
+            parts = [
+                part for part in cleaned.split() if "/" not in part and "\\" not in part
+            ]
             cleaned = " ".join(parts) if parts else Path(cleaned).stem
         if re.search(r"\.(pdf|docx|pptx|md|txt)$", cleaned, re.IGNORECASE):
             cleaned = Path(cleaned).stem
@@ -592,11 +652,7 @@ class PPTXGenerator:
         return re.sub(r"\s+", " ", cleaned)
 
     def _add_bullet_slide_series(
-        self,
-        prs,
-        title: str,
-        bullets: list[str],
-        speaker_notes: str = ""
+        self, prs, title: str, bullets: list[str], speaker_notes: str = ""
     ) -> None:
         """
         Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
@@ -609,7 +665,7 @@ class PPTXGenerator:
                 slide_title,
                 chunk,
                 is_bullets=True,
-                speaker_notes=speaker_notes if idx == 0 else ""
+                speaker_notes=speaker_notes if idx == 0 else "",
             )
 
     def _chunk_items(self, items: list[str], chunk_size: int) -> list[list[str]]:
@@ -618,7 +674,7 @@ class PPTXGenerator:
         """
         if not items:
             return []
-        return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
+        return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
     def _expand_bullets(self, items: list[str]) -> list[str]:
         """
@@ -644,7 +700,9 @@ class PPTXGenerator:
         """
         if len(text) < 120:
             return [text]
-        parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", text) if part.strip()]
+        parts = [
+            part.strip() for part in re.split(r"(?<=[.!?])\s+", text) if part.strip()
+        ]
         if len(parts) > 1:
             return parts
         clauses = [part.strip() for part in re.split(r"[;:]\s+", text) if part.strip()]
