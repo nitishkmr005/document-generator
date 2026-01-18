@@ -51,7 +51,7 @@ const features: Feature[] = [
   {
     id: "content",
     title: "Content Generation",
-    description: "Transform ideas into documents & presentations",
+    description: "Create articles, reports & presentations from any source",
     icon: (
       <svg
         className="w-7 h-7"
