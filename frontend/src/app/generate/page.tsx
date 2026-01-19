@@ -120,8 +120,8 @@ const features: Feature[] = [
   },
   {
     id: "mindmap",
-    title: "Mind Map",
-    description: "Visualize ideas as mind maps",
+    title: "Mind Map Generator",
+    description: "Transform content into visual mind maps from any source",
     icon: (
       <svg
         className="w-7 h-7"
@@ -777,117 +777,42 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
   const isCanvasStarting = canvasState === "starting";
   const isCanvasAnswering = canvasState === "answering";
 
+  // Check if we're in a workspace mode (full-width needed)
+  const isCanvasWorkspace = selectedFeature?.id === "idea-canvas" &&
+    (canvasState === "suggest_complete" || reportData || exitedToSummary);
+  const isMindMapWorkspace = selectedFeature?.id === "mindmap" && mindMapTree;
+
   // Show form when a feature is selected (split layout)
   if (selectedFeature) {
-    return (
-      <div className="container mx-auto px-4 py-6 md:py-10">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
+    // Full-width workspace view for Canvas completion and Mind Map viewer
+    if (isCanvasWorkspace) {
+      return (
+        <div className="px-6 py-4">
+          {/* Compact Header */}
+          <div className="flex items-center gap-4 mb-4">
             <button
               onClick={handleBackToFeatures}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               Back
             </button>
             <div className="flex items-center gap-3">
-              <div
-                className={`h-10 w-10 rounded-lg ${selectedFeature.bgColor} flex items-center justify-center`}
-              >
-                <span
-                  className={`${selectedFeature.color} [&>svg]:w-5 [&>svg]:h-5`}
-                >
+              <div className={`h-8 w-8 rounded-lg ${selectedFeature.bgColor} flex items-center justify-center`}>
+                <span className={`${selectedFeature.color} [&>svg]:w-4 [&>svg]:h-4`}>
                   {selectedFeature.icon}
                 </span>
               </div>
               <div>
-                <h1 className="text-xl font-bold">{selectedFeature.title}</h1>
-                <p className="text-sm text-muted-foreground">
-                  {selectedFeature.description}
-                </p>
+                <h1 className="text-lg font-semibold">{selectedFeature.title}</h1>
               </div>
             </div>
           </div>
 
-          {/* Feature-specific content */}
-          {selectedFeature.id === "image-studio" ? (
-            <ImageStudioForm />
-          ) : selectedFeature.id === "mindmap" ? (
-            /* Mind Map Layout */
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Left: Form or Progress */}
-              <div className="order-2 lg:order-1">
-                {mindMapState === "generating" ? (
-                  <div className="flex items-center justify-center min-h-[400px]">
-                    <MindMapProgress
-                      stage={mindMapProgress.stage}
-                      progress={mindMapProgress.percent}
-                      message={mindMapProgress.message}
-                    />
-                  </div>
-                ) : mindMapState === "error" ? (
-                  <div className="flex flex-col items-center justify-center min-h-[400px] p-8 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
-                    <svg className="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Generation Failed</h3>
-                    <p className="text-sm text-red-600 dark:text-red-300 text-center mb-4">{mindMapError}</p>
-                    <Button variant="outline" onClick={resetMindMap}>Try Again</Button>
-                  </div>
-                ) : (
-                  <MindMapForm
-                    onSubmit={handleMindMapSubmit}
-                    isGenerating={isMindMapGenerating}
-                  />
-                )}
-              </div>
-
-              {/* Right: Mind Map Viewer */}
-              <div className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start min-h-[500px] lg:h-[calc(100vh-200px)]">
-                <MindMapViewer
-                  tree={mindMapTree}
-                  onReset={resetMindMap}
-                />
-              </div>
-            </div>
-          ) : selectedFeature.id === "idea-canvas" ? (
-            /* Idea Canvas Layout */
-            canvasState === "idle" || canvasState === "starting" ? (
-              /* Show form when idle */
-              <div className="max-w-2xl mx-auto">
-                <IdeaCanvasForm
-                  onSubmit={handleCanvasSubmit}
-                  isStarting={isCanvasStarting}
-                />
-              </div>
-            ) : canvasState === "error" ? (
-              /* Show error state */
-              <div className="max-w-md mx-auto">
-                <div className="flex flex-col items-center justify-center min-h-[400px] p-8 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
-                  <svg className="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Something went wrong</h3>
-                  <p className="text-sm text-red-600 dark:text-red-300 text-center mb-4">{canvasError}</p>
-                  <Button variant="outline" onClick={resetCanvas}>Try Again</Button>
-                </div>
-              </div>
-            ) : canvasState === "suggest_complete" || reportData || exitedToSummary ? (
-              /* Completion/Summary state - Enhanced Split view: Canvas left, Report right */
-              <div className="h-[calc(100vh-10rem)] flex gap-4">
+          {/* Full-width Canvas Completion View */}
+          <div className="h-[calc(100vh-7rem)] flex gap-4">
                 {/* Left Panel: Canvas Decision Tree */}
                 <div className="w-1/2 flex flex-col rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
                   {/* Panel Header */}
@@ -1137,6 +1062,128 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
                       )}
                     </div>
                   </div>
+                </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Full-width workspace view for Mind Map with tree
+    if (isMindMapWorkspace) {
+      return (
+        <div className="px-6 py-4">
+          {/* Compact Header */}
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={handleBackToFeatures}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+            <div className="flex items-center gap-3">
+              <div className={`h-8 w-8 rounded-lg ${selectedFeature.bgColor} flex items-center justify-center`}>
+                <span className={`${selectedFeature.color} [&>svg]:w-4 [&>svg]:h-4`}>
+                  {selectedFeature.icon}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold">{selectedFeature.title}</h1>
+              </div>
+            </div>
+          </div>
+
+          {/* Full-width Mind Map Viewer */}
+          <div className="h-[calc(100vh-7rem)] rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
+            <MindMapViewer
+              tree={mindMapTree}
+              onReset={resetMindMap}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // Constrained layout for forms and other features
+    return (
+      <div className="container mx-auto px-4 py-6 md:py-10">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={handleBackToFeatures}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-lg ${selectedFeature.bgColor} flex items-center justify-center`}>
+                <span className={`${selectedFeature.color} [&>svg]:w-5 [&>svg]:h-5`}>
+                  {selectedFeature.icon}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">{selectedFeature.title}</h1>
+                <p className="text-sm text-muted-foreground">
+                  {selectedFeature.description}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature-specific content */}
+          {selectedFeature.id === "image-studio" ? (
+            <ImageStudioForm />
+          ) : selectedFeature.id === "mindmap" ? (
+            /* Mind Map Form (no tree yet) */
+            <div className="max-w-2xl mx-auto">
+              {mindMapState === "generating" ? (
+                <div className="flex items-center justify-center min-h-[400px]">
+                  <MindMapProgress
+                    stage={mindMapProgress.stage}
+                    progress={mindMapProgress.percent}
+                    message={mindMapProgress.message}
+                  />
+                </div>
+              ) : mindMapState === "error" ? (
+                <div className="flex flex-col items-center justify-center min-h-[400px] p-8 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
+                  <svg className="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Generation Failed</h3>
+                  <p className="text-sm text-red-600 dark:text-red-300 text-center mb-4">{mindMapError}</p>
+                  <Button variant="outline" onClick={resetMindMap}>Try Again</Button>
+                </div>
+              ) : (
+                <MindMapForm
+                  onSubmit={handleMindMapSubmit}
+                  isGenerating={isMindMapGenerating}
+                />
+              )}
+            </div>
+          ) : selectedFeature.id === "idea-canvas" ? (
+            /* Idea Canvas Form/Error states */
+            canvasState === "idle" || canvasState === "starting" ? (
+              <div className="max-w-2xl mx-auto">
+                <IdeaCanvasForm
+                  onSubmit={handleCanvasSubmit}
+                  isStarting={isCanvasStarting}
+                />
+              </div>
+            ) : canvasState === "error" ? (
+              <div className="max-w-md mx-auto">
+                <div className="flex flex-col items-center justify-center min-h-[400px] p-8 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
+                  <svg className="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Something went wrong</h3>
+                  <p className="text-sm text-red-600 dark:text-red-300 text-center mb-4">{canvasError}</p>
+                  <Button variant="outline" onClick={resetCanvas}>Try Again</Button>
                 </div>
               </div>
             ) : (
