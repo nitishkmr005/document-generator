@@ -149,7 +149,9 @@ class MindMapService:
                 # Get file from storage
                 file_path = self.storage.get_upload_path(source.file_id)
                 if file_path.exists():
-                    parser = get_parser()
+                    # Determine content format from file extension
+                    file_extension = file_path.suffix.lstrip(".").lower()
+                    parser = get_parser(file_extension)
                     content, _ = await loop.run_in_executor(
                         self._executor, parser.parse, file_path
                     )
