@@ -327,7 +327,7 @@ export default function GeneratePage() {
         try {
           const sources = buildSources();
           
-          // Use the image API key (Gemini) for summarization since that's what's available for images
+          // Use the content API key for summarization (text models)
           const apiKeyForSummarization = contentApiKey;
           if (!apiKeyForSummarization) {
             setImageGenError("Please enter a Content API key to process your files.");
@@ -455,7 +455,7 @@ export default function GeneratePage() {
             output_format: imageOutputFormat,
             free_text_mode: !imageCategory,
           },
-          imageApiKey
+          effectiveImageKey
         );
 
         if (result.success && result.image_data) {
@@ -494,7 +494,7 @@ export default function GeneratePage() {
           },
         },
         contentApiKey,
-        enableImageGeneration ? imageApiKey : undefined,
+        enableImageGeneration ? effectiveImageKey : undefined,
         user?.id
       );
     } else if (isMindMap) {
@@ -523,7 +523,7 @@ export default function GeneratePage() {
     imageStyle,
     enableImageGeneration,
     contentApiKey,
-    imageApiKey,
+    effectiveImageKey,
     mindMapMode,
     imagePrompt,
     imageCategory,
