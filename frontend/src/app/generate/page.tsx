@@ -17,6 +17,8 @@ import {
 import type { StudioOutputType } from "@/components/studio";
 import { MindMapProgress } from "@/components/mindmap";
 import { generateImage } from "@/lib/api/image";
+import { generateMindMap as generateMindMapApi } from "@/lib/api/mindmap";
+import { MindMapEvent, MindMapNode, MindMapTree } from "@/lib/types/mindmap";
 import { StyleCategory } from "@/data/imageStyles";
 import {
   Provider,
@@ -42,6 +44,74 @@ function getApiOutputFormat(studioType: StudioOutputType): OutputFormat {
     default:
       return "pdf";
   }
+}
+
+const MAX_IMAGE_PROMPT_CHARS = 3600;
+const MAX_MINDMAP_OUTLINE_NODES = 30;
+const MAX_MINDMAP_OUTLINE_DEPTH = 3;
+
+function clampText(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
+
+function buildMindMapOutline(
+  root: MindMapNode,
+  maxNodes = MAX_MINDMAP_OUTLINE_NODES,
+  maxDepth = MAX_MINDMAP_OUTLINE_DEPTH
+): string[] {
+  const lines: string[] = [];
+  const queue: Array<{ node: MindMapNode; depth: number }> = [];
+
+  if (root.children?.length) {
+    for (const child of root.children) {
+      queue.push({ node: child, depth: 1 });
+    }
+  } else {
+    queue.push({ node: root, depth: 1 });
+  }
+
+  while (queue.length && lines.length < maxNodes) {
+    const next = queue.shift();
+    if (!next) break;
+    const { node, depth } = next;
+    if (!node.label) continue;
+    const prefix = "  ".repeat(Math.max(0, depth - 1));
+    lines.push(`${prefix}- ${node.label}`);
+
+    if (node.children && depth < maxDepth) {
+      for (const child of node.children) {
+        queue.push({ node: child, depth: depth + 1 });
+      }
+    }
+  }
+
+  return lines;
+}
+
+function buildImagePromptFromMindMap(tree: MindMapTree, userPrompt: string): string {
+  const outline = buildMindMapOutline(tree.nodes);
+  const parts: string[] = [];
+
+  parts.push("Create an image that strictly reflects the source content.");
+  if (userPrompt) {
+    parts.push(`User focus: ${userPrompt}`);
+  }
+  if (tree.title) {
+    parts.push(`Title: ${tree.title}`);
+  }
+  if (tree.summary) {
+    parts.push(`Summary: ${tree.summary}`);
+  }
+  if (tree.nodes?.label) {
+    parts.push(`Central topic: ${tree.nodes.label}`);
+  }
+  if (outline.length) {
+    parts.push(`Key points:\n${outline.join("\n")}`);
+  }
+  parts.push("Use only these points. Do not add extra concepts or labels.");
+
+  return clampText(parts.join("\n"), MAX_IMAGE_PROMPT_CHARS);
 }
 
 export default function GeneratePage() {
@@ -160,10 +230,109 @@ export default function GeneratePage() {
       setImageGenError(null);
       setGeneratedImageData(null);
 
-      // Use textContent from SourceInput as the prompt for image generation
-      const prompt = textContent.trim();
+      // Determine the prompt: use text content, or summarize files/URLs if provided
+      const userPrompt = textContent.trim();
+      let prompt = userPrompt;
+      
+      // If we have files or URLs, we need to summarize the content first
+      const hasFiles = uploadedFiles.length > 0;
+      const hasUrls = urls.length > 0;
+      const hasSourcesToProcess = hasFiles || hasUrls;
+      
+      if (hasSourcesToProcess) {
+        // Use mindmap API to parse and summarize the content for image generation
+        try {
+          const sources = buildSources();
+          
+          // Use the image API key (Gemini) for summarization since that's what's available for images
+          const apiKeyForSummarization = contentApiKey || imageApiKey;
+          if (!apiKeyForSummarization) {
+            setImageGenError("Please enter a Content API key to process your files.");
+            setImageGenState("error");
+            return;
+          }
+          
+          // Create a promise that resolves when we get the complete event
+          const summaryPromise = new Promise<string>((resolve, reject) => {
+            let summaryText = "";
+            let resolved = false;
+            
+            const handleEvent = (event: MindMapEvent) => {
+              if (resolved) return;
+              
+              console.log("MindMap event received:", JSON.stringify(event).substring(0, 500));
+              
+              // Check for complete event with tree (MindMapCompleteEvent has type="complete" and tree)
+              if (event.type === "complete" && "tree" in event && event.tree) {
+                // Build a structured prompt from the tree for better content fidelity
+                const tree = event.tree;
+                summaryText = buildImagePromptFromMindMap(tree, userPrompt);
+                console.log("Extracted summary from tree:", summaryText.substring(0, 200));
+                resolved = true;
+                resolve(summaryText);
+              } else if (event.type === "progress") {
+                // Progress event - just log it
+                console.log("Progress:", event.stage, event.percent);
+              } else if (event.type === "error") {
+                // Error event
+                resolved = true;
+                reject(new Error(event.message || "Summarization failed"));
+              }
+            };
+            
+            const handleError = (err: Error) => {
+              if (resolved) return;
+              resolved = true;
+              console.error("MindMap API error:", err);
+              reject(err);
+            };
+            
+            // Call the mindmap API with summarize mode - use selected provider/model
+            generateMindMapApi({
+              request: {
+                sources,
+                mode: "summarize",
+                provider: provider,  // Use user-selected provider (default: gemini)
+                model: contentModel, // Use user-selected model
+              },
+              apiKey: apiKeyForSummarization,
+              userId: user?.id,
+              onEvent: handleEvent,
+              onError: handleError,
+            }).catch((err) => {
+              if (!resolved) {
+                resolved = true;
+                reject(err);
+              }
+            });
+            
+            // Timeout after 90 seconds
+            setTimeout(() => {
+              if (!resolved) {
+                resolved = true;
+                reject(new Error("Summarization timed out. Please try again."));
+              }
+            }, 90000);
+          });
+          
+          const summarizedContent = await summaryPromise;
+          
+          // Use the structured summary as the final prompt
+          if (summarizedContent) {
+            prompt = summarizedContent;
+          }
+          
+        } catch (err) {
+          console.error("Failed to summarize sources for image generation:", err);
+          const errorMessage = err instanceof Error ? err.message : "Unknown error";
+          setImageGenError(`Failed to process your sources: ${errorMessage}`);
+          setImageGenState("error");
+          return;
+        }
+      }
+      
       if (!prompt) {
-        setImageGenError("Please enter a description in the Sources text input");
+        setImageGenError("Please enter a description or upload files/URLs to generate an image");
         setImageGenState("error");
         return;
       }
@@ -357,7 +526,7 @@ export default function GeneratePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 scroll-smooth">
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
@@ -397,17 +566,7 @@ export default function GeneratePage() {
       <main className="h-[calc(100vh-4rem)]">
         <div className="h-full grid gap-0 lg:grid-cols-2">
           {/* Left Panel - Inputs (scrollable) */}
-          <div className="border-r border-border/30 bg-white/60 dark:bg-slate-900/60 overflow-y-auto p-6 space-y-5">
-            {/* Section Header */}
-            <div className="flex items-center gap-2 pb-2 border-b border-border/30">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-semibold">Configure Generation</h2>
-            </div>
-
+          <div className="border-r border-border/30 bg-white/60 dark:bg-slate-900/60 overflow-y-auto scroll-smooth p-6 px-8 space-y-5">
             {/* Source Input */}
             <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow">
               <SourceInput
@@ -486,7 +645,7 @@ export default function GeneratePage() {
           </div>
 
           {/* Right Panel - Output (full height) */}
-          <div className="overflow-hidden p-4">
+          <div className="overflow-hidden p-4 px-6">
             <div className="h-full">
               {isMindMap && mindMapState === "generating" ? (
                 <div className="flex items-center justify-center h-full rounded-xl border bg-card">

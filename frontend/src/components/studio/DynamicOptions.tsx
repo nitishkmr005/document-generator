@@ -62,14 +62,56 @@ const audienceOptions: { value: Audience; label: string; icon: string }[] = [
   { value: "creator", label: "Creator", icon: "🎨" },
 ];
 
-// Mind map mode options
-const mindMapModeOptions: { value: MindMapMode; label: string; icon: string }[] = [
-  { value: "summarize", label: "Summarize", icon: "📝" },
-  { value: "brainstorm", label: "Brainstorm", icon: "💡" },
-  { value: "structure", label: "Structure", icon: "🏗️" },
-  { value: "goal_planning", label: "Goals", icon: "🎯" },
-  { value: "pros_cons", label: "Pros & Cons", icon: "⚖️" },
-  { value: "presentation_structure", label: "Presentation", icon: "📊" },
+// Mind map mode options with descriptions and use cases
+const mindMapModeOptions: {
+  value: MindMapMode;
+  label: string;
+  icon: string;
+  description: string;
+  useCases: string[];
+}[] = [
+  {
+    value: "summarize",
+    label: "Understand Fast",
+    icon: "📖",
+    description: "Turn PDFs, articles, or URLs into a clean map of key ideas",
+    useCases: ["Research papers", "Articles"],
+  },
+  {
+    value: "brainstorm",
+    label: "Brainstorm Ideas",
+    icon: "💡",
+    description: "Expand a topic into use cases, variations & possibilities",
+    useCases: ["Startup ideas", "Features"],
+  },
+  {
+    value: "goal_planning",
+    label: "Create Action Plan",
+    icon: "🎯",
+    description: "Turn an idea into phases, steps & milestones",
+    useCases: ["Projects", "Learning paths"],
+  },
+  {
+    value: "pros_cons",
+    label: "Analyze Pros & Cons",
+    icon: "⚖️",
+    description: "See tradeoffs, benefits & risks for better decisions",
+    useCases: ["Tech choices", "Decisions"],
+  },
+  {
+    value: "presentation_structure",
+    label: "Presentation Outline",
+    icon: "📊",
+    description: "Create logical structure for slides or documents",
+    useCases: ["Slides", "Articles"],
+  },
+  {
+    value: "structure",
+    label: "Document Structure",
+    icon: "📋",
+    description: "Visualize how a document is organized",
+    useCases: ["Documents", "Reports"],
+  },
 ];
 
 interface DynamicOptionsProps {
@@ -138,7 +180,8 @@ export function DynamicOptions({
   const isMindMap = outputType === "mindmap";
 
   // Determine which API key sections to show
-  const showContentApiKey = isContentType || isMindMap;
+  // Content API key is always shown at top since it's needed for processing/parsing
+  const showContentApiKey = true;  // Always show content key at top
   const showImageApiKey = isImageType || (isContentType && enableImageGeneration);
 
   // Get styles for selected category
@@ -244,8 +287,8 @@ export function DynamicOptions({
         )}
       </div>
 
-      {/* Provider & Model Selection - for content types */}
-      {(isContentType || isMindMap) && (
+      {/* Provider & Model Selection - for content types, mind map, AND image generation */}
+      {(isContentType || isMindMap || isImageType) && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="provider" className="text-xs">Provider</Label>
@@ -356,26 +399,51 @@ export function DynamicOptions({
         </div>
       )}
 
-      {/* Mind Map Mode - TILES for mindmap type */}
+      {/* Mind Map Mode - Rich cards for mindmap type */}
       {isMindMap && (
-        <div className="space-y-2">
-          <Label className="text-xs font-medium">Mind Map Mode</Label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {mindMapModeOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onMindMapModeChange(opt.value)}
-                className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border text-center transition-all ${
-                  mindMapMode === opt.value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border hover:border-primary/50 hover:bg-muted/50"
-                }`}
-              >
-                <span className="text-lg">{opt.icon}</span>
-                <span className="text-[10px] font-medium leading-tight">{opt.label}</span>
-              </button>
-            ))}
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-sm font-semibold">Generation Mode</Label>
+            <p className="text-xs text-muted-foreground">Choose how you want to transform your content</p>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {mindMapModeOptions.map((opt) => {
+              const isSelected = mindMapMode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onMindMapModeChange(opt.value)}
+                  className={`flex flex-col items-start gap-2 p-4 rounded-xl border-2 text-left transition-all ${
+                    isSelected
+                      ? "border-blue-400 bg-blue-50 dark:bg-blue-950/30"
+                      : "border-border hover:border-muted-foreground/40 hover:bg-muted/30"
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center">
+                    <span className="text-xl">{opt.icon}</span>
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className={`text-sm font-semibold ${isSelected ? "text-blue-600 dark:text-blue-400" : ""}`}>
+                      {opt.label}
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {opt.description}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-auto">
+                    {opt.useCases.map((useCase, i) => (
+                      <span
+                        key={i}
+                        className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                      >
+                        {useCase}
+                      </span>
+                    ))}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -383,83 +451,174 @@ export function DynamicOptions({
       {/* Image Generation Options - for image types */}
       {isImageType && (
         <div className="space-y-5">
+          <div className="text-sm font-semibold">Style Options</div>
 
-          {/* Style Category - Clean wide tiles */}
-          <div className="space-y-2.5">
-            <Label className="text-sm font-medium text-muted-foreground">Style Category</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => {
-                    onImageCategoryChange?.(cat.id);
-                    onSelectedStyleIdChange?.(null);
-                  }}
-                  className={`px-4 py-3 rounded-xl border text-left transition-all ${
-                    imageCategory === cat.id
-                      ? "border-primary/60 bg-primary/5 text-foreground shadow-sm"
-                      : "border-border/60 bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className="text-sm font-medium">{cat.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Free text mode toggle */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!imageCategory}
+              onChange={() => {
+                if (imageCategory) {
+                  onImageCategoryChange?.(null);
+                  onSelectedStyleIdChange?.(null);
+                }
+              }}
+              className="w-4 h-4 rounded border-border"
+            />
+            <span className="text-sm text-muted-foreground">Free text mode (no style applied)</span>
+          </label>
 
-          {/* Specific Style - Clean tiles (only when category is selected) */}
-          {imageCategory && availableStyles.length > 0 && (
-            <div className="space-y-2.5">
-              <Label className="text-sm font-medium text-muted-foreground">Style</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {availableStyles.map((style) => (
+          {/* Style Category - 4x2 grid with icons */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Style Category</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {CATEGORIES.map((cat) => {
+                const icons: Record<StyleCategory, string> = {
+                  handwritten_and_human: "✍️",
+                  diagram_and_architecture: "🏗️",
+                  developer_and_technical: "💻",
+                  teaching_and_presentation: "📊",
+                  research_and_academic: "🔬",
+                  creative_and_social: "🎨",
+                  product_and_business: "💼",
+                  comparison_and_table: "📋",
+                };
+                const shortNames: Record<StyleCategory, string> = {
+                  handwritten_and_human: "Handwritten",
+                  diagram_and_architecture: "Diagram",
+                  developer_and_technical: "Developer",
+                  teaching_and_presentation: "Teaching",
+                  research_and_academic: "Research",
+                  creative_and_social: "Creative",
+                  product_and_business: "Product",
+                  comparison_and_table: "Comparison",
+                };
+                const isSelected = imageCategory === cat.id;
+                return (
                   <button
-                    key={style.id}
+                    key={cat.id}
                     type="button"
-                    onClick={() => onSelectedStyleIdChange?.(style.id)}
-                    className={`px-4 py-3 rounded-xl border text-left transition-all ${
-                      selectedStyleId === style.id
-                        ? "border-primary/60 bg-primary/5 text-foreground shadow-sm"
-                        : "border-border/60 bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      onImageCategoryChange?.(cat.id);
+                      onSelectedStyleIdChange?.(null);
+                    }}
+                    className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30"
+                        : "border-border hover:border-muted-foreground/40 hover:bg-muted/30"
                     }`}
                   >
-                    <span className="text-sm font-medium">{style.name}</span>
+                    {isSelected && (
+                      <div className="absolute top-1 right-1">
+                        <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                    <span className="text-xl">{icons[cat.id]}</span>
+                    <span className={`text-xs font-medium ${isSelected ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                      {shortNames[cat.id]}
+                    </span>
                   </button>
-                ))}
-              </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Click a category to see available styles, or leave unselected for free text mode
+            </p>
+          </div>
+
+          {/* Style Dropdown */}
+          {imageCategory && availableStyles.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Style</Label>
+              <Select
+                value={selectedStyleId || "none"}
+                onValueChange={(v) => onSelectedStyleIdChange?.(v === "none" ? null : v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a style..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select a style...</SelectItem>
+                  {availableStyles.map((style) => (
+                    <SelectItem key={style.id} value={style.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{style.name}</span>
+                        {style.supportsSvg && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300">
+                            SVG
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
-          {/* Output Format - Clean tile buttons */}
-          <div className="space-y-2.5">
-            <Label className="text-sm font-medium text-muted-foreground">Output Format</Label>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Style Preview Card */}
+          {selectedStyleId && availableStyles.length > 0 && (() => {
+            const style = availableStyles.find(s => s.id === selectedStyleId);
+            if (!style) return null;
+            return (
+              <div className="p-4 rounded-xl border bg-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-base">{style.name}</h4>
+                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                    {CATEGORIES.find(c => c.id === imageCategory)?.name}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Looks like</p>
+                  <p className="text-sm">{style.looksLike}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Best for</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {style.useCases.map((useCase, i) => (
+                      <span key={i} className="text-xs px-2 py-1 rounded-full bg-muted text-foreground">
+                        {useCase}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Output Format Toggle */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Output Format</Label>
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => onImageOutputFormatChange?.("raster")}
-                className={`flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-xl border transition-all ${
+                className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
                   imageOutputFormat === "raster"
-                    ? "border-primary/60 bg-primary/5 text-foreground shadow-sm"
-                    : "border-border/60 bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
-                <span className="text-base">🖼️</span>
-                <span className="text-sm font-medium">PNG (Raster)</span>
+                Raster (PNG)
               </button>
               <button
                 type="button"
                 onClick={() => onImageOutputFormatChange?.("svg")}
-                className={`flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-xl border transition-all ${
+                className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
                   imageOutputFormat === "svg"
-                    ? "border-primary/60 bg-primary/5 text-foreground shadow-sm"
-                    : "border-border/60 bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
-                <span className="text-base">📐</span>
-                <span className="text-sm font-medium">SVG (Vector)</span>
+                SVG
               </button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              SVG is only available for technical diagram styles or free text mode.
+            </p>
           </div>
         </div>
       )}

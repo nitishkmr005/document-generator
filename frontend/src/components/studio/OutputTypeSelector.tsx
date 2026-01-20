@@ -49,7 +49,7 @@ const outputTypes: OutputTypeConfig[] = [
   },
   {
     id: "presentation_pptx",
-    label: "Presentation",
+    label: "Presentation (PPTX)",
     icon: "📊",
     description: "PowerPoint PPTX",
     color: "text-orange-600",
