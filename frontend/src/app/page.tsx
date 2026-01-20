@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ApiKeysModal } from "@/components/studio/ApiKeysModal";
 import { AuthModal } from "@/components/auth";
@@ -465,6 +466,156 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sample Outputs Gallery - NEW */}
+      <section className="py-24 bg-white dark:bg-slate-900/50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 mb-4">
+              Gallery
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              See What's Possible
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+              Check out sample documents generated entirely by PrismDocs
+            </p>
+          </div>
+
+          <div className="space-y-16 max-w-6xl mx-auto">
+            
+            {/* Articles & Reports */}
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold border-l-4 border-cyan-500 pl-4">📄 Articles & Reports</h3>
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 group">
+                    <Image 
+                      src="/screenshots/Article_PDF.png" 
+                      alt="PDF Article Output" 
+                      fill 
+                      className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                      <span className="text-white font-medium">Professional PDF Report</span>
+                    </div>
+                  </div>
+                  <p className="text-center font-medium text-muted-foreground">PDF Report</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 group">
+                    <Image 
+                      src="/screenshots/Article_Markdown.png" 
+                      alt="Markdown Article Output" 
+                      fill 
+                      className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                    />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                      <span className="text-white font-medium">Clean Markdown</span>
+                    </div>
+                  </div>
+                  <p className="text-center font-medium text-muted-foreground">Markdown Document</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Presentations */}
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold border-l-4 border-fuchsia-500 pl-4">📊 Presentations</h3>
+              <div className="grid md:grid-cols-1 gap-8">
+                <div className="space-y-3">
+                  <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 group">
+                    <Image 
+                      src="/screenshots/Slides_PDF.png" 
+                      alt="Slides Output" 
+                      fill 
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                      <span className="text-white font-medium">PowerPoint & PDF Slides</span>
+                    </div>
+                  </div>
+                  <p className="text-center font-medium text-muted-foreground">Slides (PDF Preview)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Audio & Visuals */}
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold border-l-4 border-violet-500 pl-4">🎙️ Audio & Visuals</h3>
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 group bg-slate-900">
+                    <Image 
+                      src="/screenshots/Podcast.png" 
+                      alt="Podcast Output" 
+                      fill 
+                      className="object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+                    />
+                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <span className="text-white text-4xl">▶️</span>
+                    </div>
+                  </div>
+                  <p className="text-center font-medium text-muted-foreground">AI-Generated Podcast</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 group bg-white">
+                    <Image 
+                      src="/screenshots/Mindmap.png" 
+                      alt="Mind Map Output" 
+                      fill 
+                      className="object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+                    />
+                     <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  </div>
+                  <p className="text-center font-medium text-muted-foreground">Interactive Mind Map</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Image Generation */}
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold border-l-4 border-amber-500 pl-4">🎨 Image Studio</h3>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <div className="relative aspect-square rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 group">
+                    <Image 
+                      src="/screenshots/Original_Image.png" 
+                      alt="Original AI Image" 
+                      fill 
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                     <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs py-1 text-center font-medium">Original</div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="relative aspect-square rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 group">
+                    <Image 
+                      src="/screenshots/Inpainting_UI.png" 
+                      alt="Inpainting UI" 
+                      fill 
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs py-1 text-center font-medium">Inpainting Selection</div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="relative aspect-square rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 group">
+                     <Image 
+                      src="/screenshots/Edited_Image.png" 
+                      alt="Edited Result" 
+                      fill 
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs py-1 text-center font-medium">Final Result</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
