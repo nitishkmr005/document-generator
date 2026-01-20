@@ -107,7 +107,7 @@ See examples of what PrismDocs can generate:
 
 ### 📊 Presentations
 
-|                                                Slides (PDF Preview)                                                 |                             PowerPoint (PPTX)                              |
+|                                                Slides (PDF Preview)                                                 |                         PowerPoint (PPTX and PDF)                          |
 | :-----------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------: |
 | [![Slides](sampleOutputs/Screenshots/Slides%5BPDF%5D.png)](sampleOutputs/Generated%20Documents/Slides%5BPDF%5D.pdf) |                          _Fully Editable Slides_                           |
 |                       [Download PDF](sampleOutputs/Generated%20Documents/Slides%5BPDF%5D.pdf)                       | [Download PPTX](sampleOutputs/Generated%20Documents/Slides%5BPPTX%5D.pptx) |
