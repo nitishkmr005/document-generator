@@ -237,6 +237,136 @@ export default function HomePage() {
     }
   };
 
+  const galleryAccentStyles = {
+    cyan: "border-cyan-500/40 bg-cyan-50/80 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+    fuchsia: "border-fuchsia-500/40 bg-fuchsia-50/80 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
+    violet: "border-violet-500/40 bg-violet-50/80 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+    amber: "border-amber-500/40 bg-amber-50/80 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  } as const;
+
+  const galleryAspectStyles = {
+    portrait: "aspect-[3/4]",
+    landscape: "aspect-video",
+    square: "aspect-square",
+  } as const;
+
+  type GalleryItem = {
+    id: string;
+    category: string;
+    title: string;
+    format: string;
+    accent: "cyan" | "fuchsia" | "violet" | "amber";
+    kind: "scrolling" | "image";
+    src: string;
+    alt: string;
+    aspect: "portrait" | "landscape" | "square";
+    className?: string;
+    fit?: "contain" | "cover";
+    showPlay?: boolean;
+    containerClassName?: string;
+  };
+
+  const galleryItems: GalleryItem[] = [
+    {
+      id: "article-pdf",
+      category: "Articles & Reports",
+      title: "PDF Report",
+      format: "PDF",
+      accent: "cyan",
+      kind: "scrolling",
+      src: "/screenshots/Article_PDF.png",
+      alt: "PDF Article Output",
+      aspect: "portrait",
+      className: "border-slate-200 dark:border-slate-800",
+    },
+    {
+      id: "article-markdown",
+      category: "Articles & Reports",
+      title: "Markdown Document",
+      format: "Markdown",
+      accent: "cyan",
+      kind: "scrolling",
+      src: "/screenshots/Article_Markdown.png",
+      alt: "Markdown Article Output",
+      aspect: "portrait",
+      className: "border-slate-200 dark:border-slate-800",
+    },
+    {
+      id: "slides-pdf",
+      category: "Presentations",
+      title: "Slides (PDF Preview)",
+      format: "Slides",
+      accent: "fuchsia",
+      kind: "scrolling",
+      src: "/screenshots/Slides_PDF.png",
+      alt: "Slides Output",
+      aspect: "landscape",
+      className: "border-slate-200 dark:border-slate-800",
+    },
+    {
+      id: "podcast",
+      category: "Audio & Visuals",
+      title: "AI-Generated Podcast",
+      format: "Audio",
+      accent: "violet",
+      kind: "image",
+      src: "/screenshots/Podcast.png",
+      alt: "Podcast Output",
+      aspect: "landscape",
+      fit: "contain",
+      containerClassName: "bg-slate-900",
+      showPlay: true,
+    },
+    {
+      id: "mindmap",
+      category: "Audio & Visuals",
+      title: "Interactive Mind Map",
+      format: "Mind Map",
+      accent: "violet",
+      kind: "scrolling",
+      src: "/screenshots/Mindmap.png",
+      alt: "Mind Map Output",
+      aspect: "landscape",
+      className: "border-slate-200 dark:border-slate-800 bg-white",
+    },
+    {
+      id: "image-original",
+      category: "Image Studio",
+      title: "Original Image",
+      format: "Original",
+      accent: "amber",
+      kind: "image",
+      src: "/screenshots/Original_Image.png",
+      alt: "Original AI Image",
+      aspect: "square",
+      fit: "contain",
+    },
+    {
+      id: "image-inpaint",
+      category: "Image Studio",
+      title: "Inpainting Selection",
+      format: "Edit",
+      accent: "amber",
+      kind: "image",
+      src: "/screenshots/Inpainting_UI.png",
+      alt: "Inpainting UI",
+      aspect: "square",
+      fit: "contain",
+    },
+    {
+      id: "image-edited",
+      category: "Image Studio",
+      title: "Final Result",
+      format: "Result",
+      accent: "amber",
+      kind: "image",
+      src: "/screenshots/Edited_Image.png",
+      alt: "Edited Result",
+      aspect: "square",
+      fit: "contain",
+    },
+  ];
+
   return (
     <div className="relative overflow-hidden">
       {/* Auth Modal */}
@@ -481,125 +611,55 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               See What's Possible
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-              Check out sample documents generated entirely by PrismDocs
-            </p>
-          </div>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+            Check out sample documents generated entirely by PrismDocs
+          </p>
+        </div>
 
-          <div className="space-y-16 max-w-6xl mx-auto">
-            
-            {/* Articles & Reports */}
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold border-l-4 border-cyan-500 pl-4">📄 Articles & Reports</h3>
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <ScrollingImage 
-                    src="/screenshots/Article_PDF.png" 
-                    alt="PDF Article Output"
-                    aspectRatio="portrait"
-                    className="border-slate-200 dark:border-slate-800"
-                  />
-                  <p className="text-center font-medium text-muted-foreground">PDF Report</p>
-                </div>
-                <div className="space-y-3">
-                  <ScrollingImage 
-                    src="/screenshots/Article_Markdown.png" 
-                    alt="Markdown Article Output"
-                    aspectRatio="portrait"
-                    className="border-slate-200 dark:border-slate-800"
-                  />
-                  <p className="text-center font-medium text-muted-foreground">Markdown Document</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Presentations */}
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold border-l-4 border-fuchsia-500 pl-4">📊 Presentations</h3>
-              <div className="grid md:grid-cols-1 gap-8">
-                <div className="space-y-3">
-                  <ScrollingImage 
-                    src="/screenshots/Slides_PDF.png" 
-                    alt="Slides Output"
-                    aspectRatio="landscape"
-                    className="border-slate-200 dark:border-slate-800"
-                  />
-                  <p className="text-center font-medium text-muted-foreground">Slides (PDF Preview)</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Audio & Visuals */}
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold border-l-4 border-violet-500 pl-4">🎙️ Audio & Visuals</h3>
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                   <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 group bg-slate-900">
-                    <Image 
-                      src="/screenshots/Podcast.png" 
-                      alt="Podcast Output" 
-                      fill 
-                      className="object-contain p-4 transition-transform duration-500 group-hover:scale-105"
-                    />
-                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <span className="text-white text-4xl">▶️</span>
+          <div className="relative">
+            <div className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-6 -mx-4 px-4">
+              {galleryItems.map((item) => (
+                <div key={item.id} className="snap-start shrink-0 w-[280px] sm:w-[340px] lg:w-[380px]">
+                  <div className="group h-full rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/40 backdrop-blur-sm p-4 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${galleryAccentStyles[item.accent]}`}>
+                        {item.category}
+                      </span>
+                      <span className="text-xs font-medium text-muted-foreground">{item.format}</span>
+                    </div>
+                    <div className="space-y-3">
+                      {item.kind === "scrolling" ? (
+                        <ScrollingImage 
+                          src={item.src} 
+                          alt={item.alt}
+                          aspectRatio={item.aspect}
+                          className={item.className}
+                        />
+                      ) : (
+                        <div className={`relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl bg-slate-100 dark:bg-slate-900 ${galleryAspectStyles[item.aspect]} ${item.containerClassName ?? ""}`}>
+                          <Image 
+                            src={item.src} 
+                            alt={item.alt} 
+                            fill 
+                            className={`transition-transform duration-500 group-hover:scale-105 ${item.fit === "contain" ? "object-contain p-4" : "object-cover"}`}
+                          />
+                          {item.showPlay && (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                              <span className="text-white text-3xl">▶️</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">{item.title}</p>
                     </div>
                   </div>
-                  <p className="text-center font-medium text-muted-foreground">AI-Generated Podcast</p>
                 </div>
-                <div className="space-y-3">
-                  <ScrollingImage 
-                    src="/screenshots/Mindmap.png" 
-                    alt="Mind Map Output"
-                    aspectRatio="landscape"
-                    className="border-slate-200 dark:border-slate-800 bg-white"
-                  />
-                  <p className="text-center font-medium text-muted-foreground">Interactive Mind Map</p>
-                </div>
-              </div>
+              ))}
             </div>
-            
-            {/* Image Generation */}
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold border-l-4 border-amber-500 pl-4">🎨 Image Studio</h3>
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="space-y-3">
-                  <div className="relative aspect-square rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 group">
-                    <Image 
-                      src="/screenshots/Original_Image.png" 
-                      alt="Original AI Image" 
-                      fill 
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                     <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs py-1 text-center font-medium">Original</div>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="relative aspect-square rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 group">
-                    <Image 
-                      src="/screenshots/Inpainting_UI.png" 
-                      alt="Inpainting UI" 
-                      fill 
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs py-1 text-center font-medium">Inpainting Selection</div>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="relative aspect-square rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 group">
-                     <Image 
-                      src="/screenshots/Edited_Image.png" 
-                      alt="Edited Result" 
-                      fill 
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs py-1 text-center font-medium">Final Result</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+            <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white dark:from-slate-900/60 to-transparent" />
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white dark:from-slate-900/60 to-transparent" />
           </div>
+          <p className="mt-4 text-center text-sm text-muted-foreground">Swipe or scroll to explore the gallery.</p>
         </div>
       </section>
 
