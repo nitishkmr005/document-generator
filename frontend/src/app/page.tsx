@@ -225,21 +225,23 @@ export default function HomePage() {
 
   const handleApiKeyModalClose = (open: boolean) => {
     setShowApiKeyModal(open);
-    // If modal is closing and we have API key, navigate to generate page
-    if (!open && hasContentKey) {
-      // Store keys in sessionStorage for generate page to pick up
-      sessionStorage.setItem('prismdocs_content_api_key', contentApiKey);
-      sessionStorage.setItem('prismdocs_provider', provider);
-      sessionStorage.setItem('prismdocs_content_model', contentModel);
-      sessionStorage.setItem(
-        "prismdocs_enable_image_generation",
-        enableImageGeneration ? "1" : "0"
-      );
-      if (imageApiKey) {
-        sessionStorage.setItem('prismdocs_image_api_key', imageApiKey);
-      }
-      router.push('/generate');
+  };
+
+  const handleApiKeyModalConfirm = () => {
+    if (!hasContentKey) return;
+    // Store keys in sessionStorage for generate page to pick up
+    sessionStorage.setItem("prismdocs_content_api_key", contentApiKey);
+    sessionStorage.setItem("prismdocs_provider", provider);
+    sessionStorage.setItem("prismdocs_content_model", contentModel);
+    sessionStorage.setItem(
+      "prismdocs_enable_image_generation",
+      enableImageGeneration ? "1" : "0"
+    );
+    if (imageApiKey) {
+      sessionStorage.setItem("prismdocs_image_api_key", imageApiKey);
     }
+    setShowApiKeyModal(false);
+    router.push("/generate");
   };
 
   type GalleryItem = {
@@ -409,6 +411,7 @@ export default function HomePage() {
       <ApiKeysModal
         isOpen={showApiKeyModal}
         onOpenChange={handleApiKeyModalClose}
+        onConfirm={handleApiKeyModalConfirm}
         provider={provider}
         contentModel={contentModel}
         onProviderChange={setProvider}

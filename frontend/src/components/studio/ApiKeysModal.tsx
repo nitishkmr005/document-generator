@@ -39,6 +39,7 @@ const PROVIDER_KEY_URLS: Record<Provider, string> = {
 interface ApiKeysModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onConfirm?: () => void;
   provider: Provider;
   contentModel: string;
   onProviderChange: (provider: Provider) => void;
@@ -64,6 +65,7 @@ interface ApiKeysModalProps {
 export function ApiKeysModal({
   isOpen,
   onOpenChange,
+  onConfirm,
   provider,
   contentModel,
   onProviderChange,
@@ -430,7 +432,7 @@ export function ApiKeysModal({
             )}
           </div>
           <Button 
-            onClick={() => onOpenChange(false)} 
+            onClick={() => (onConfirm ? onConfirm() : onOpenChange(false))} 
             disabled={!canClose}
             className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700"
           >
