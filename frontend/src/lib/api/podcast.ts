@@ -7,6 +7,12 @@ import { Provider } from "@/lib/types/requests";
 export interface GeneratePodcastOptions {
   request: PodcastRequest;
   apiKey: string;
+  /**
+   * Gemini API key for TTS synthesis. Required for podcast generation
+   * even when using a different provider for script generation.
+   * Falls back to apiKey if not provided (works when provider is Gemini).
+   */
+  geminiApiKey?: string;
   userId?: string;
   onEvent: (event: PodcastEvent) => void;
   onError: (error: Error) => void;
@@ -27,11 +33,17 @@ function getApiKeyHeader(provider: Provider): string {
 }
 
 export async function generatePodcast(options: GeneratePodcastOptions): Promise<void> {
-  const { request, apiKey, userId, onEvent, onError } = options;
+  const { request, apiKey, geminiApiKey, userId, onEvent, onError } = options;
 
+  const providerKeyHeader = getApiKeyHeader(request.provider);
+  
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    [getApiKeyHeader(request.provider)]: apiKey,
+    // Provider-specific key for script generation
+    [providerKeyHeader]: apiKey,
+    // Gemini key for TTS - use provided geminiApiKey or fall back to apiKey
+    // (works when user's provider is already Gemini)
+    "X-Google-Key": geminiApiKey || apiKey,
   };
 
   if (userId) {
@@ -49,7 +61,13 @@ export async function generatePodcast(options: GeneratePodcastOptions): Promise<
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Podcast generation failed: ${errorText}`);
+      // Parse error for better message
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.detail || `Podcast generation failed: ${errorText}`);
+      } catch {
+        throw new Error(`Podcast generation failed: ${errorText}`);
+      }
     }
 
     const reader = response.body?.getReader();
@@ -86,3 +104,4 @@ export async function generatePodcast(options: GeneratePodcastOptions): Promise<
     onError(error instanceof Error ? error : new Error(String(error)));
   }
 }
+

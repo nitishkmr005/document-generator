@@ -163,6 +163,9 @@ export default function GeneratePage() {
   // For Gemini, use content key for images if no explicit image key is provided
   const effectiveImageKey = imageApiKey.trim() || (provider === "gemini" ? contentApiKey.trim() : "");
   const hasImageKey = effectiveImageKey.length > 0;
+  // Check if user has Gemini API key available (for features like podcast/image that require Gemini)
+  // Gemini key is available if: explicit image key exists, OR user is using Gemini provider with content key
+  const hasGeminiKey = imageApiKey.trim().length > 0 || (provider === "gemini" && contentApiKey.trim().length > 0);
 
 
   // Image generation specific state
@@ -253,8 +256,12 @@ export default function GeneratePage() {
     if (isContentType) {
       return hasContentKey && (!enableImageGeneration || hasImageKey);
     }
-    if (isMindMap || isPodcast) {
+    if (isMindMap) {
       return hasContentKey;
+    }
+    if (isPodcast) {
+      // Podcast requires content key for script generation AND Gemini key for TTS
+      return hasContentKey && hasGeminiKey;
     }
     if (isImageType) {
       const needsContentKey = uploadedFiles.length > 0 || urls.length > 0;
@@ -832,7 +839,7 @@ export default function GeneratePage() {
                   <OutputTypeSelector
                     selectedType={outputType}
                     onTypeChange={setOutputType}
-                    imageGenerationAvailable={hasImageKey}
+                    geminiKeyAvailable={hasGeminiKey}
                   />
                 </div>
               </div>

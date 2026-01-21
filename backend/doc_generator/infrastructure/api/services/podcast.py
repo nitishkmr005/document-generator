@@ -65,18 +65,23 @@ class PodcastService:
         self,
         request: PodcastRequest,
         api_key: str,
+        gemini_api_key: str | None = None,
         user_id: str | None = None,
     ) -> AsyncIterator[PodcastProgressEvent | PodcastCompleteEvent | PodcastErrorEvent]:
         """Generate podcast with progress streaming.
 
         Args:
             request: Podcast generation request
-            api_key: API key for LLM/TTS provider
+            api_key: API key for LLM provider (script generation)
+            gemini_api_key: Gemini API key for TTS (falls back to api_key if not provided)
             user_id: Optional user ID for logging
 
         Yields:
             Progress events, then completion or error event
         """
+        # Use gemini_api_key for TTS if provided, otherwise fall back to api_key
+        # (works when user selects Gemini as their provider)
+        tts_api_key = gemini_api_key or api_key
         try:
             # Phase 1: Extracting content
             yield PodcastProgressEvent(
@@ -163,11 +168,11 @@ class PodcastService:
                 message="Synthesizing multi-speaker audio...",
             )
 
-            # Generate audio using Gemini TTS
+            # Generate audio using Gemini TTS (requires Gemini API key)
             audio_data = await self._synthesize_audio(
                 tts_prompt=tts_prompt,
                 speakers=request.speakers,
-                api_key=api_key,
+                api_key=tts_api_key,
             )
 
             yield PodcastProgressEvent(

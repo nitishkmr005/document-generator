@@ -20,6 +20,8 @@ interface OutputTypeConfig {
   color: string;
   bgColor: string;
   comingSoon?: boolean;
+  /** Features that require Gemini API key specifically */
+  requiresGeminiKey?: boolean;
 }
 
 const outputTypes: OutputTypeConfig[] = [
@@ -70,6 +72,7 @@ const outputTypes: OutputTypeConfig[] = [
     description: "AI-generated image",
     color: "text-fuchsia-600",
     bgColor: "bg-fuchsia-50 dark:bg-fuchsia-950/30 border-fuchsia-200 dark:border-fuchsia-800",
+    requiresGeminiKey: true,
   },
   {
     id: "podcast",
@@ -78,6 +81,7 @@ const outputTypes: OutputTypeConfig[] = [
     description: "Audio content",
     color: "text-amber-600",
     bgColor: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
+    requiresGeminiKey: true,
   },
   {
     id: "faq",
@@ -93,22 +97,30 @@ const outputTypes: OutputTypeConfig[] = [
 interface OutputTypeSelectorProps {
   selectedType: StudioOutputType;
   onTypeChange: (type: StudioOutputType) => void;
+  /** Whether Gemini API key is available (required for image and podcast) */
+  geminiKeyAvailable?: boolean;
+  /** @deprecated Use geminiKeyAvailable instead */
   imageGenerationAvailable?: boolean;
 }
 
 export function OutputTypeSelector({
   selectedType,
   onTypeChange,
+  geminiKeyAvailable,
   imageGenerationAvailable = true,
 }: OutputTypeSelectorProps) {
+  // Use geminiKeyAvailable if provided, otherwise fall back to imageGenerationAvailable for backwards compatibility
+  const hasGeminiKey = geminiKeyAvailable ?? imageGenerationAvailable;
+
   return (
     <div className="space-y-3">
       <Label className="text-sm font-semibold">Output Type</Label>
       <div className="grid grid-cols-3 gap-1.5">
         {outputTypes.map((type) => {
           const isSelected = selectedType === type.id;
-          const isImageDisabled = type.id === "image_generate" && !imageGenerationAvailable;
-          const isDisabled = type.comingSoon || isImageDisabled;
+          const requiresGeminiKey = type.requiresGeminiKey && !hasGeminiKey;
+          const isDisabled = type.comingSoon || requiresGeminiKey;
+          
           return (
             <button
               key={type.id}
@@ -128,9 +140,9 @@ export function OutputTypeSelector({
                   Soon
                 </span>
               )}
-              {isImageDisabled && (
+              {requiresGeminiKey && (
                 <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-muted text-muted-foreground">
-                  Key required
+                  Gemini key
                 </span>
               )}
               {type.id === "presentation_pptx" && !type.comingSoon && (
@@ -151,3 +163,4 @@ export function OutputTypeSelector({
 }
 
 export { outputTypes };
+
