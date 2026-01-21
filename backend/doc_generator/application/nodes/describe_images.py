@@ -26,11 +26,11 @@ except ImportError:
 class GeminiImageDescriber:
     """Generate a blog-style description for an image using Gemini."""
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         """
         Invoked by: (no references found)
         """
-        self.api_key = get_gemini_api_key()
+        self.api_key = api_key or get_gemini_api_key()
         self.settings = get_settings()
         self.client = create_gemini_client(self.api_key)
         if self.api_key and self.client is None:
@@ -56,10 +56,19 @@ class GeminiImageDescriber:
         image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
         prompt = build_image_description_prompt(section_title, content)
         model = self.settings.llm.content_model or self.settings.llm.model
-        response = self.client.models.generate_content(
-            model=model,
-            contents=[prompt, image_part],
-        )
+        try:
+            response = self.client.models.generate_content(
+                model=model,
+                contents=[prompt, image_part],
+            )
+        except Exception as exc:
+            logger.error(
+                "Gemini image description failed for '%s': %s",
+                section_title,
+                exc,
+            )
+            return ""
+
         response_text = (response.text or "").strip()
         log_llm_call(
             name="image_description",
@@ -97,7 +106,12 @@ def describe_images_node(state: WorkflowState) -> WorkflowState:
     
     markdown = structured_content.get("markdown", "")
     settings = get_settings()
-    describer = GeminiImageDescriber()
+    metadata = state.get("metadata", {})
+    api_keys = metadata.get("api_keys", {})
+    content_api_key = api_keys.get("content")
+    image_api_key = api_keys.get("image")
+    # Prefer the content API key as requested by UI; fall back to image key/env if missing.
+    describer = GeminiImageDescriber(api_key=content_api_key or image_api_key)
     
     described_count = 0
     embedded_count = 0
