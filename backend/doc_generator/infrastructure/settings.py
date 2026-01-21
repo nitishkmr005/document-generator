@@ -199,7 +199,7 @@ class LlmSettings(BaseSettings):
 
     # Summary and slide generation
     max_summary_points: int = 5
-    max_slides: int = 10
+    max_slides: int = 25
     max_tokens_summary: int = 500
     max_tokens_slides: int = 2000
     temperature_summary: float = 0.3

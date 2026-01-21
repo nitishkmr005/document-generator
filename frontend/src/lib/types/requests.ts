@@ -67,7 +67,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   image_style: "auto",
   temperature: 0.4,
   max_tokens: 12000,
-  max_slides: 10,
+  max_slides: 25,
   max_summary_points: 5,
   enable_image_generation: true,
 };

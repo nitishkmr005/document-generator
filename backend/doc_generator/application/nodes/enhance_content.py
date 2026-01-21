@@ -65,7 +65,8 @@ def enhance_content_node(state: WorkflowState) -> WorkflowState:
     # Generate slide structure for PPTX and PDF-from-PPTX
     if output_format in ("pptx", "pdf_from_pptx") and not structured.get("slides"):
         log_subsection("Generating Slide Structure")
-        slides = llm.generate_slide_structure(markdown)
+        max_slides = state.get("metadata", {}).get("max_slides")
+        slides = llm.generate_slide_structure(markdown, max_slides=max_slides)
         if slides:
             structured["slides"] = slides
             log_metric("Slides Generated", len(slides))

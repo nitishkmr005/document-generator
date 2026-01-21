@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -73,6 +73,7 @@ export function StudioRightPanel({
   const [markdownCopied, setMarkdownCopied] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [markdownView, setMarkdownView] = useState<"preview" | "raw">("preview");
+  const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   
   // Image editing state
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -86,11 +87,69 @@ export function StudioRightPanel({
 
   // Simple markdown to HTML renderer for basic preview
   const renderMarkdownAsHtml = (md: string): string => {
-    let html = md
-      // Escape HTML to prevent XSS
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
+    const escapeHtml = (value: string) =>
+      value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const isTableSeparator = (line: string) =>
+      /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(line);
+    const parseRow = (line: string) => {
+      let trimmed = line.trim();
+      if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+      if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+      return trimmed.split("|").map((cell) => cell.trim());
+    };
+
+    const tableBlocks: string[] = [];
+    const lines = md.split("\n");
+    const outputLines: string[] = [];
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const nextLine = lines[i + 1];
+      if (line && nextLine && line.includes("|") && isTableSeparator(nextLine)) {
+        const headerCells = parseRow(line);
+        const alignHints = parseRow(nextLine);
+        const aligns = headerCells.map((_, idx) => {
+          const hint = alignHints[idx] || "";
+          const trimmed = hint.trim();
+          if (trimmed.startsWith(":") && trimmed.endsWith(":")) return "center";
+          if (trimmed.endsWith(":")) return "right";
+          return "left";
+        });
+        const bodyRows: string[][] = [];
+        i += 2;
+        while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {
+          bodyRows.push(parseRow(lines[i]));
+          i += 1;
+        }
+
+        const headerHtml = headerCells
+          .map((cell, idx) => {
+            const align = aligns[idx] || "left";
+            return `<th class="border border-border bg-muted/40 px-2 py-1 align-top" style="text-align:${align}">${escapeHtml(cell)}</th>`;
+          })
+          .join("");
+        const bodyHtml = bodyRows
+          .map((row) => {
+            const cells = headerCells.map((_, idx) => {
+              const align = aligns[idx] || "left";
+              const cell = row[idx] || "";
+              return `<td class="border border-border px-2 py-1 align-top" style="text-align:${align}">${escapeHtml(cell)}</td>`;
+            });
+            return `<tr>${cells.join("")}</tr>`;
+          })
+          .join("");
+        const tableHtml = `<div class="overflow-x-auto my-4"><table class="w-full border-collapse text-sm"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+        const token = `__TABLE_BLOCK_${tableBlocks.length}__`;
+        tableBlocks.push(tableHtml);
+        outputLines.push(token);
+        continue;
+      }
+      outputLines.push(line);
+      i += 1;
+    }
+
+    let html = escapeHtml(outputLines.join("\n"))
       // Headers
       .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>')
       .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mt-5 mb-2">$1</h2>')
@@ -118,6 +177,12 @@ export function StudioRightPanel({
       .replace(/\n\n/g, '</p><p class="my-2">')
       // Single newlines
       .replace(/\n/g, '<br/>');
+
+    html = html.replace(/__TABLE_BLOCK_(\d+)__/g, (_match, idx) => {
+      const table = tableBlocks[Number(idx)];
+      return table || "";
+    });
+    html = html.replace(/<p class="my-2">\s*(<div class="overflow-x-auto[\s\S]*?<\/div>)\s*<\/p>/g, "$1");
     
     return `<div class="prose prose-sm dark:prose-invert max-w-none"><p class="my-2">${html}</p></div>`;
   };
@@ -144,8 +209,20 @@ export function StudioRightPanel({
     }
   };
 
-  const handleOpenPdfInNewTab = () => {
-    if (!pdfBase64) return;
+  const isPdfOutput = outputType === "article_pdf" || outputType === "slide_deck_pdf";
+  const pdfPreviewUrl = isPdfOutput ? (pdfObjectUrl || downloadUrl || null) : pdfObjectUrl;
+
+  useEffect(() => {
+    if (!pdfBase64) {
+      setPdfObjectUrl((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+      return;
+    }
+
     const byteCharacters = atob(pdfBase64);
     const byteNumbers = new Array(byteCharacters.length);
     for (let i = 0; i < byteCharacters.length; i++) {
@@ -154,8 +231,21 @@ export function StudioRightPanel({
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    setPdfObjectUrl((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev);
+      }
+      return url;
+    });
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [pdfBase64]);
+
+  const handleOpenPdfInNewTab = () => {
+    if (!pdfPreviewUrl) return;
+    window.open(pdfPreviewUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleDownloadImage = (data?: string | null, format?: string) => {
@@ -741,8 +831,8 @@ export function StudioRightPanel({
       );
     }
 
-    // PDF outputs (article_pdf, slide_deck_pdf, presentation_pptx)
-    if (pdfBase64) {
+    // PDF outputs (article_pdf, slide_deck_pdf)
+    if (pdfPreviewUrl) {
       return (
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
@@ -776,7 +866,7 @@ export function StudioRightPanel({
           </div>
           <div className="flex-1 min-h-0">
             <iframe
-              src={`data:application/pdf;base64,${pdfBase64}#view=FitH&zoom=page-width`}
+              src={`${pdfPreviewUrl}#view=FitH&zoom=page-width`}
               className="w-full h-full border-0"
               title="PDF Preview"
             />
@@ -828,7 +918,7 @@ export function StudioRightPanel({
       </div>
 
       {/* Fullscreen Modal */}
-      {isFullscreen && pdfBase64 && (
+      {isFullscreen && pdfPreviewUrl && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="relative w-full h-full max-w-6xl bg-white rounded-lg overflow-hidden">
             <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -840,7 +930,7 @@ export function StudioRightPanel({
               </Button>
             </div>
             <iframe
-              src={`data:application/pdf;base64,${pdfBase64}#view=FitH`}
+              src={`${pdfPreviewUrl}#view=FitH`}
               className="w-full h-full border-0"
               title="PDF Fullscreen"
             />

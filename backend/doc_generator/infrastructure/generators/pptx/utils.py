@@ -12,6 +12,7 @@ from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
+from PIL import Image
 
 from ...settings import get_settings
 
@@ -398,24 +399,57 @@ def add_image_slide(
     p.font.color.rgb = THEME_COLORS["ink"]
     p.font.bold = True
 
-    # Add image (centered)
+    slide_width_in = prs.slide_width / Inches(1)
+    slide_height_in = prs.slide_height / Inches(1)
+    caption_height = 0.4 if caption else 0.0
+
+    # Add image (centered, preserve aspect ratio)
     if image_path.exists():
-        left = Inches(1.5)
-        top = Inches(1.5)
-        max_width = Inches(7)
-        Inches(3.5)
+        margin_x = 0.7
+        title_bottom = 1.1
+        bottom_margin = 0.4
+        image_top_in = title_bottom + 0.3
+        image_height_in = max(
+            0.1, slide_height_in - image_top_in - bottom_margin - caption_height
+        )
+        image_width_in = max(0.1, slide_width_in - (margin_x * 2))
+
+        try:
+            with Image.open(image_path) as img:
+                img_width, img_height = img.size
+            if img_width > 0 and img_height > 0:
+                img_ratio = img_width / img_height
+                box_ratio = image_width_in / image_height_in
+                if img_ratio > box_ratio:
+                    draw_width = image_width_in
+                    draw_height = image_width_in / img_ratio
+                else:
+                    draw_height = image_height_in
+                    draw_width = image_height_in * img_ratio
+            else:
+                draw_width = image_width_in
+                draw_height = image_height_in
+        except Exception as exc:
+            logger.warning(f"Failed to read image size for {image_path}: {exc}")
+            draw_width = image_width_in
+            draw_height = image_height_in
+
+        left = (slide_width_in - draw_width) / 2
+        top = image_top_in + (image_height_in - draw_height) / 2
 
         slide.shapes.add_picture(
             str(image_path),
-            left, top,
-            width=max_width
+            Inches(left),
+            Inches(top),
+            width=Inches(draw_width),
+            height=Inches(draw_height),
         )
 
     # Add caption if provided
     if caption:
         left = Inches(0.5)
-        top = Inches(5)
-        width = Inches(9)
+        top = Inches(slide_height_in - caption_height - 0.2)
+        width = Inches(slide_width_in - 1.0)
         height = Inches(0.5)
 
         caption_box = slide.shapes.add_textbox(left, top, width, height)

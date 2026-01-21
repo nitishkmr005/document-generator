@@ -172,6 +172,7 @@ async def generate_with_session(
             image_api_key=image_api_key,
             provider=request.provider.value,
             model=request.model,
+            image_model=request.image_model,
             user_id=api_keys.user_id,
             session_id=session_id,
         ):

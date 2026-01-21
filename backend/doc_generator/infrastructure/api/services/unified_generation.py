@@ -64,6 +64,7 @@ class UnifiedGenerationService:
         image_api_key: Optional[str] = None,
         provider: str = "gemini",
         model: str = "gemini-2.5-flash",
+        image_model: str = "gemini-2.5-flash-image",
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
     ) -> AsyncIterator:
@@ -99,6 +100,7 @@ class UnifiedGenerationService:
             "preferences": preferences,
             "provider": provider,
             "model": model,
+            "image_model": image_model,
         }
 
         # Yield initial progress

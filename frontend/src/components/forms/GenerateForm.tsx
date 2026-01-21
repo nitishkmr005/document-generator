@@ -112,7 +112,7 @@ export function GenerateForm({
   const [outputFormat, setOutputFormat] = useState<OutputFormat>(defaultOutputFormat);
   const [provider, setProvider] = useState<Provider>("gemini");
   const [contentModel, setContentModel] = useState<string>("gemini-2.5-flash");
-  const [imageModel, setImageModel] = useState<string>("gemini-3-pro-image-preview");
+  const [imageModel, setImageModel] = useState<string>("gemini-2.5-flash-image");
   const [audience, setAudience] = useState<Audience>("technical");
   const [imageStyle, setImageStyle] = useState<ImageStyle>("auto");
   const [enableImageGeneration, setEnableImageGeneration] = useState(false);

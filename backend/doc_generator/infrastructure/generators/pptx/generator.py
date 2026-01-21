@@ -23,7 +23,7 @@ from .utils import (
     create_presentation,
     save_presentation,
 )
-from ...llm.service import get_llm_service
+from ...llm.service import LLMService, get_llm_service
 from ....utils.image_utils import resolve_image_path
 
 
@@ -209,7 +209,7 @@ class PPTXGenerator:
                 structured_content.get("section_images", {}) if embed_images else {}
             )
             slides, sections = self._generate_section_slides(
-                markdown_content, section_images
+                markdown_content, section_images, metadata
             )
             if slides and sections:
                 self._add_llm_section_slides(prs, slides, sections, section_images)
@@ -426,20 +426,48 @@ class PPTXGenerator:
         return resolve_image_path(url)
 
     def _generate_section_slides(
-        self, markdown_content: str, section_images: dict
+        self, markdown_content: str, section_images: dict, metadata: dict
     ) -> tuple[list[dict], list[dict]]:
         """
         Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
         """
-        llm = get_llm_service()
-        if not llm.is_available():
-            return [], []
+        llm = None
+        api_keys = metadata.get("api_keys", {})
+        content_key = api_keys.get("content") if isinstance(api_keys, dict) else None
+        provider = metadata.get("provider") or self.settings.llm.content_provider
+        model = metadata.get("model") or self.settings.llm.content_model
+        max_slides = metadata.get("max_slides") or self.settings.llm.max_slides
+
+        if provider == "google":
+            provider = "gemini"
+
+        if content_key:
+            llm = LLMService(
+                api_key=content_key,
+                model=model,
+                provider=provider,
+                max_summary_points=self.settings.llm.max_summary_points,
+                max_slides=max_slides,
+                max_tokens_summary=self.settings.llm.max_tokens_summary,
+                max_tokens_slides=self.settings.llm.max_tokens_slides,
+                temperature_summary=self.settings.llm.temperature_summary,
+                temperature_slides=self.settings.llm.temperature_slides,
+            )
+
+        if llm is None or not llm.is_available():
+            llm = get_llm_service(api_key=content_key)
+            if max_slides:
+                llm.max_slides = max_slides
+            if not llm.is_available():
+                return [], []
 
         sections = self._extract_sections(markdown_content, section_images)
         if not sections:
             return [], []
 
-        slides = llm.generate_slide_structure_from_sections(sections)
+        slides = llm.generate_slide_structure_from_sections(
+            sections, max_slides=max_slides
+        )
         return slides, sections
 
     def _extract_sections(

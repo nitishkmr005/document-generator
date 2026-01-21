@@ -38,9 +38,11 @@ Requirements:
   - 3-4 bullet points (concise, 7-10 words max each)
   - Speaker notes (2-3 sentences for context)
 - Focus on key messages that matter to senior leadership
-- Use professional business language
-- Structure for logical flow
- - Ensure bullet points are parallel in structure and style
+- Use professional business language suitable for executive review
+- Structure for logical flow (problem → insight → implication → action)
+- Ensure bullet points are parallel in structure and style
+- Avoid copying sentences verbatim; condense into crisp, decision-ready bullets
+- Do not include markdown formatting, only plain text
 - Use ONLY information from the content; do not introduce new facts or examples
 
 Content:
@@ -84,6 +86,8 @@ Requirements:
 - Bullets should be parallel, action-led, and slide-ready
 - Avoid filler phrases and long sentences
 - Bullets should align to the section content and image hint
+- Avoid copying sentences verbatim; condense into executive-ready bullets
+- Do not include markdown formatting, only plain text
 - Provide 1-2 sentence speaker notes per slide
 - Use ONLY information from each section; do not add new facts or examples
 

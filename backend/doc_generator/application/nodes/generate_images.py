@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
 from typing import Optional
 
@@ -77,6 +78,47 @@ def _resolve_image_path(
     if attempt_index > 1:
         return images_dir / f"{title_slug}_{attempt_index}.png"
     return images_dir / f"{title_slug}.png"
+
+
+def _temp_image_output_path(output_path: Path) -> Path:
+    """Return a temp output path to avoid overwriting on timeout."""
+    return output_path.with_name(f"{output_path.stem}_tmp{output_path.suffix}")
+
+
+def _generate_image_with_timeout(
+    *,
+    gemini_gen: GeminiImageGenerator,
+    prompt: str,
+    image_type: ImageType,
+    section_title: str,
+    output_path: Path,
+    timeout_seconds: int,
+) -> Path | None:
+    """Run image generation with a timeout to allow model fallback."""
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            gemini_gen.generate_image,
+            prompt=prompt,
+            image_type=image_type,
+            section_title=section_title,
+            output_path=output_path,
+        )
+        try:
+            return future.result(timeout=timeout_seconds)
+        except TimeoutError:
+            logger.warning(
+                "Gemini image generation timed out after %ss for '%s'",
+                timeout_seconds,
+                section_title,
+            )
+            return None
+        except Exception as e:
+            logger.warning(
+                "Gemini image generation failed for '%s': %s",
+                section_title,
+                e,
+            )
+            return None
 
 
 def _should_skip_generation(metadata: dict, settings) -> bool:
@@ -183,38 +225,63 @@ def _generate_raster_image(
         logger.info(f"Reusing existing image for section {section_id}: {section_title}")
         return output_path, prompt_used, {}, 1, 1
 
-    image_path = gemini_gen.generate_image(
-        prompt=prompt_used,
-        image_type=decision.image_type,
-        section_title=section_title,
-        output_path=output_path,
-    )
-    if not image_path or not image_path.exists():
-        if (
-            _should_fallback_to_flash_image(output_format, output_type)
-            and gemini_gen.model_name == "gemini-3-pro-image-preview"
-        ):
-            logger.warning(
-                "Image generation failed for '%s' with %s, retrying with gemini-2.5-flash-image",
-                section_title,
-                gemini_gen.model_name,
-            )
-            fallback_gen = GeminiImageGenerator(
-                api_key=image_api_key or gemini_gen.api_key,
-                model="gemini-2.5-flash-image",
-            )
-            fallback_path = fallback_gen.generate_image(
-                prompt=prompt_used,
-                image_type=decision.image_type,
-                section_title=section_title,
-                output_path=output_path,
-            )
-            if fallback_path and fallback_path.exists():
-                return fallback_path, prompt_used, {}, 2, 0
-        logger.warning(f"Image generation failed for '{section_title}'")
-        return None, prompt_used, {}, 1, 0
+    image_path: Path | None = None
+    fallback_allowed = _should_fallback_to_flash_image(output_format, output_type)
 
-    return image_path, prompt_used, {}, 1, 0
+    if fallback_allowed and gemini_gen.model_name == "gemini-3-pro-image-preview":
+        temp_output_path = _temp_image_output_path(output_path)
+        image_path = _generate_image_with_timeout(
+            gemini_gen=gemini_gen,
+            prompt=prompt_used,
+            image_type=decision.image_type,
+            section_title=section_title,
+            output_path=temp_output_path,
+            timeout_seconds=180,
+        )
+        if image_path and image_path.exists():
+            if image_path != output_path:
+                try:
+                    image_path.replace(output_path)
+                    image_path = output_path
+                except OSError as exc:
+                    logger.warning(
+                        "Failed to move image output for '%s': %s",
+                        section_title,
+                        exc,
+                    )
+            return image_path, prompt_used, {}, 1, 0
+    else:
+        image_path = gemini_gen.generate_image(
+            prompt=prompt_used,
+            image_type=decision.image_type,
+            section_title=section_title,
+            output_path=output_path,
+        )
+        if image_path and image_path.exists():
+            return image_path, prompt_used, {}, 1, 0
+
+    if fallback_allowed and gemini_gen.model_name == "gemini-3-pro-image-preview":
+        logger.warning(
+            "Image generation failed for '%s' with %s, retrying with gemini-2.5-flash-image",
+            section_title,
+            gemini_gen.model_name,
+        )
+        fallback_gen = GeminiImageGenerator(
+            api_key=image_api_key or gemini_gen.api_key,
+            model="gemini-2.5-flash-image",
+        )
+        fallback_path = fallback_gen.generate_image(
+            prompt=prompt_used,
+            image_type=decision.image_type,
+            section_title=section_title,
+            output_path=output_path,
+        )
+        if fallback_path and fallback_path.exists():
+            return fallback_path, prompt_used, {}, 2, 0
+
+    logger.warning(f"Image generation failed for '{section_title}'")
+    return None, prompt_used, {}, 1, 0
+
 
 
 def _maybe_load_cached_images(

@@ -152,7 +152,7 @@ export default function GeneratePage() {
   // Configuration state
   const [provider, setProvider] = useState<Provider>("gemini");
   const [contentModel, setContentModel] = useState("gemini-2.5-flash");
-  const [imageModel, setImageModel] = useState("gemini-3-pro-image-preview");
+  const [imageModel, setImageModel] = useState("gemini-2.5-flash-image");
   const [audience, setAudience] = useState<Audience>("technical");
   const [imageStyle, setImageStyle] = useState<ImageStyle>("auto");
   const [mindMapMode, setMindMapMode] = useState<MindMapMode>("summarize");
@@ -500,7 +500,7 @@ export default function GeneratePage() {
             image_style: imageStyle,
             temperature: 0.4,
             max_tokens: 12000,
-            max_slides: 10,
+            max_slides: 25,
             max_summary_points: 5,
             enable_image_generation: enableImageGeneration,
           },

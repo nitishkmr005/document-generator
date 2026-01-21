@@ -424,6 +424,21 @@ export function DynamicOptions({
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="image-model" className="text-xs">Image Model</Label>
+            <Select value={imageModel} onValueChange={onImageModelChange}>
+              <SelectTrigger id="image-model" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {imageModelOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
 

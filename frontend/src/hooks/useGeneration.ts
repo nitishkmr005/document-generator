@@ -131,7 +131,7 @@ export function useGeneration(): UseGenerationResult {
         sources: partialRequest.sources || [],
         provider: partialRequest.provider || "gemini",
         model: partialRequest.model || "gemini-2.5-flash",
-        image_model: partialRequest.image_model || "gemini-3-pro-image-preview",
+        image_model: partialRequest.image_model || "gemini-2.5-flash-image",
         preferences: { ...DEFAULT_PREFERENCES, ...partialRequest.preferences },
         cache: { ...DEFAULT_CACHE_OPTIONS, ...partialRequest.cache },
       };
