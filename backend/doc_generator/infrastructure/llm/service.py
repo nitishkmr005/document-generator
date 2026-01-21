@@ -353,6 +353,47 @@ class LLMService:
                 logger.error(f"LLM call failed: {e}")
             return ""
 
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        json_mode: bool = True,
+        step: str = "generate",
+    ) -> str:
+        """
+        Generate a response for a single prompt.
+
+        Args:
+            prompt: User prompt content
+            max_tokens: Optional max token override
+            temperature: Optional temperature override
+            json_mode: Whether to request JSON-only output
+            step: Observability step name
+
+        Returns:
+            Response text (may be empty if unavailable)
+        """
+        settings = get_settings()
+        resolved_max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else settings.llm.content_max_tokens
+        )
+        resolved_temperature = (
+            temperature
+            if temperature is not None
+            else settings.llm.content_temperature
+        )
+        return self._call_llm(
+            system_msg="",
+            user_msg=prompt,
+            max_tokens=resolved_max_tokens,
+            temperature=resolved_temperature,
+            json_mode=json_mode,
+            step=step,
+        )
+
     def _safe_json_load(self, text: str) -> Optional[object]:
         """
         Invoked by: src/doc_generator/infrastructure/llm/service.py

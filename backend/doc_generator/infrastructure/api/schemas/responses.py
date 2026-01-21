@@ -38,6 +38,7 @@ class CompleteEvent(BaseModel):
     metadata: CompletionMetadata
     pdf_base64: str | None = None  # Base64-encoded PDF data for inline preview
     markdown_content: str | None = None  # Markdown content for inline preview
+    session_id: str | None = None  # Session ID for checkpointing/content reuse
 
 
 class CacheHitEvent(BaseModel):
@@ -49,6 +50,7 @@ class CacheHitEvent(BaseModel):
     cached_at: str
     pdf_base64: str | None = None  # Base64-encoded PDF data for inline preview
     markdown_content: str | None = None  # Markdown content for inline preview
+    session_id: str | None = None  # Session ID for checkpointing/content reuse
 
 
 class ErrorEvent(BaseModel):

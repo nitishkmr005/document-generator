@@ -29,23 +29,20 @@ def _init_heavy_routes(app: FastAPI) -> None:
     from .routes import (
         cache_router,
         download_router,
-        generate_router,
         idea_canvas_router,
         image_router,
-        mindmap_router,
-        podcast_router,
         upload_router,
     )
+    from .routes.unified import router as unified_router
 
     # Include heavy routers
     app.include_router(upload_router, prefix="/api")
-    app.include_router(generate_router, prefix="/api")
     app.include_router(download_router, prefix="/api")
     app.include_router(cache_router, prefix="/api")
     app.include_router(image_router, prefix="/api")
-    app.include_router(mindmap_router, prefix="/api")
     app.include_router(idea_canvas_router, prefix="/api")
-    app.include_router(podcast_router, prefix="/api")
+    # Unified workflow with checkpointing
+    app.include_router(unified_router, prefix="/api")
 
     _routes_initialized = True
 

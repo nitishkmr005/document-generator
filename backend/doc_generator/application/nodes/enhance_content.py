@@ -62,8 +62,8 @@ def enhance_content_node(state: WorkflowState) -> WorkflowState:
             log_metric("Summary Points", summary_points)
             enhancements_added.append(f"{summary_points} summary points")
 
-    # Generate slide structure for PPTX
-    if output_format == "pptx" and not structured.get("slides"):
+    # Generate slide structure for PPTX and PDF-from-PPTX
+    if output_format in ("pptx", "pdf_from_pptx") and not structured.get("slides"):
         log_subsection("Generating Slide Structure")
         slides = llm.generate_slide_structure(markdown)
         if slides:

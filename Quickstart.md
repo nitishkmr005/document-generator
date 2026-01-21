@@ -255,7 +255,7 @@ docker run --rm \
 1. ✅ **Python-First Backend** - Core generation runs in FastAPI
 2. ✅ **OpenAI Integration** - GPT-4o for content transformation
 3. ✅ **Gemini Images** - High-quality image generation
-4. ✅ **Advanced Parsing** - Docling (OCR, tables) + MarkItDown
+4. ✅ **Advanced Parsing** - MarkItDown + fallback parsers
 5. ✅ **Folder Processing** - Process multiple files at once with intelligent merging
 6. ✅ **Clean Architecture** - Domain/Application/Infrastructure separation
 7. ✅ **LangGraph Workflow** - State machine with retry logic

@@ -160,6 +160,9 @@ def _generate_raster_image(
     decision: ImageDecision,
     prompt_used: str,
     gemini_gen: GeminiImageGenerator | None,
+    image_api_key: str | None,
+    output_format: str,
+    output_type: str,
 ) -> tuple[Path | None, str, dict, int, int]:
     """
     Generate or reuse a raster image with a single pass.
@@ -187,6 +190,27 @@ def _generate_raster_image(
         output_path=output_path,
     )
     if not image_path or not image_path.exists():
+        if (
+            _should_fallback_to_flash_image(output_format, output_type)
+            and gemini_gen.model_name == "gemini-3-pro-image-preview"
+        ):
+            logger.warning(
+                "Image generation failed for '%s' with %s, retrying with gemini-2.5-flash-image",
+                section_title,
+                gemini_gen.model_name,
+            )
+            fallback_gen = GeminiImageGenerator(
+                api_key=image_api_key or gemini_gen.api_key,
+                model="gemini-2.5-flash-image",
+            )
+            fallback_path = fallback_gen.generate_image(
+                prompt=prompt_used,
+                image_type=decision.image_type,
+                section_title=section_title,
+                output_path=output_path,
+            )
+            if fallback_path and fallback_path.exists():
+                return fallback_path, prompt_used, {}, 2, 0
         logger.warning(f"Image generation failed for '{section_title}'")
         return None, prompt_used, {}, 1, 0
 
@@ -204,12 +228,22 @@ def _maybe_load_cached_images(
     """
     if not _should_skip_generation(metadata, settings):
         return None
+
     # Cache reuse only applies when the content hash matches.
     from ...utils.content_cache import load_existing_images
 
     content_hash = metadata.get("content_hash")
     section_images = load_existing_images(images_dir, expected_hash=content_hash)
     return section_images or None
+
+
+def _should_fallback_to_flash_image(output_format: str, output_type: str) -> bool:
+    """Return True when fallback to gemini-2.5-flash-image is allowed."""
+    if output_format != "pdf":
+        return False
+    if output_type and output_type != "article_pdf":
+        return False
+    return True
 
 
 def _build_section_image_entry(
@@ -266,6 +300,8 @@ def _process_section_image(
     settings,
     metadata: dict,
     images_dir: Path,
+    output_format: str,
+    output_type: str,
 ) -> tuple[int, dict | None, int, int]:
     """
     Process a single section and return a new image entry if created.
@@ -306,6 +342,9 @@ def _process_section_image(
             decision=decision,
             prompt_used=prompt_used,
             gemini_gen=gemini_gen,
+            image_api_key=image_api_key,
+            output_format=output_format,
+            output_type=output_type,
         )
     )
     if image_path is None:
@@ -583,6 +622,9 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
         # Process each section independently to avoid cross-section coupling.
         log_subsection(f"Processing {len(sections)} Sections")
+        output_format = state.get("output_format", "")
+        output_type = metadata.get("output_type", "")
+
         for idx, section in enumerate(sections, 1):
             section_title = section["title"]
             log_progress(f"[{idx}/{len(sections)}] {section_title}")
@@ -596,6 +638,8 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
                 settings=settings,
                 metadata=metadata,
                 images_dir=images_dir,
+                output_format=output_format,
+                output_type=output_type,
             )
             skipped_count += skipped_delta
             reused_count += reused_delta

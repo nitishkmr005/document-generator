@@ -1,4 +1,4 @@
-# Railway LIGHT requirements - NO DOCLING
+# Railway LIGHT requirements
 # Use this for faster builds when OCR/advanced PDF parsing is not needed
 # Falls back to pypdf and markitdown for document parsing
 
@@ -18,8 +18,7 @@ anthropic==0.75.0
 langchain-core==0.3.25
 langgraph==0.2.55
 
-# Document processing (LIGHT - no docling)
-# docling==2.66.0  # REMOVED - causes build timeouts
+# Document processing
 python-docx==1.2.0
 python-pptx==1.0.2
 pypdf==5.1.0

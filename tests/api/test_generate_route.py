@@ -24,12 +24,10 @@ class TestGenerateRoute:
         Invoked by: (no references found)
         """
         response = client.post(
-            "/api/generate",
+            "/api/unified/generate",
             json={
                 "output_format": "pdf",
-                "sources": {
-                    "primary": [{"type": "text", "content": "Test content"}]
-                },
+                "sources": [{"type": "text", "content": "Test content"}],
             },
         )
         # Should fail without API key
@@ -41,13 +39,11 @@ class TestGenerateRoute:
         Invoked by: (no references found)
         """
         response = client.post(
-            "/api/generate",
+            "/api/unified/generate",
             headers={"X-Google-Key": "test-google-key"},
             json={
                 "output_format": "pdf",
-                "sources": {
-                    "primary": [{"type": "text", "content": "Test content"}]
-                },
+                "sources": [{"type": "text", "content": "Test content"}],
             },
         )
         assert response.status_code == 200
@@ -59,15 +55,15 @@ class TestGenerateRoute:
         Invoked by: (no references found)
         """
         response = client.post(
-            "/api/generate",
+            "/api/unified/generate",
             headers={"X-Google-Key": "test-google-key"},
             json={
                 "output_format": "pptx",
-                "sources": {
-                    "primary": [{"type": "text", "content": "Test presentation content"}]
-                },
+                "sources": [
+                    {"type": "text", "content": "Test presentation content"}
+                ],
                 "preferences": {
-                    "slides": 5,
+                    "max_slides": 5,
                 },
             },
         )
@@ -79,13 +75,11 @@ class TestGenerateRoute:
         Invoked by: (no references found)
         """
         response = client.post(
-            "/api/generate",
+            "/api/unified/generate",
             headers={"X-OpenAI-Key": "test-openai-key"},
             json={
                 "output_format": "pdf",
-                "sources": {
-                    "primary": [{"type": "text", "content": "Test content"}]
-                },
+                "sources": [{"type": "text", "content": "Test content"}],
                 "provider": "openai",
             },
         )
@@ -97,13 +91,11 @@ class TestGenerateRoute:
         Invoked by: (no references found)
         """
         response = client.post(
-            "/api/generate",
+            "/api/unified/generate",
             headers={"X-Google-Key": "test-google-key"},
             json={
                 "output_format": "pdf",
-                "sources": {
-                    "primary": [{"type": "text", "content": "Test content"}]
-                },
+                "sources": [{"type": "text", "content": "Test content"}],
                 "provider": "openai",  # Requesting OpenAI but only Google key provided
             },
         )
@@ -115,13 +107,11 @@ class TestGenerateRoute:
         Invoked by: (no references found)
         """
         response = client.post(
-            "/api/generate",
+            "/api/unified/generate",
             headers={"X-Google-Key": "test-google-key"},
             json={
                 "output_format": "pdf",
-                "sources": {
-                    "primary": [{"type": "text", "content": "Cache test content"}]
-                },
+                "sources": [{"type": "text", "content": "Cache test content"}],
                 "cache": {
                     "reuse": True,
                 },
@@ -135,21 +125,15 @@ class TestGenerateRoute:
         Invoked by: (no references found)
         """
         response = client.post(
-            "/api/generate",
+            "/api/unified/generate",
             headers={"X-Google-Key": "test-google-key"},
             json={
                 "output_format": "pdf",
-                "sources": {
-                    "primary": [
-                        {"type": "text", "content": "Primary content"},
-                    ],
-                    "supporting": [
-                        {"type": "text", "content": "Supporting content"},
-                    ],
-                    "reference": [
-                        {"type": "url", "url": "https://example.com"},
-                    ],
-                },
+                "sources": [
+                    {"type": "text", "content": "Primary content"},
+                    {"type": "text", "content": "Supporting content"},
+                    {"type": "url", "url": "https://example.com"},
+                ],
             },
         )
         assert response.status_code == 200

@@ -1,6 +1,6 @@
-# Railway LIGHT Dockerfile - No Docling (for faster builds)
+# Railway LIGHT Dockerfile - lean build
 # Use this if you don't need OCR/advanced PDF parsing
-# Build time: ~3-5 minutes vs ~15-20 minutes with Docling
+# Build time: ~3-5 minutes
 
 FROM python:3.12.9-slim
 
@@ -39,7 +39,6 @@ RUN mkdir -p data/cache data/output data/temp data/logging
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV PORT=8000
-ENV DOCLING_ENABLED=false
 
 EXPOSE 8000
 

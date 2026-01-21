@@ -29,7 +29,7 @@ def get_storage_service() -> StorageService:
     description=(
         "Upload a file to use as a generation source. Send a multipart form with "
         "a single `file` field. The response includes `file_id` to reference in "
-        "`POST /api/generate`."
+        "`POST /api/unified/generate`."
     ),
     response_description="Upload metadata including `file_id`.",
 )

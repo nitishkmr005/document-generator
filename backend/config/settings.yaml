@@ -107,11 +107,6 @@ pptx:
 
 # Parser settings
 parsers:
-  # Docling settings for PDF/document parsing
-  docling:
-    ocr_enabled: true
-    table_structure_extraction: true
-
   # Web parser settings
   web:
     timeout: 10 # seconds

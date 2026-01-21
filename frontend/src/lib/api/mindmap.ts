@@ -38,7 +38,7 @@ export async function generateMindMap(options: GenerateMindMapOptions): Promise<
     headers["X-User-Id"] = userId;
   }
 
-  const url = getApiUrl("/api/generate/mindmap");
+  const url = getApiUrl("/api/unified/generate/mindmap");
 
   try {
     const response = await fetch(url, {

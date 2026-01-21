@@ -96,6 +96,7 @@ class MindMapCompleteEvent(BaseModel):
 
     type: Literal["complete"] = "complete"
     tree: MindMapTree
+    session_id: str | None = None  # Session ID for checkpointing/content reuse
 
 
 class MindMapErrorEvent(BaseModel):

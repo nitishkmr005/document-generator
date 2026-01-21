@@ -12,6 +12,8 @@ services:
       - ENVIRONMENT=development
       - PYTHONUNBUFFERED=1
       - PORT=8000
+      - USE_SQLITE_CHECKPOINTS=true
+      - CHECKPOINT_DIR=/app/data/checkpoints
     volumes:
       - ./backend:/app
       - backend-data:/app/data

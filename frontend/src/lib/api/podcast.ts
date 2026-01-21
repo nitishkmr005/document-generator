@@ -50,7 +50,7 @@ export async function generatePodcast(options: GeneratePodcastOptions): Promise<
     headers["X-User-Id"] = userId;
   }
 
-  const url = getApiUrl("/api/generate/podcast");
+  const url = getApiUrl("/api/unified/generate/podcast");
 
   try {
     const response = await fetch(url, {
@@ -104,4 +104,3 @@ export async function generatePodcast(options: GeneratePodcastOptions): Promise<
     onError(error instanceof Error ? error : new Error(String(error)));
   }
 }
-

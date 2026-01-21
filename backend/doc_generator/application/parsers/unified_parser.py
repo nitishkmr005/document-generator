@@ -226,31 +226,31 @@ class UnifiedParser:
     def _parse_image_fallback(self, path: Path) -> Tuple[str, dict]:
         """Handle images without OCR (returns placeholder)."""
         logger.warning(
-            f"Image parsing without Docling - no OCR available for: {path.name}"
+            f"Image parsing without OCR support - no text extraction for: {path.name}"
         )
 
-        content = f"![Image: {path.name}]({path.name})\n\n*Note: OCR not available. Install Docling for text extraction from images.*"
+        content = f"![Image: {path.name}]({path.name})\n\n*Note: OCR not available.*"
 
         metadata = {
             "title": path.stem,
             "source_file": str(path),
             "parser": "image-placeholder",
-            "warning": "No OCR - Docling not available",
+            "warning": "No OCR available",
         }
 
         return content, metadata
 
     def _parse_xlsx_fallback(self, path: Path) -> Tuple[str, dict]:
-        """Handle XLSX without Docling (limited support)."""
-        logger.warning(f"XLSX parsing without Docling is limited: {path.name}")
+        """Handle XLSX with limited support."""
+        logger.warning(f"XLSX parsing is limited: {path.name}")
 
-        content = f"*Excel file: {path.name}*\n\n*Note: For full XLSX support, install Docling.*"
+        content = f"*Excel file: {path.name}*\n\n*Note: XLSX support is limited.*"
 
         metadata = {
             "title": path.stem,
             "source_file": str(path),
             "parser": "xlsx-placeholder",
-            "warning": "Limited XLSX support - Docling not available",
+            "warning": "Limited XLSX support",
         }
 
         return content, metadata

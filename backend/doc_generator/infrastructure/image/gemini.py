@@ -73,6 +73,11 @@ class GeminiImageGenerator:
         """
         return self.client is not None and GENAI_AVAILABLE
 
+    @property
+    def model_name(self) -> str:
+        """Return the active Gemini image model name."""
+        return self._model_override or self.settings.gemini_model
+
     def _wait_for_rate_limit(self) -> None:
         """
         Ensure we don't exceed rate limits.

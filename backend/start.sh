@@ -25,7 +25,7 @@ fi
 echo "==> Config file found"
 
 # Start uvicorn immediately - no slow import tests
-# Heavy ML dependencies (torch, docling, etc.) are loaded when first request comes in
+# Heavy ML dependencies are loaded when first request comes in
 echo "==> Starting uvicorn on 0.0.0.0:$PORT..."
 exec python -m uvicorn doc_generator.infrastructure.api.main:app \
     --host 0.0.0.0 \

@@ -132,6 +132,7 @@ class PodcastCompleteEvent(BaseModel):
     audio_base64: str  # Base64-encoded WAV audio
     script: list[dict]  # The generated dialogue script
     duration_seconds: float
+    session_id: str | None = None  # Session ID for checkpointing/content reuse
 
 
 class PodcastErrorEvent(BaseModel):

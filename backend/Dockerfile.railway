@@ -58,8 +58,7 @@ RUN pip install --no-cache-dir \
     langchain-core==0.3.25 \
     langgraph==0.2.55
 
-# Group 3: Document processing (HEAVY - docling is the slowest)
-# Install docling with --no-deps and manually install lighter deps
+# Group 3: Document processing
 RUN pip install --no-cache-dir \
     python-docx==1.2.0 \
     python-pptx==1.0.2 \
@@ -70,11 +69,7 @@ RUN pip install --no-cache-dir \
     cairosvg==2.7.1 \
     pdfminer-six==20260107
 
-# Group 4: Docling (heaviest dependency - separate layer for caching)
-# Use timeout and retries for reliability
-RUN pip install --no-cache-dir --timeout 600 docling==2.66.0
-
-# Group 5: Utilities and monitoring
+# Group 4: Utilities and monitoring
 RUN pip install --no-cache-dir \
     loguru==0.7.3 \
     sentry-sdk==2.49.0 \

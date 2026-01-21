@@ -35,7 +35,7 @@ def get_parser(content_format: str):
     if format_lower in ["url", "html", ContentFormat.URL, ContentFormat.HTML]:
         return WebParser()
 
-    # Documents handled by Docling (PDF, DOCX, PPTX, images)
+    # Documents handled by unified parser (PDF, DOCX, PPTX, images)
     if format_lower in ["pdf", "docx", "pptx", "png", "jpg", "jpeg", "tiff"]:
         return UnifiedParser()
 

@@ -212,12 +212,11 @@ def detect_format(state: WorkflowState) -> WorkflowState:
 
 **Parsers**:
 
-1. **UnifiedParser (Docling)**: For PDF, DOCX, PPTX, XLSX
+1. **UnifiedParser (MarkItDown + fallbacks)**: For PDF, DOCX, PPTX, XLSX
 
-   - OCR support for scanned documents
-   - Table structure extraction
-   - Layout analysis (headers, paragraphs, lists)
-   - Image extraction
+   - MarkItDown when available for rich markdown conversion
+   - Fallbacks: pypdf, python-docx, python-pptx
+   - OCR not included (images are placeholders)
 
 2. **WebParser (MarkItDown)**: For URLs and HTML
 
@@ -495,7 +494,7 @@ output/
 | Component           | Technology             | Why We Chose It                              |
 | ------------------- | ---------------------- | -------------------------------------------- |
 | **Workflow Engine** | LangGraph 0.2.55       | State management, retry logic, observability |
-| **PDF Parsing**     | Docling 2.66.0         | Best-in-class OCR and layout analysis        |
+| **PDF Parsing**     | MarkItDown + fallbacks | Clean markdown with graceful degradation     |
 | **Web Scraping**    | MarkItDown 0.0.1a2     | Clean markdown from HTML                     |
 | **PDF Generation**  | ReportLab 4.2.5        | Full layout control, production-ready        |
 | **PPTX Generation** | python-pptx 1.0.2      | Native PowerPoint format                     |

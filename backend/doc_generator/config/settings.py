@@ -31,7 +31,6 @@ from ..infrastructure.settings import (
     PptxSettings,
     PptxThemeSettings,
     ParserSettings,
-    DoclingSettings,
     WebParserSettings,
     ImageGenerationSettings,
 )
@@ -56,8 +55,6 @@ __all__ = [
     "PptxSettings",
     "PptxThemeSettings",
     "ParserSettings",
-    "DoclingSettings",
     "WebParserSettings",
     "ImageGenerationSettings",
 ]
-

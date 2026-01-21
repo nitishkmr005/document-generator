@@ -21,7 +21,7 @@ export const API_CONFIG = {
   endpoints: {
     health: "/api/health",
     upload: "/api/upload",
-    generate: "/api/generate",
+    generate: "/api/unified/generate",
     download: (filePath: string) => `/api/download/${filePath}`,
   },
 } as const;
