@@ -252,17 +252,20 @@ def _wrap_document_node(original_node: Callable) -> Callable:
             compat_state["metadata"]["provider"] = request_data.get("provider")
             compat_state["metadata"]["model"] = request_data.get("model")
             compat_state["metadata"]["output_type"] = state.get("output_type", "")
-            if "enable_image_generation" in preferences:
-                enable_images = bool(preferences.get("enable_image_generation"))
-                compat_state["metadata"]["enable_image_generation"] = enable_images
-                if compat_state["metadata"]["output_type"] in (
-                    "slide_deck_pdf",
-                    "presentation_pptx",
-                ):
-                    compat_state["metadata"]["embed_in_pptx"] = enable_images
+            enable_images = bool(preferences.get("enable_image_generation", True))
+            compat_state["metadata"]["enable_image_generation"] = enable_images
+            if compat_state["metadata"]["output_type"] in (
+                "slide_deck_pdf",
+                "presentation_pptx",
+            ):
+                compat_state["metadata"]["embed_in_pptx"] = enable_images
             compat_state["metadata"]["api_keys"] = {
                 "content": state.get("api_key", ""),
-                "image": state.get("gemini_api_key", "") or state.get("api_key", ""),
+                "image": (
+                    state.get("gemini_api_key", "") or state.get("api_key", "")
+                )
+                if enable_images
+                else "",
             }
 
         # Run original node
