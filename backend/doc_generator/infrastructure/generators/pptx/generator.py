@@ -221,13 +221,21 @@ class PPTXGenerator:
                 self._add_llm_section_slides(prs, slides, sections, section_images)
             else:
                 self._add_slides_from_markdown(
-                    prs, markdown_content, allow_diagrams, section_images=section_images
+                    prs,
+                    markdown_content,
+                    allow_diagrams,
+                    section_images=section_images,
+                    root_title=title,
                 )
 
         else:
             # No LLM enhancement - use markdown-based generation
             self._add_slides_from_markdown(
-                prs, markdown_content, allow_diagrams, section_images={}
+                prs,
+                markdown_content,
+                allow_diagrams,
+                section_images={},
+                root_title=title,
             )
 
         # Save presentation
@@ -296,6 +304,7 @@ class PPTXGenerator:
         markdown_content: str,
         allow_diagrams: bool = False,
         section_images: dict | None = None,
+        root_title: str = "",
     ) -> None:
         """
         Parse markdown and add slides to presentation.
@@ -312,6 +321,8 @@ class PPTXGenerator:
         Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
         """
         section_images = section_images or {}
+        normalized_root = self._normalize_title(self._strip_inline_markdown(root_title))
+        skipped_root_title = False
         current_slide_title = None
         current_slide_content = []
         next_section_id = 1
@@ -319,6 +330,15 @@ class PPTXGenerator:
             # H1 becomes section header
             if kind == "h1":
                 content_item = self._strip_inline_markdown(content_item)
+                if (
+                    not skipped_root_title
+                    and normalized_root
+                    and self._normalize_title(content_item) == normalized_root
+                ):
+                    skipped_root_title = True
+                    current_slide_title = None
+                    current_slide_content = []
+                    continue
                 # Flush current slide if any
                 if current_slide_title and current_slide_content:
                     self._add_bullet_slide_series(
