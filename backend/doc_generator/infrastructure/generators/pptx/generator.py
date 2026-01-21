@@ -201,13 +201,19 @@ class PPTXGenerator:
                     )
                     logger.debug("Added executive summary slide")
 
-            embed_images = metadata.get(
-                "embed_in_pptx",
-                self.settings.image_generation.embed_in_pptx,
-            )
-            section_images = (
-                structured_content.get("section_images", {}) if embed_images else {}
-            )
+            embed_images = metadata.get("embed_in_pptx")
+            if embed_images is None:
+                embed_images = metadata.get(
+                    "enable_image_generation",
+                    self.settings.image_generation.embed_in_pptx,
+                )
+            available_images = structured_content.get("section_images", {})
+            if not embed_images and available_images:
+                logger.info(
+                    "Section images present but embedding disabled for PPTX"
+                )
+            section_images = available_images if embed_images else {}
+            section_images = self._normalize_section_images(section_images)
             slides, sections = self._generate_section_slides(
                 markdown_content, section_images, metadata
             )
@@ -424,6 +430,21 @@ class PPTXGenerator:
         Invoked by: src/doc_generator/application/nodes/generate_images.py, src/doc_generator/application/workflow/nodes/generate_images.py, src/doc_generator/infrastructure/generators/pdf/generator.py, src/doc_generator/infrastructure/generators/pptx/generator.py
         """
         return resolve_image_path(url)
+
+    def _normalize_section_images(self, section_images: dict) -> dict:
+        """
+        Normalize section_images keys to integers for reliable lookups.
+        Invoked by: src/doc_generator/infrastructure/generators/pptx/generator.py
+        """
+        if not section_images:
+            return {}
+        normalized: dict[int, dict] = {}
+        for key, value in section_images.items():
+            try:
+                normalized[int(key)] = value
+            except (TypeError, ValueError):
+                continue
+        return normalized or section_images
 
     def _generate_section_slides(
         self, markdown_content: str, section_images: dict, metadata: dict
