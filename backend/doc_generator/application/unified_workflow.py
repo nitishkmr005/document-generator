@@ -421,10 +421,10 @@ def _wrap_document_node(original_node: Callable) -> Callable:
             compat_state["metadata"]["api_keys"] = {
                 "content": state.get("api_key", ""),
                 "image": (
-                    state.get("gemini_api_key", "") or state.get("api_key", "")
-                )
-                if enable_images
-                else "",
+                    (state.get("gemini_api_key", "") or state.get("api_key", ""))
+                    if enable_images
+                    else ""
+                ),
             }
 
         # Run original node
