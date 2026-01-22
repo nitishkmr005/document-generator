@@ -63,6 +63,10 @@ function RefractionIllustration() {
               <stop offset="0%" style={{ stopColor: '#8b5cf6', stopOpacity: 1 }} />
               <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: 0 }} />
             </linearGradient>
+            <linearGradient id="ray-input" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style={{ stopColor: '#22d3ee', stopOpacity: 0.95 }} />
+              <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: 0.35 }} />
+            </linearGradient>
             <filter id="glow">
               <feGaussianBlur stdDeviation="3" result="blur" />
               <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -72,59 +76,30 @@ function RefractionIllustration() {
             </filter>
           </defs>
 
-          {/* Input sources - enhanced glass cards */}
+          {/* Input source - enhanced glass card */}
           <g>
-            {/* PDF Card */}
-            <g transform="translate(30, 45)">
-              <rect x="0" y="0" width="70" height="55" rx="12" fill="white" fillOpacity="0.9" stroke="#fecaca" strokeWidth="2" />
+            <g transform="translate(70, 68)">
+              <rect x="0" y="0" width="70" height="55" rx="12" fill="white" fillOpacity="0.9" stroke="#c7d2fe" strokeWidth="2" />
               <rect x="0" y="0" width="70" height="55" rx="12" fill="url(#prism-highlight)" fillOpacity="0.3" />
               <g transform="translate(22, 8)">
-                <path d="M0 4 L0 30 Q0 32 2 32 L20 32 Q22 32 22 30 L22 10 L16 4 L2 4 Q0 4 0 6 Z" fill="none" stroke="#dc2626" strokeWidth="2" />
-                <path d="M16 4 L16 10 L22 10" fill="none" stroke="#dc2626" strokeWidth="2" />
-                <text x="11" y="26" textAnchor="middle" fontSize="9" fontWeight="700" fill="#dc2626">PDF</text>
+                <path d="M0 4 L0 30 Q0 32 2 32 L20 32 Q22 32 22 30 L22 10 L16 4 L2 4 Q0 4 0 6 Z" fill="none" stroke="#4f46e5" strokeWidth="2" />
+                <path d="M16 4 L16 10 L22 10" fill="none" stroke="#4f46e5" strokeWidth="2" />
+                <line x1="4" y1="16" x2="18" y2="16" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="4" y1="22" x2="16" y2="22" stroke="#4f46e5" strokeWidth="1.5" strokeLinecap="round" />
               </g>
-              <text x="35" y="50" textAnchor="middle" fontSize="9" fontWeight="600" fill="#b91c1c">Document</text>
-            </g>
-
-            {/* URL Card */}
-            <g transform="translate(30, 112)">
-              <rect x="0" y="0" width="70" height="55" rx="12" fill="white" fillOpacity="0.9" stroke="#bfdbfe" strokeWidth="2" />
-              <g transform="translate(22, 6)">
-                <circle cx="13" cy="13" r="12" fill="none" stroke="#2563eb" strokeWidth="2" />
-                <ellipse cx="13" cy="13" rx="5" ry="12" fill="none" stroke="#2563eb" strokeWidth="1.2" />
-                <line x1="1" y1="13" x2="25" y2="13" stroke="#2563eb" strokeWidth="1.2" />
-              </g>
-              <text x="35" y="50" textAnchor="middle" fontSize="9" fontWeight="600" fill="#1d4ed8">Web URL</text>
-            </g>
-
-            {/* Text Card */}
-            <g transform="translate(30, 179)">
-              <rect x="0" y="0" width="70" height="55" rx="12" fill="white" fillOpacity="0.9" stroke="#c4b5fd" strokeWidth="2" />
-              <g transform="translate(22, 8)">
-                <rect x="0" y="0" width="26" height="30" rx="4" fill="none" stroke="#7c3aed" strokeWidth="2" />
-                <line x1="4" y1="8" x2="22" y2="8" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" />
-                <line x1="4" y1="14" x2="18" y2="14" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" />
-                <line x1="4" y1="20" x2="16" y2="20" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" />
-              </g>
-              <text x="35" y="50" textAnchor="middle" fontSize="9" fontWeight="600" fill="#6d28d9">Plain Text</text>
+              <text x="35" y="50" textAnchor="middle" fontSize="9" fontWeight="600" fill="#4338ca">Source</text>
             </g>
           </g>
 
-          {/* Animated input beams */}
+          {/* Animated input ray */}
           <g>
             <defs>
               <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8" />
+                <path d="M0,0 L0,6 L8,3 z" fill="#7c3aed" />
               </marker>
             </defs>
-            <line x1="105" y1="73" x2="245" y2="135" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" markerEnd="url(#arrow)" strokeDasharray="8,4">
+            <line x1="155" y1="92" x2="275" y2="115" stroke="url(#ray-input)" strokeWidth="3" strokeLinecap="round" markerEnd="url(#arrow)" strokeDasharray="8,4">
               <animate attributeName="stroke-dashoffset" values="12;0" dur="1s" repeatCount="indefinite" />
-            </line>
-            <line x1="105" y1="140" x2="245" y2="140" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" markerEnd="url(#arrow)" strokeDasharray="8,4">
-              <animate attributeName="stroke-dashoffset" values="12;0" dur="1s" repeatCount="indefinite" begin="0.2s" />
-            </line>
-            <line x1="105" y1="207" x2="245" y2="145" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" markerEnd="url(#arrow)" strokeDasharray="8,4">
-              <animate attributeName="stroke-dashoffset" values="12;0" dur="1s" repeatCount="indefinite" begin="0.4s" />
             </line>
           </g>
 

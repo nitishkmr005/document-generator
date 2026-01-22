@@ -137,8 +137,17 @@ class UnifiedGenerationService:
             )
             import asyncio
 
+            # 1. Get the current event loop
+            # The event loop is the core of asyncio - it schedules and runs async tasks.
+            # We need it here to bridge between sync code (workflow) and async code (this endpoint).
             loop = asyncio.get_running_loop()
+
+            # 2. Create a Queue for progress updates
+            # This queue acts as a thread-safe communication channel.
+            # The synchronous workflow running in a separate thread will put events here,
+            # and this async function will read from it.
             progress_queue: asyncio.Queue[ProgressEvent] = asyncio.Queue()
+
             workflow_status_map = {
                 "detect_format": GenerationStatus.PARSING,
                 "parse_content": GenerationStatus.PARSING,
@@ -153,6 +162,10 @@ class UnifiedGenerationService:
             workflow_progress_base = 30
             workflow_progress_span = 60
 
+            # 3. Define the Callback Function
+            # This function is passed to the synchronous workflow.
+            # It's called from a worker thread, so it must use `call_soon_threadsafe`
+            # to interact with the main event loop safely.
             def workflow_progress(
                 step_number: int,
                 total_steps: int,
@@ -171,8 +184,14 @@ class UnifiedGenerationService:
                     progress=progress,
                     message=message,
                 )
+                # THREAD SAFETY CRITICAL:
+                # Put the event into the queue so the async loop can process it.
                 loop.call_soon_threadsafe(progress_queue.put_nowait, event)
 
+            # 4. Run the Workflow in a Thread Pool
+            # `run_in_executor(None, ...)` runs the blocking synchronous function
+            # in the default thread pool executor. This prevents blocking the main
+            # asyncio loop, keeping the server responsive.
             workflow_future = loop.run_in_executor(
                 None,
                 lambda: run_unified_workflow_with_session(
@@ -186,17 +205,22 @@ class UnifiedGenerationService:
                 ),
             )
 
+            # 5. Monitor Workflow & Stream Progress
             while True:
+                # If the workflow is done and no more progress events are in queue, stop.
                 if workflow_future.done() and progress_queue.empty():
                     break
                 try:
-                    event = await asyncio.wait_for(
-                        progress_queue.get(), timeout=0.2
-                    )
+                    # Wait for a progress event from the queue with a short timeout.
+                    # This allows us to frequently check if the workflow has finished.
+                    event = await asyncio.wait_for(progress_queue.get(), timeout=0.2)
                     yield event
                 except asyncio.TimeoutError:
+                    # No new progress event in 0.2s, loop back to check status.
                     continue
 
+            # 6. Get Final Result
+            # Await the future to get the return value (or raise exception if it failed).
             result, session_id = await workflow_future
 
             # Check for errors
