@@ -57,7 +57,11 @@ export function MindMapForm({ onSubmit, isGenerating = false }: MindMapFormProps
   const [urlInput, setUrlInput] = useState("");
   const [urls, setUrls] = useState<string[]>([]);
   const [textContent, setTextContent] = useState("");
-  const { uploading, uploadedFiles, error: uploadError, uploadFiles, removeFile } = useUpload();
+  const { uploading, uploadedFiles, error: uploadError, uploadFile, removeFile } = useUpload();
+  const hasFile = uploadedFiles.length > 0;
+  const hasUrl = urls.length > 0;
+  const hasText = textContent.trim().length > 0;
+  const hasSources = hasFile || hasUrl || hasText;
 
   const [mode, setMode] = useState<MindMapMode>("summarize");
   const [provider, setProvider] = useState<Provider>("gemini");
@@ -74,21 +78,28 @@ export function MindMapForm({ onSubmit, isGenerating = false }: MindMapFormProps
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        await uploadFiles(Array.from(files));
+      if (hasSources) {
+        return;
       }
+      const file = e.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      await uploadFile(file);
     },
-    [uploadFiles]
+    [hasSources, uploadFile]
   );
 
   const handleAddUrl = useCallback(() => {
+    if (hasSources) {
+      return;
+    }
     const trimmed = urlInput.trim();
-    if (trimmed && !urls.includes(trimmed)) {
-      setUrls((prev) => [...prev, trimmed]);
+    if (trimmed) {
+      setUrls([trimmed]);
       setUrlInput("");
     }
-  }, [urlInput, urls]);
+  }, [hasSources, urlInput]);
 
   const handleRemoveUrl = useCallback((url: string) => {
     setUrls((prev) => prev.filter((u) => u !== url));
@@ -121,15 +132,13 @@ export function MindMapForm({ onSubmit, isGenerating = false }: MindMapFormProps
     [apiKey, uploadedFiles, urls, textContent, mode, provider, model, onSubmit]
   );
 
-  const hasSources = uploadedFiles.length > 0 || urls.length > 0 || textContent.trim().length > 0;
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Sources</CardTitle>
           <CardDescription>
-            Add content to generate a mind map from
+            Add one source to generate a mind map from (file, URL, or text).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -153,8 +162,9 @@ export function MindMapForm({ onSubmit, isGenerating = false }: MindMapFormProps
                       handleAddUrl();
                     }
                   }}
+                  disabled={hasSources}
                 />
-                <Button type="button" variant="secondary" onClick={handleAddUrl}>
+                <Button type="button" variant="secondary" onClick={handleAddUrl} disabled={hasSources}>
                   Add
                 </Button>
               </div>
@@ -183,9 +193,8 @@ export function MindMapForm({ onSubmit, isGenerating = false }: MindMapFormProps
             <TabsContent value="upload" className="space-y-3">
               <Input
                 type="file"
-                multiple
                 onChange={handleFileChange}
-                disabled={uploading}
+                disabled={uploading || hasSources}
                 accept=".pdf,.md,.txt,.docx"
               />
               {uploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
@@ -218,6 +227,7 @@ export function MindMapForm({ onSubmit, isGenerating = false }: MindMapFormProps
                 rows={6}
                 value={textContent}
                 onChange={(e) => setTextContent(e.target.value)}
+                disabled={hasSources && !hasText}
               />
             </TabsContent>
           </Tabs>

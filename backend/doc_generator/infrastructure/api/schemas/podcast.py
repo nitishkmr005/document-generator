@@ -43,9 +43,7 @@ class PodcastRequest(BaseModel):
     Example:
         {
             "sources": [
-                {"type": "file", "file_id": "f_abc123"},
-                {"type": "url", "url": "https://example.com/article"},
-                {"type": "text", "content": "Some text content..."}
+                {"type": "url", "url": "https://example.com/article"}
             ],
             "style": "conversational",
             "provider": "gemini",
@@ -59,8 +57,9 @@ class PodcastRequest(BaseModel):
     """
 
     sources: list[SourceItem] = Field(
-        description="List of sources (file, url, or text)",
+        description="Single source (file, url, or text)",
         min_length=1,
+        max_length=1,
     )
     style: PodcastStyle = PodcastStyle.CONVERSATIONAL
     provider: Provider = Provider.GEMINI
@@ -86,8 +85,7 @@ class PodcastRequest(BaseModel):
             "examples": [
                 {
                     "sources": [
-                        {"type": "url", "url": "https://example.com/article"},
-                        {"type": "text", "content": "Additional context"},
+                        {"type": "url", "url": "https://example.com/article"}
                     ],
                     "style": "conversational",
                     "provider": "gemini",

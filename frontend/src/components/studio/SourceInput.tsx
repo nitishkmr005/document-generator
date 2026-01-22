@@ -29,19 +29,27 @@ export function SourceInput({
 }: SourceInputProps) {
   const [sourceTab, setSourceTab] = useState<"upload" | "url" | "text">("url");
   const [urlInput, setUrlInput] = useState("");
-  const { uploading, error: uploadError, uploadFiles, removeFile } = useUpload();
+  const { uploading, error: uploadError, uploadFile, removeFile } = useUpload();
+  const hasFile = uploadedFiles.length > 0;
+  const hasUrl = urls.length > 0;
+  const hasText = textContent.trim().length > 0;
+  const hasSource = hasFile || hasUrl || hasText;
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        const newFiles = await uploadFiles(Array.from(files));
-        if (newFiles.length > 0) {
-          onFilesChange([...uploadedFiles, ...newFiles]);
-        }
+      if (hasSource) {
+        return;
+      }
+      const file = e.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      const uploaded = await uploadFile(file);
+      if (uploaded) {
+        onFilesChange([uploaded]);
       }
     },
-    [uploadFiles, uploadedFiles, onFilesChange]
+    [hasSource, uploadFile, onFilesChange]
   );
 
   const handleRemoveFile = useCallback(
@@ -53,12 +61,15 @@ export function SourceInput({
   );
 
   const handleAddUrl = useCallback(() => {
+    if (hasSource) {
+      return;
+    }
     const trimmed = urlInput.trim();
-    if (trimmed && !urls.includes(trimmed)) {
-      onUrlsChange([...urls, trimmed]);
+    if (trimmed) {
+      onUrlsChange([trimmed]);
       setUrlInput("");
     }
-  }, [urlInput, urls, onUrlsChange]);
+  }, [hasSource, urlInput, onUrlsChange]);
 
   const handleRemoveUrl = useCallback(
     (url: string) => {
@@ -97,6 +108,9 @@ export function SourceInput({
             Text
           </TabsTrigger>
         </TabsList>
+        <p className="text-[11px] text-muted-foreground mt-2">
+          One source at a time. Remove the current source to add another.
+        </p>
 
         <TabsContent value="url" className="mt-3 space-y-3">
           <div className="flex gap-2">
@@ -111,9 +125,10 @@ export function SourceInput({
                   handleAddUrl();
                 }
               }}
+              disabled={hasSource}
               className="h-9 text-sm"
             />
-            <Button type="button" variant="secondary" size="sm" onClick={handleAddUrl}>
+            <Button type="button" variant="secondary" size="sm" onClick={handleAddUrl} disabled={hasSource}>
               Add
             </Button>
           </div>
@@ -144,9 +159,8 @@ export function SourceInput({
           <div className="rounded-lg border-2 border-dashed p-4 text-center transition-colors hover:border-primary/50 cursor-pointer">
             <input
               type="file"
-              multiple
               onChange={handleFileChange}
-              disabled={uploading}
+              disabled={uploading || hasSource}
               accept=".pdf,.md,.txt,.docx,.pptx,.png,.jpg,.jpeg"
               className="hidden"
               id="file-upload"
@@ -156,7 +170,7 @@ export function SourceInput({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <p className="text-xs text-muted-foreground">
-                {uploading ? "Uploading..." : "Drop files or click to upload"}
+                {uploading ? "Uploading..." : "Drop a file or click to upload"}
               </p>
               <p className="text-[10px] text-muted-foreground/70 mt-1">
                 PDF, MD, TXT, DOCX, PPTX, Images
@@ -203,6 +217,7 @@ export function SourceInput({
             rows={4}
             value={textContent}
             onChange={(e) => onTextChange(e.target.value)}
+            disabled={hasSource && !hasText}
             className="text-sm resize-none"
           />
         </TabsContent>

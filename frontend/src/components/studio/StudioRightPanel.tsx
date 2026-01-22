@@ -351,14 +351,14 @@ export function StudioRightPanel({
         case "article_pdf":
         case "article_markdown":
           return [
-            "Add 1-3 sources or paste a concise draft.",
+            "Add one source or paste a concise draft.",
             "Set a target audience to shape tone and depth.",
             "Enable image generation if you want visuals.",
           ];
         case "slide_deck_pdf":
         case "presentation_pptx":
           return [
-            "Use focused sources for cleaner slides.",
+            "Use a focused source for cleaner slides.",
             "Audience choice helps structure the story.",
             "Keep inputs short for faster builds.",
           ];
@@ -371,12 +371,12 @@ export function StudioRightPanel({
         case "image_generate":
           return [
             "Use the Text tab for a direct prompt.",
-            "Upload PDFs/URLs to extract key visual ideas.",
+            "Upload a PDF or URL to extract key visual ideas.",
             "SVG works best for diagram-style images.",
           ];
         case "podcast":
           return [
-            "Add sources to transform into audio.",
+            "Add a source to transform into audio.",
             "Pick a podcast style that fits your content.",
             "Customize speaker names and voices.",
           ];

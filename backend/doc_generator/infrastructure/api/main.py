@@ -4,6 +4,7 @@ Optimized for fast startup on cloud platforms (Render, etc.)
 by deferring heavy imports until first request.
 """
 
+# Used to define the lifespan context manager for startup/shutdown events
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

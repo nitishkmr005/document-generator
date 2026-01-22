@@ -107,7 +107,7 @@ export function GenerateForm({
   const [urlInput, setUrlInput] = useState("");
   const [urls, setUrls] = useState<string[]>([]);
   const [textContent, setTextContent] = useState("");
-  const { uploading, uploadedFiles, error: uploadError, uploadFiles, removeFile } = useUpload();
+  const { uploading, uploadedFiles, error: uploadError, uploadFile, removeFile } = useUpload();
 
   const [outputFormat, setOutputFormat] = useState<OutputFormat>(defaultOutputFormat);
   const [provider, setProvider] = useState<Provider>("gemini");
@@ -118,6 +118,10 @@ export function GenerateForm({
   const [enableImageGeneration, setEnableImageGeneration] = useState(false);
   const [contentApiKey, setContentApiKey] = useState("");
   const [imageApiKey, setImageApiKey] = useState("");
+  const hasFile = uploadedFiles.length > 0;
+  const hasUrl = urls.length > 0;
+  const hasText = textContent.trim().length > 0;
+  const hasSources = hasFile || hasUrl || hasText;
 
   useEffect(() => {
     const options = contentModelOptions[provider] || [];
@@ -138,21 +142,28 @@ export function GenerateForm({
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        await uploadFiles(Array.from(files));
+      if (hasSources) {
+        return;
       }
+      const file = e.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      await uploadFile(file);
     },
-    [uploadFiles]
+    [hasSources, uploadFile]
   );
 
   const handleAddUrl = useCallback(() => {
+    if (hasSources) {
+      return;
+    }
     const trimmed = urlInput.trim();
-    if (trimmed && !urls.includes(trimmed)) {
-      setUrls((prev) => [...prev, trimmed]);
+    if (trimmed) {
+      setUrls([trimmed]);
       setUrlInput("");
     }
-  }, [urlInput, urls]);
+  }, [hasSources, urlInput]);
 
   const handleRemoveUrl = useCallback((url: string) => {
     setUrls((prev) => prev.filter((u) => u !== url));
@@ -221,7 +232,6 @@ export function GenerateForm({
     ]
   );
 
-  const hasSources = uploadedFiles.length > 0 || urls.length > 0 || textContent.trim().length > 0;
   const hasRequiredApiKeys = contentApiKey.trim() && (!enableImageGeneration || imageApiKey.trim());
 
   return (
@@ -230,7 +240,7 @@ export function GenerateForm({
         <CardHeader>
           <CardTitle>Sources</CardTitle>
           <CardDescription>
-            Add sources to generate your document from. You can mix files, URLs, and text.
+            Add one source to generate your document from (file, URL, or text).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -257,8 +267,9 @@ export function GenerateForm({
                         handleAddUrl();
                       }
                     }}
+                    disabled={hasSources}
                   />
-                  <Button type="button" variant="secondary" onClick={handleAddUrl}>
+                  <Button type="button" variant="secondary" onClick={handleAddUrl} disabled={hasSources}>
                     Add
                   </Button>
                 </div>
@@ -288,9 +299,8 @@ export function GenerateForm({
             <TabsContent value="upload" className="space-y-3">
               <Input
                 type="file"
-                multiple
                 onChange={handleFileChange}
-                disabled={uploading}
+                disabled={uploading || hasSources}
                 accept=".pdf,.md,.txt,.docx,.pptx,.png,.jpg,.jpeg"
               />
               {uploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
@@ -328,6 +338,7 @@ export function GenerateForm({
                 rows={6}
                 value={textContent}
                 onChange={(e) => setTextContent(e.target.value)}
+                disabled={hasSources && !hasText}
               />
             </TabsContent>
           </Tabs>

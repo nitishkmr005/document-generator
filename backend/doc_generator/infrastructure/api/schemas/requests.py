@@ -93,9 +93,7 @@ class GenerateRequest(BaseModel):
         {
             "output_format": "pdf",
             "sources": [
-                {"type": "file", "file_id": "f_abc123"},
-                {"type": "url", "url": "https://example.com/doc"},
-                {"type": "text", "content": "Some text content..."}
+                {"type": "file", "file_id": "f_abc123"}
             ],
             "provider": "gemini"
         }
@@ -103,8 +101,9 @@ class GenerateRequest(BaseModel):
 
     output_format: OutputFormat
     sources: list[SourceItem] = Field(
-        description="List of sources (file, url, or text)",
+        description="Single source (file, url, or text)",
         min_length=1,
+        max_length=1,
     )
     provider: Provider = Provider.GEMINI
     model: str = "gemini-2.5-pro"
@@ -118,13 +117,7 @@ class GenerateRequest(BaseModel):
                 {
                     "output_format": "pdf",
                     "sources": [
-                        {"type": "file", "file_id": "f_abc123"},
-                        {
-                            "type": "url",
-                            "url": "https://example.com/article",
-                            "parser": "markitdown",
-                        },
-                        {"type": "text", "content": "Raw text to include"},
+                        {"type": "file", "file_id": "f_abc123"}
                     ],
                     "provider": "gemini",
                     "model": "gemini-2.5-pro",
