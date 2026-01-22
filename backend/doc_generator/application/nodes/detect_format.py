@@ -33,7 +33,7 @@ def detect_format_node(state: WorkflowState) -> WorkflowState:
     """
     log_node_start(
         "detect_format",
-        step_number=resolve_step_number(state, "detect_format", 3),
+        step_number=resolve_step_number(state, "detect_format", 1),
         total_steps=resolve_total_steps(state, 9),
     )
     

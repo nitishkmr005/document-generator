@@ -5,7 +5,9 @@ Pydantic schemas for image generation and editing API endpoints.
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from .requests import SourceItem, Provider
 
 
 class OutputFormat(str, Enum):
@@ -31,16 +33,42 @@ class Region(BaseModel):
 
 class ImageGenerateRequest(BaseModel):
     """Request schema for image generation."""
-    prompt: str = Field(..., min_length=1, max_length=4000, description="Description of the image to generate")
+    prompt: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=4000,
+        description="Description of the image to generate",
+    )
+    sources: Optional[list[SourceItem]] = Field(
+        None,
+        min_length=1,
+        max_length=1,
+        description="Single source (file, url, or text) to summarize into an image prompt",
+    )
+    provider: Provider = Provider.GEMINI
+    model: str = "gemini-2.5-flash"
     style_category: Optional[str] = Field(None, description="Style category ID (e.g., 'diagram_and_architecture')")
     style: Optional[str] = Field(None, description="Style ID (e.g., 'system_architecture_diagram')")
     output_format: OutputFormat = Field(OutputFormat.RASTER, description="Output format (raster or svg)")
     free_text_mode: bool = Field(False, description="If true, use prompt directly without style enhancement")
 
+    @model_validator(mode="after")
+    def validate_prompt_or_sources(self) -> "ImageGenerateRequest":
+        prompt = (self.prompt or "").strip()
+        sources = self.sources or []
+        if not prompt and not sources:
+            raise ValueError("Provide a prompt or at least one source.")
+        return self
+
     class Config:
         json_schema_extra = {
             "example": {
                 "prompt": "A system architecture showing user authentication flow with OAuth2",
+                "sources": [
+                    {"type": "url", "url": "https://example.com/article"}
+                ],
+                "provider": "gemini",
+                "model": "gemini-2.5-flash",
                 "style_category": "diagram_and_architecture",
                 "style": "system_architecture_diagram",
                 "output_format": "raster",

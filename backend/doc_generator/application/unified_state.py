@@ -44,6 +44,9 @@ class UnifiedWorkflowState(TypedDict, total=False):
         input_format: Detected input format
         raw_content: Extracted raw content from sources
         summary_content: Chunked summary of raw content
+        resolved_sources: Normalized source descriptors (paths/URLs/text)
+        content_blocks: Extracted source blocks prior to merging
+        resolved_file_id: Source file identifier for uploads
         structured_content: Parsed and structured content
         enhanced_content: LLM-enhanced content (summaries, topics, etc.)
 
@@ -91,6 +94,9 @@ class UnifiedWorkflowState(TypedDict, total=False):
     input_format: str
     raw_content: str
     summary_content: str
+    resolved_sources: list[dict]
+    content_blocks: list[dict]
+    resolved_file_id: str
     structured_content: dict
     enhanced_content: dict
 
@@ -180,6 +186,7 @@ def requires_content_extraction(output_type: str) -> bool:
         "presentation_pptx",
         "podcast",
         "mindmap",
+        "image_generate",
     )
 
 

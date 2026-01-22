@@ -79,7 +79,7 @@ def transform_content_node(state: WorkflowState) -> WorkflowState:
     """
     log_node_start(
         "transform_content",
-        step_number=resolve_step_number(state, "transform_content", 5),
+        step_number=resolve_step_number(state, "transform_content", 3),
         total_steps=resolve_total_steps(state, 9),
     )
     

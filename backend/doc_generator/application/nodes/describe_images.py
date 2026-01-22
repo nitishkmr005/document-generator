@@ -97,7 +97,7 @@ def describe_images_node(state: WorkflowState) -> WorkflowState:
     
     log_node_start(
         "describe_images",
-        step_number=resolve_step_number(state, "describe_images", 8),
+        step_number=resolve_step_number(state, "describe_images", 6),
         total_steps=resolve_total_steps(state, 9),
     )
     

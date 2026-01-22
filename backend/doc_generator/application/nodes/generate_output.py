@@ -37,7 +37,7 @@ def generate_output_node(state: WorkflowState) -> WorkflowState:
     
     log_node_start(
         "generate_output",
-        step_number=resolve_step_number(state, "generate_output", 10),
+        step_number=resolve_step_number(state, "generate_output", 8),
         total_steps=resolve_total_steps(state, 9),
     )
     

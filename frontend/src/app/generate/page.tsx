@@ -19,8 +19,6 @@ import {
 import type { StudioOutputType } from "@/components/studio";
 import { MindMapProgress } from "@/components/mindmap";
 import { generateImage } from "@/lib/api/image";
-import { generateMindMap as generateMindMapApi } from "@/lib/api/mindmap";
-import { MindMapEvent, MindMapNode, MindMapTree } from "@/lib/types/mindmap";
 import { StyleCategory } from "@/data/imageStyles";
 import {
   Provider,
@@ -47,74 +45,6 @@ function getApiOutputFormat(studioType: StudioOutputType): OutputFormat {
     default:
       return "pdf";
   }
-}
-
-const MAX_IMAGE_PROMPT_CHARS = 3600;
-const MAX_MINDMAP_OUTLINE_NODES = 30;
-const MAX_MINDMAP_OUTLINE_DEPTH = 3;
-
-function clampText(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return `${text.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
-}
-
-function buildMindMapOutline(
-  root: MindMapNode,
-  maxNodes = MAX_MINDMAP_OUTLINE_NODES,
-  maxDepth = MAX_MINDMAP_OUTLINE_DEPTH
-): string[] {
-  const lines: string[] = [];
-  const queue: Array<{ node: MindMapNode; depth: number }> = [];
-
-  if (root.children?.length) {
-    for (const child of root.children) {
-      queue.push({ node: child, depth: 1 });
-    }
-  } else {
-    queue.push({ node: root, depth: 1 });
-  }
-
-  while (queue.length && lines.length < maxNodes) {
-    const next = queue.shift();
-    if (!next) break;
-    const { node, depth } = next;
-    if (!node.label) continue;
-    const prefix = "  ".repeat(Math.max(0, depth - 1));
-    lines.push(`${prefix}- ${node.label}`);
-
-    if (node.children && depth < maxDepth) {
-      for (const child of node.children) {
-        queue.push({ node: child, depth: depth + 1 });
-      }
-    }
-  }
-
-  return lines;
-}
-
-function buildImagePromptFromMindMap(tree: MindMapTree, userPrompt: string): string {
-  const outline = buildMindMapOutline(tree.nodes);
-  const parts: string[] = [];
-
-  parts.push("Create an image that strictly reflects the source content.");
-  if (userPrompt) {
-    parts.push(`User focus: ${userPrompt}`);
-  }
-  if (tree.title) {
-    parts.push(`Title: ${tree.title}`);
-  }
-  if (tree.summary) {
-    parts.push(`Summary: ${tree.summary}`);
-  }
-  if (tree.nodes?.label) {
-    parts.push(`Central topic: ${tree.nodes.label}`);
-  }
-  if (outline.length) {
-    parts.push(`Key points:\n${outline.join("\n")}`);
-  }
-  parts.push("Use only these points. Do not add extra concepts or labels.");
-
-  return clampText(parts.join("\n"), MAX_IMAGE_PROMPT_CHARS);
 }
 
 export default function GeneratePage() {
@@ -253,6 +183,8 @@ export default function GeneratePage() {
 
   // Check if we have required inputs
   const hasSources = uploadedFiles.length > 0 || urls.length > 0 || textContent.trim().length > 0;
+  const isImageFreeTextMode = !imageCategory;
+  const hasImagePrompt = isImageFreeTextMode && imagePrompt.trim().length > 0;
   const isContentType = ["article_pdf", "article_markdown", "slide_deck_pdf", "presentation_pptx"].includes(outputType);
   const isImageType = outputType === "image_generate";
   const isMindMap = outputType === "mindmap";
@@ -273,14 +205,16 @@ export default function GeneratePage() {
       return hasContentKey && hasPodcastKey;
     }
     if (isImageType) {
-      const needsContentKey = uploadedFiles.length > 0 || urls.length > 0;
+      const needsContentKey = !isImageFreeTextMode && hasSources;
       return hasImageKey && (!needsContentKey || hasContentKey);
     }
     return true;
   })();
 
-  // For image types, we use the same sources (textContent) as other types
-  const canGenerate = hasSources && !authLoading && isAuthenticated;
+  // For image types, allow prompt-only generation
+  const canGenerate = (isImageType ? (isImageFreeTextMode ? hasImagePrompt : hasSources) : hasSources)
+    && !authLoading
+    && isAuthenticated;
 
   // Load API keys from sessionStorage (set by home page)
   useEffect(() => {
@@ -339,135 +273,18 @@ export default function GeneratePage() {
       setImageGenError(null);
       setGeneratedImageData(null);
 
-      // Determine the prompt: use text content, or summarize files/URLs if provided
-      const userPrompt = textContent.trim();
-      let prompt = userPrompt;
-      
-      // If we have files or URLs, we need to summarize the content first
-      const hasFiles = uploadedFiles.length > 0;
-      const hasUrls = urls.length > 0;
-      const hasSourcesToProcess = hasFiles || hasUrls;
-      
-      if (hasSourcesToProcess) {
-        // Use mindmap API to parse and summarize the content for image generation
-        try {
-          const sources = buildSources();
-          
-          // Use the content API key for summarization (text models)
-          const apiKeyForSummarization = contentApiKey;
-          if (!apiKeyForSummarization) {
-            setImageGenError("Please enter a Content API key to process your files.");
-            setImageGenState("error");
-            return;
-          }
-          
-          // Create a promise that resolves when we get the complete event
-          const summaryPromise = new Promise<string>((resolve, reject) => {
-            let summaryText = "";
-            let resolved = false;
-            let idleTimer: ReturnType<typeof setInterval> | null = null;
-            let hardTimeout: ReturnType<typeof setTimeout> | null = null;
-            const idleTimeoutMs = 120000;
-            const hardTimeoutMs = 300000;
-            let lastEventAt = Date.now();
+      const isFreeTextMode = !imageCategory;
+      const sources = isFreeTextMode ? [] : buildSources();
+      const prompt = isFreeTextMode ? imagePrompt.trim() : "";
 
-            const cleanupTimers = () => {
-              if (idleTimer) clearInterval(idleTimer);
-              if (hardTimeout) clearTimeout(hardTimeout);
-              idleTimer = null;
-              hardTimeout = null;
-            };
-            
-            const handleEvent = (event: MindMapEvent) => {
-              if (resolved) return;
-              lastEventAt = Date.now();
-              
-              console.log("MindMap event received:", JSON.stringify(event).substring(0, 500));
-              
-              // Check for complete event with tree (MindMapCompleteEvent has type="complete" and tree)
-              if (event.type === "complete" && "tree" in event && event.tree) {
-                // Build a structured prompt from the tree for better content fidelity
-                const tree = event.tree;
-                summaryText = buildImagePromptFromMindMap(tree, userPrompt);
-                console.log("Extracted summary from tree:", summaryText.substring(0, 200));
-                resolved = true;
-                cleanupTimers();
-                resolve(summaryText);
-              } else if (event.type === "progress") {
-                // Progress event - just log it
-                console.log("Progress:", event.stage, event.percent);
-              } else if (event.type === "error") {
-                // Error event
-                resolved = true;
-                cleanupTimers();
-                reject(new Error(event.message || "Summarization failed"));
-              }
-            };
-            
-            const handleError = (err: Error) => {
-              if (resolved) return;
-              resolved = true;
-              cleanupTimers();
-              console.error("MindMap API error:", err);
-              reject(err);
-            };
-            
-            // Call the mindmap API with summarize mode - use selected provider/model
-            generateMindMapApi({
-              request: {
-                sources,
-                mode: "summarize",
-                provider: provider,  // Use user-selected provider (default: gemini)
-                model: contentModel, // Use user-selected model
-              },
-              apiKey: apiKeyForSummarization,
-              userId: user?.id,
-              onEvent: handleEvent,
-              onError: handleError,
-            }).catch((err) => {
-              if (!resolved) {
-                resolved = true;
-                cleanupTimers();
-                reject(err);
-              }
-            });
-            
-            idleTimer = setInterval(() => {
-              if (resolved) return;
-              if (Date.now() - lastEventAt > idleTimeoutMs) {
-                resolved = true;
-                cleanupTimers();
-                reject(new Error("Summarization timed out. Please try again."));
-              }
-            }, 5000);
-
-            hardTimeout = setTimeout(() => {
-              if (!resolved) {
-                resolved = true;
-                cleanupTimers();
-                reject(new Error("Summarization took too long. Please try again."));
-              }
-            }, hardTimeoutMs);
-          });
-          
-          const summarizedContent = await summaryPromise;
-          
-          // Use the structured summary as the final prompt
-          if (summarizedContent) {
-            prompt = summarizedContent;
-          }
-          
-        } catch (err) {
-          console.error("Failed to summarize sources for image generation:", err);
-          const errorMessage = err instanceof Error ? err.message : "Unknown error";
-          setImageGenError(`Failed to process your sources: ${errorMessage}`);
-          setImageGenState("error");
-          return;
-        }
+      if (isFreeTextMode && !prompt) {
+        setImageGenError("Please enter a prompt for free text mode.");
+        setImageGenState("error");
+        return;
       }
-      
-      if (!prompt) {
-        setImageGenError("Please enter a description or upload files/URLs to generate an image");
+
+      if (!isFreeTextMode && sources.length === 0) {
+        setImageGenError("Please add a source to summarize.");
         setImageGenState("error");
         return;
       }
@@ -475,13 +292,21 @@ export default function GeneratePage() {
       try {
         const result = await generateImage(
           {
-            prompt: prompt,
+            prompt: prompt || undefined,
+            sources: sources.length ? sources : undefined,
+            provider,
+            model: contentModel,
             style_category: imageCategory,
             style: selectedStyleId,
             output_format: imageOutputFormat,
-            free_text_mode: !imageCategory,
+            free_text_mode: isFreeTextMode,
           },
-          effectiveImageKey
+          effectiveImageKey,
+          {
+            provider,
+            contentApiKey,
+            userId: user?.id,
+          }
         );
 
         if (result.success && result.image_data) {
@@ -570,6 +395,7 @@ export default function GeneratePage() {
     imageCategory,
     selectedStyleId,
     imageOutputFormat,
+    imagePrompt,
     podcastStyle,
     podcastSpeakers,
     podcastDuration,

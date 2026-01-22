@@ -10,6 +10,21 @@ import type {
   ImageEditResponse,
 } from "@/lib/types/image";
 import { ApiClientError, formatErrorDetail } from "./client";
+import { Provider } from "@/lib/types/requests";
+
+function getApiKeyHeader(provider: Provider): string {
+  switch (provider) {
+    case "gemini":
+    case "google":
+      return "X-Google-Key";
+    case "openai":
+      return "X-OpenAI-Key";
+    case "anthropic":
+      return "X-Anthropic-Key";
+    default:
+      return "X-Google-Key";
+  }
+}
 
 /**
  * Generate an image from text description.
@@ -20,14 +35,33 @@ import { ApiClientError, formatErrorDetail } from "./client";
  */
 export async function generateImage(
   request: ImageGenerateRequest,
-  apiKey: string
+  apiKey: string,
+  options?: {
+    provider?: Provider;
+    contentApiKey?: string;
+    userId?: string;
+  }
 ): Promise<ImageGenerateResponse> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (apiKey) {
+    headers["X-Gemini-API-Key"] = apiKey;
+    headers["X-Image-Key"] = apiKey;
+  }
+
+  if (options?.provider && options?.contentApiKey) {
+    headers[getApiKeyHeader(options.provider)] = options.contentApiKey;
+  }
+
+  if (options?.userId) {
+    headers["X-User-Id"] = options.userId;
+  }
+
   const response = await fetch(getApiUrl("/api/image/generate"), {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Gemini-API-Key": apiKey,
-    },
+    headers,
     body: JSON.stringify(request),
   });
 

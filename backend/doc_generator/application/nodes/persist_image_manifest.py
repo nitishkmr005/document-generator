@@ -29,7 +29,7 @@ def persist_image_manifest_node(state: WorkflowState) -> WorkflowState:
     
     log_node_start(
         "persist_image_manifest",
-        step_number=resolve_step_number(state, "persist_image_manifest", 9),
+        step_number=resolve_step_number(state, "persist_image_manifest", 7),
         total_steps=resolve_total_steps(state, 9),
     )
     

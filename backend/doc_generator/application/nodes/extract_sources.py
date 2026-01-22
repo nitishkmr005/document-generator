@@ -1,16 +1,11 @@
 """
-Content extraction node for unified workflow.
-
-Extracts and processes content from various source types (files, URLs, text)
-for use in document, podcast, and mindmap generation.
+Source extraction node for unified workflow.
 """
 
-import uuid
 from pathlib import Path
 
 from loguru import logger
 
-from ...domain.content_types import ContentFormat
 from ...infrastructure.logging_utils import (
     log_node_start,
     log_node_end,
@@ -18,110 +13,65 @@ from ...infrastructure.logging_utils import (
     resolve_step_number,
     resolve_total_steps,
 )
-from ...infrastructure.settings import get_settings
 from ...utils.image_understanding import extract_image_content, is_image_file
-from ..unified_state import UnifiedWorkflowState, is_document_type, requires_content_extraction
+from ..unified_state import UnifiedWorkflowState
+from ...utils.source_utils import (
+    should_skip_source_processing,
+    skip_source_reason,
+    set_skip_source_processing,
+    detect_format,
+)
 
 
-def ingest_sources_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
+def extract_sources_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
     """
-    Extract content from sources specified in the request.
-
-    This node handles:
-    - File uploads (PDF, DOCX, TXT, etc.)
-    - URLs (web pages)
-    - Direct text content
-
-    Args:
-        state: Current workflow state with request_data containing sources
-
-    Returns:
-        Updated state with raw_content populated
+    Extract content from resolved sources.
     """
-    output_type = state.get("output_type", "")
-
-    # Skip content extraction for image generation (uses prompt directly)
-    if not requires_content_extraction(output_type):
-        logger.debug(f"Skipping content extraction for {output_type}")
+    if should_skip_source_processing(state):
+        reason = skip_source_reason(state)
+        if reason == "not_required":
+            return state
+        log_node_start(
+            "extract_sources",
+            step_number=resolve_step_number(state, "extract_sources", 3),
+            total_steps=resolve_total_steps(state, 9),
+        )
+        log_node_end(
+            "extract_sources",
+            success=True,
+            details=f"Skipped: {reason.replace('_', ' ')}",
+        )
         return state
 
-    if state.get("metadata", {}).get("reused_content") and state.get("raw_content"):
-        if is_document_type(output_type):
-            input_path = state.get("input_path", "")
-            if input_path and Path(input_path).exists():
-                log_node_start(
-                    "ingest_sources",
-                    step_number=resolve_step_number(state, "ingest_sources", 1),
-                    total_steps=resolve_total_steps(state, 9),
-                )
-                logger.info("Reusing extracted content from checkpoint")
-                log_node_end("ingest_sources", success=True, details="Reused checkpoint")
-                return state
-        else:
-            log_node_start(
-                "ingest_sources",
-                step_number=resolve_step_number(state, "ingest_sources", 1),
-                total_steps=resolve_total_steps(state, 9),
-            )
-            logger.info("Reusing extracted content from checkpoint")
-            log_node_end("ingest_sources", success=True, details="Reused checkpoint")
-            return state
-
     request_data = state.get("request_data", {})
-    sources = request_data.get("sources", [])
     api_key = state.get("api_key", "")
     provider = request_data.get("provider", "gemini")
     model = request_data.get("model", "gemini-2.5-flash")
 
     log_node_start(
-        "ingest_sources",
-        step_number=resolve_step_number(state, "ingest_sources", 1),
+        "extract_sources",
+        step_number=resolve_step_number(state, "extract_sources", 3),
         total_steps=resolve_total_steps(state, 9),
     )
 
-    if not sources:
-        state["errors"] = state.get("errors", []) + ["No sources provided"]
-        log_node_end("ingest_sources", success=False, details="No sources")
-        return state
-
-    logger.info(f"Extracting content from {len(sources)} sources")
-    log_metric("Sources", len(sources))
-
     try:
         from ..parsers import WebParser, get_parser
-        from ...infrastructure.api.services.storage import StorageService
 
-        storage = StorageService()
         content_blocks: list[dict] = []
-        content_parts: list[str] = []
         source_count = 0
-        file_id: str | None = None
 
         provider_name = provider.lower()
         if provider_name == "google":
             provider_name = "gemini"
 
-        for source in sources:
+        for source in state.get("resolved_sources", []):
             source_type = source.get("type", "")
 
             if source_type == "file":
-                current_file_id = source.get("file_id", "")
-                if not current_file_id:
+                file_path_str = source.get("file_path", "")
+                if not file_path_str:
                     continue
-
-                if not file_id:
-                    file_id = current_file_id
-
-                file_path = _resolve_upload_path(storage, current_file_id)
-                if not file_path:
-                    continue
-
-                if file_path.suffix.lower() in {".xlsx", ".xls"}:
-                    state["errors"] = state.get("errors", []) + [
-                        "Excel files are not supported."
-                    ]
-                    log_node_end("ingest_sources", success=False, details="Excel not supported")
-                    return state
+                file_path = Path(file_path_str)
 
                 if is_image_file(file_path):
                     content, metadata = extract_image_content(
@@ -131,7 +81,7 @@ def ingest_sources_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
                         api_key,
                     )
                 else:
-                    parser = get_parser(_detect_format(file_path))
+                    parser = get_parser(detect_format(file_path))
                     content, metadata = parser.parse(file_path)
 
                 if content:
@@ -143,7 +93,6 @@ def ingest_sources_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
                             "content": content,
                         }
                     )
-                    content_parts.append(content)
                     source_count += 1
                     logger.debug(f"Parsed file: {file_path}")
 
@@ -164,7 +113,6 @@ def ingest_sources_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
                             "content": content,
                         }
                     )
-                    content_parts.append(content)
                     source_count += 1
                     logger.debug(f"Parsed URL: {url}")
 
@@ -178,115 +126,31 @@ def ingest_sources_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
                             "content": content.strip(),
                         }
                     )
-                    content_parts.append(content.strip())
                     source_count += 1
                     logger.debug("Added text content")
 
-        if not content_parts:
+        if not content_blocks:
             state["errors"] = state.get("errors", []) + ["No valid sources provided"]
-            log_node_end("ingest_sources", success=False, details="No valid sources")
+            set_skip_source_processing(state, "no_valid_sources")
+            log_node_end("extract_sources", success=False, details="No valid sources")
             return state
 
-        is_doc = is_document_type(output_type)
-        if is_doc:
-            merged_content = _merge_markdown_sources(content_blocks)
-        else:
-            merged_content = "\n\n---\n\n".join(content_parts)
+        state["content_blocks"] = content_blocks
+        metadata = state.get("metadata", {})
+        metadata["source_count"] = source_count
+        state["metadata"] = metadata
 
-        state["raw_content"] = merged_content
-        state["metadata"] = state.get("metadata", {})
-        state["metadata"]["source_count"] = source_count
-        if file_id:
-            state["metadata"]["file_id"] = file_id
-
-        if is_doc:
-            temp_path = _write_temp_markdown(merged_content)
-            state["input_path"] = str(temp_path)
-
-        logger.info(
-            f"Extracted {len(merged_content)} chars from {source_count} sources"
-        )
-        log_metric("Content Length", f"{len(merged_content)} chars")
         log_metric("Parsed Sources", source_count)
         log_node_end(
-            "ingest_sources",
-            success=True,
-            details=f"{source_count} sources, {len(merged_content)} chars",
+            "extract_sources", success=True, details=f"{source_count} sources"
         )
 
-    except Exception as e:
-        logger.error(f"Content extraction failed: {e}")
+    except Exception as exc:
+        logger.error(f"Content extraction failed: {exc}")
         state["errors"] = state.get("errors", []) + [
-            f"Content extraction failed: {str(e)}"
+            f"Content extraction failed: {str(exc)}"
         ]
-        log_node_end("ingest_sources", success=False, details=str(e))
+        set_skip_source_processing(state, "extraction_failed")
+        log_node_end("extract_sources", success=False, details=str(exc))
 
     return state
-
-
-def _detect_format(file_path: Path) -> str:
-    """Detect content format from file extension."""
-    suffix = file_path.suffix.lower()
-    format_map = {
-        ".pdf": ContentFormat.PDF.value,
-        ".md": ContentFormat.MARKDOWN.value,
-        ".markdown": ContentFormat.MARKDOWN.value,
-        ".txt": ContentFormat.TEXT.value,
-        ".docx": ContentFormat.DOCX.value,
-        ".pptx": ContentFormat.PPTX.value,
-        ".html": ContentFormat.HTML.value,
-    }
-    return format_map.get(suffix, ContentFormat.TEXT.value)
-
-
-def _merge_markdown_sources(parsed_blocks: list[dict]) -> str:
-    """Merge parsed markdown sources into a single document."""
-    sections = []
-    for block in parsed_blocks:
-        title = block.get("title", "Source")
-        source = block.get("source", "")
-        content = block.get("content", "")
-        header = f"## Source: {title}"
-        if source and source != "text":
-            header += f"\n\nSource: {source}"
-        sections.append(f"{header}\n\n{content}")
-    return "\n\n---\n\n".join(sections)
-
-
-def _resolve_upload_path(storage, file_id: str) -> Path | None:
-    """Resolve file_id to a stored file path."""
-    try:
-        return storage.get_upload_path(file_id)
-    except FileNotFoundError:
-        pattern = f"{file_id}*"
-        matches = list(storage.upload_dir.glob(pattern))
-        if matches:
-            return matches[0]
-        logger.warning(f"File not found: {file_id}")
-        return None
-
-
-def _write_temp_markdown(content: str) -> Path:
-    """Write merged markdown to a temp file and return its path."""
-    settings = get_settings()
-    temp_dir = settings.generator.temp_dir
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    temp_path = temp_dir / f"temp_input_{uuid.uuid4().hex}.md"
-    temp_path.write_text(content, encoding="utf-8")
-    logger.info(f"Created temp input file: {temp_path}")
-    return temp_path
-
-
-def route_by_output_type(state: UnifiedWorkflowState) -> str:
-    """
-    Router function to determine which workflow branch to execute.
-
-    Args:
-        state: Current workflow state
-
-    Returns:
-        Branch name for conditional edge routing
-    """
-    from ..unified_state import get_output_branch
-
-    return get_output_branch(state)

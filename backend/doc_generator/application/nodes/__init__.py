@@ -16,11 +16,18 @@ from .transform_content import transform_content_node
 from .validate_output import validate_output_node
 
 # New unified workflow nodes
-from .extract_sources import ingest_sources_node, route_by_output_type
+from .validate_sources import validate_sources_node
+from .resolve_sources import resolve_sources_node
+from .extract_sources import extract_sources_node
+from .merge_sources import merge_sources_node
+from .route_by_output_type import route_by_output_type
 from .summarize_sources import summarize_sources_node
-from .podcast_nodes import generate_podcast_script_node, synthesize_podcast_audio_node
+from .podcast_script import generate_podcast_script_node
+from .podcast_audio import synthesize_podcast_audio_node
 from .mindmap_nodes import generate_mindmap_node
-from .image_nodes import generate_image_node, edit_image_node
+from .generate_image import generate_image_node
+from .edit_image import edit_image_node
+from .image_prompt import build_image_prompt_node
 
 __all__ = [
     # Document nodes
@@ -34,12 +41,16 @@ __all__ = [
     "generate_output_node",
     "validate_output_node",
     # Unified workflow nodes
-    "ingest_sources_node",
+    "validate_sources_node",
+    "resolve_sources_node",
+    "extract_sources_node",
+    "merge_sources_node",
     "summarize_sources_node",
     "route_by_output_type",
     "generate_podcast_script_node",
     "synthesize_podcast_audio_node",
     "generate_mindmap_node",
+    "build_image_prompt_node",
     "generate_image_node",
     "edit_image_node",
 ]

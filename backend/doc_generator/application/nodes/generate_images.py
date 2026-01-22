@@ -608,7 +608,7 @@ def generate_images_node(state: WorkflowState) -> WorkflowState:
 
     log_node_start(
         "generate_images",
-        step_number=resolve_step_number(state, "generate_images", 7),
+        step_number=resolve_step_number(state, "generate_images", 5),
         total_steps=resolve_total_steps(state, 9),
     )
 

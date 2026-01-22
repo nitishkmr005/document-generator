@@ -456,7 +456,7 @@ export function DynamicOptions({
           <div className="space-y-1">
             <div className="text-sm font-semibold">Image settings</div>
             <p className="text-xs text-muted-foreground">
-              Use the Sources panel for your prompt or uploads. Choose a style here.
+              Add a prompt below or upload a source (we summarize it). Choose a style here.
             </p>
           </div>
 
@@ -498,6 +498,22 @@ export function DynamicOptions({
               Free text uses your prompt only. Style guided adds a visual template.
             </p>
           </div>
+
+          {isFreeTextMode && (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Prompt</Label>
+              <Textarea
+                value={imagePrompt || ""}
+                onChange={(e) => onImagePromptChange?.(e.target.value)}
+                placeholder="Describe the image you want..."
+                rows={4}
+                className="text-sm resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                Add a short description. For source-based images, switch to style guided.
+              </p>
+            </div>
+          )}
 
           {/* Style Category - 4x2 grid with icons */}
           {!isFreeTextMode && (

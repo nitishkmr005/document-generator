@@ -370,8 +370,8 @@ export function StudioRightPanel({
           ];
         case "image_generate":
           return [
-            "Use the Text tab for a direct prompt.",
-            "Upload a PDF or URL to extract key visual ideas.",
+            "Use the Prompt field for a direct description.",
+            "Upload a source to summarize key visual ideas.",
             "SVG works best for diagram-style images.",
           ];
         case "podcast":

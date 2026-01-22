@@ -43,14 +43,18 @@ from .nodes import (
 )
 
 # Import new unified nodes
-from .nodes.extract_sources import ingest_sources_node, route_by_output_type
+from .nodes.validate_sources import validate_sources_node
+from .nodes.resolve_sources import resolve_sources_node
+from .nodes.extract_sources import extract_sources_node
+from .nodes.merge_sources import merge_sources_node
+from .nodes.route_by_output_type import route_by_output_type
 from .nodes.summarize_sources import summarize_sources_node
-from .nodes.podcast_nodes import (
-    generate_podcast_script_node,
-    synthesize_podcast_audio_node,
-)
+from .nodes.podcast_script import generate_podcast_script_node
+from .nodes.podcast_audio import synthesize_podcast_audio_node
 from .nodes.mindmap_nodes import generate_mindmap_node
-from .nodes.image_nodes import generate_image_node, edit_image_node
+from .nodes.generate_image import generate_image_node
+from .nodes.edit_image import edit_image_node
+from .nodes.image_prompt import build_image_prompt_node
 
 
 def _build_step_metadata(output_type: str) -> tuple[dict, int]:
@@ -59,20 +63,43 @@ def _build_step_metadata(output_type: str) -> tuple[dict, int]:
     """
     if is_document_type(output_type):
         step_numbers = {
-            "ingest_sources": 1,
-            "summarize_sources": 2,
-            "detect_format": 3,
-            "parse_document_content": 4,
-            "transform_content": 5,
-            "enhance_content": 6,
-            "generate_images": 7,
-            "describe_images": 8,
-            "persist_image_manifest": 9,
-            "generate_output": 10,
-            "validate_output": 11,
+            "validate_sources": 1,
+            "resolve_sources": 2,
+            "extract_sources": 3,
+            "merge_sources": 4,
+            "summarize_sources": 5,
+            "detect_format": 6,
+            "parse_document_content": 7,
+            "transform_content": 8,
+            "enhance_content": 9,
+            "generate_images": 10,
+            "describe_images": 11,
+            "persist_image_manifest": 12,
+            "generate_output": 13,
+            "validate_output": 14,
         }
-        return step_numbers, 11
-    return {"ingest_sources": 1, "summarize_sources": 2}, 2
+        return step_numbers, 14
+    if output_type == "image_generate":
+        step_numbers = {
+            "validate_sources": 1,
+            "resolve_sources": 2,
+            "extract_sources": 3,
+            "merge_sources": 4,
+            "summarize_sources": 5,
+            "build_image_prompt": 6,
+            "image_generate": 7,
+        }
+        return step_numbers, 7
+    if requires_content_extraction(output_type):
+        step_numbers = {
+            "validate_sources": 1,
+            "resolve_sources": 2,
+            "extract_sources": 3,
+            "merge_sources": 4,
+            "summarize_sources": 5,
+        }
+        return step_numbers, 5
+    return {"image_edit": 1}, 1
 
 
 def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
@@ -81,7 +108,8 @@ def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
 
     Workflow Structure:
 
-    1. COMMON: ingest_sources -> summarize_sources -> (Route by output_type)
+    1. COMMON: validate_sources -> resolve_sources -> extract_sources
+       -> merge_sources -> summarize_sources -> (Route by output_type)
 
     2a. DOCUMENT BRANCH:
         detect_format -> parse_document_content -> transform_content -> enhance_content
@@ -94,7 +122,7 @@ def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
         generate_mindmap
 
     2d. IMAGE_GENERATE BRANCH:
-        generate_image
+        build_image_prompt -> generate_image
 
     2e. IMAGE_EDIT BRANCH:
         edit_image
@@ -110,13 +138,30 @@ def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
     # ==========================================
     # COMMON NODES
     # ==========================================
-    # ingest_sources
-    # Input: sources (file/url/text), output_type, api/model
-    # Core: load files/URLs/text, parse/OCR images, merge content,
-    #       write temp markdown for docs, record source metadata.
-    # Output: raw_content, input_path (docs), metadata source_count/file_id
-    # LLM: image understanding for image files only; 1 call per image source.
-    workflow.add_node("ingest_sources", ingest_sources_node)
+    # validate_sources
+    # Input: sources, output_type, metadata (reused_content/raw_content)
+    # Core: verify sources exist; decide reuse/skip behavior.
+    # Output: metadata.skip_source_processing and validation errors (if any).
+    # LLM: none.
+    workflow.add_node("validate_sources", validate_sources_node)
+    # resolve_sources
+    # Input: sources (file/url/text)
+    # Core: resolve file IDs to disk paths, normalize URLs/text, reject unsupported types.
+    # Output: resolved_sources, resolved_file_id (when applicable).
+    # LLM: none.
+    workflow.add_node("resolve_sources", resolve_sources_node)
+    # extract_sources
+    # Input: resolved_sources, provider/model, api key
+    # Core: parse files/URLs/text, OCR image files, build content blocks.
+    # Output: content_blocks, metadata.source_count.
+    # LLM: image understanding only; 1 call per image source.
+    workflow.add_node("extract_sources", extract_sources_node)
+    # merge_sources
+    # Input: content_blocks, output_type, resolved_file_id
+    # Core: merge content into markdown or text and write temp markdown for docs.
+    # Output: raw_content, input_path (docs), metadata.file_id.
+    # LLM: none.
+    workflow.add_node("merge_sources", merge_sources_node)
     # summarize_sources
     # Input: raw_content, request_data (provider/model)
     # Core: chunked map-reduce summarization without truncation; rewrite temp md for docs.
@@ -214,6 +259,12 @@ def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
     # ==========================================
     # IMAGE BRANCH NODES
     # ==========================================
+    # build_image_prompt
+    # Input: raw_content/summary_content, prompt (optional), provider/model
+    # Core: build a structured prompt from a mind map summary or direct prompt.
+    # Output: request_data.prompt, image_prompt
+    # LLM: 1 call per request (mind map summarize).
+    workflow.add_node("build_image_prompt", build_image_prompt_node)
     # image_generate
     # Input: prompt/style/output_format, api key
     # Core: generate raster or SVG image with optional style.
@@ -232,8 +283,11 @@ def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
     # ==========================================
 
     # Entry point
-    workflow.set_entry_point("ingest_sources")
-    workflow.add_edge("ingest_sources", "summarize_sources")
+    workflow.set_entry_point("validate_sources")
+    workflow.add_edge("validate_sources", "resolve_sources")
+    workflow.add_edge("resolve_sources", "extract_sources")
+    workflow.add_edge("extract_sources", "merge_sources")
+    workflow.add_edge("merge_sources", "summarize_sources")
 
     # Route after summarization based on output_type
     workflow.add_conditional_edges(
@@ -243,7 +297,7 @@ def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
             "document": "doc_detect_format",
             "podcast": "podcast_generate_script",
             "mindmap": "mindmap_generate",
-            "image_generate": "image_generate",
+            "image_generate": "build_image_prompt",
             "image_edit": "image_edit",
         },
     )
@@ -281,6 +335,7 @@ def build_unified_workflow(checkpointer: Any = None) -> StateGraph:
     # ==========================================
     # IMAGE BRANCH FLOWS (Single nodes)
     # ==========================================
+    workflow.add_edge("build_image_prompt", "image_generate")
     workflow.add_edge("image_generate", END)
     workflow.add_edge("image_edit", END)
 

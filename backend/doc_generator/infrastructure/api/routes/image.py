@@ -2,15 +2,17 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from loguru import logger
 
+from ....application import run_unified_workflow
 from ....domain.image_styles import (
     IMAGE_STYLES,
     get_all_categories,
     get_style_by_id,
 )
 from ...image.image_service import ImageService
+from ..dependencies import APIKeys, extract_api_keys, get_api_key_for_provider
 from ..schemas.image import (
     CategoryInfo,
     EditMode,
@@ -94,7 +96,8 @@ async def get_styles() -> StylesResponse:
 )
 async def generate_image(
     request: ImageGenerateRequest,
-    api_key: str = Header(..., alias="X-Gemini-API-Key"),
+    api_keys: APIKeys = Depends(extract_api_keys),
+    x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-API-Key"),
 ) -> ImageGenerateResponse:
     """Generate an image from text description.
 
@@ -110,6 +113,13 @@ async def generate_image(
         f"format={request.output_format}, free_text={request.free_text_mode}"
     )
 
+    image_api_key = x_gemini_key or api_keys.image or api_keys.google
+    if not image_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing required header: X-Gemini-API-Key or X-Google-Key",
+        )
+
     # Get style if specified
     style = None
     if request.style and not request.free_text_mode:
@@ -124,38 +134,56 @@ async def generate_image(
                 success=False,
                 image_data=None,
                 format="svg",
-                prompt_used=request.prompt,
+                prompt_used=request.prompt or "",
                 error=f"Style '{style.name}' does not support SVG output. Use raster format instead.",
             )
 
-    # Create image service
-    service = ImageService(api_key=api_key)
+    try:
+        content_api_key = image_api_key
+        if request.sources:
+            try:
+                content_api_key = get_api_key_for_provider(request.provider, api_keys)
+            except HTTPException:
+                if request.provider in ("gemini", "google"):
+                    content_api_key = image_api_key
+                else:
+                    raise
 
-    if not service.is_available():
-        return ImageGenerateResponse(
-            success=False,
-            image_data=None,
-            format=request.output_format.value,
-            prompt_used=request.prompt,
-            error="Image service not available. Check API key and dependencies.",
+        request_data = {
+            "prompt": request.prompt or "",
+            "sources": request.sources or [],
+            "provider": request.provider,
+            "model": request.model,
+            "style_category": request.style_category,
+            "style": request.style,
+            "output_format": request.output_format.value,
+            "free_text_mode": request.free_text_mode,
+        }
+
+        state = run_unified_workflow(
+            output_type="image_generate",
+            request_data=request_data,
+            api_key=content_api_key,
+            gemini_api_key=image_api_key,
         )
 
-    # Generate image based on format
-    try:
-        if request.output_format == OutputFormat.SVG:
-            image_data, prompt_used = service.generate_svg(
-                prompt=request.prompt,
-                style=style,
-                free_text_mode=request.free_text_mode,
+        error_format = "png" if request.output_format == OutputFormat.RASTER else "svg"
+
+        if state.get("errors"):
+            error_text = state.get("errors", [])[-1]
+            return ImageGenerateResponse(
+                success=False,
+                image_data=None,
+                format=error_format,
+                prompt_used=request.prompt or "",
+                error=error_text,
             )
-            output_format = "svg"
-        else:
-            image_data, prompt_used = service.generate_raster_image(
-                prompt=request.prompt,
-                style=style,
-                free_text_mode=request.free_text_mode,
-            )
-            output_format = "png"
+
+        image_data = state.get("image_data")
+        output_format = state.get("image_output_format") or (
+            "png" if request.output_format == OutputFormat.RASTER else "svg"
+        )
+        prompt_used = state.get("image_prompt_used") or request.prompt or ""
 
         if image_data:
             logger.success(f"Image generated successfully: format={output_format}")
@@ -166,23 +194,23 @@ async def generate_image(
                 prompt_used=prompt_used,
                 error=None,
             )
-        else:
-            logger.warning("Image generation returned no data")
-            return ImageGenerateResponse(
-                success=False,
-                image_data=None,
-                format=output_format,
-                prompt_used=prompt_used,
-                error="Image generation failed. Try a different prompt or style.",
-            )
+
+        logger.warning("Image generation returned no data")
+        return ImageGenerateResponse(
+            success=False,
+            image_data=None,
+            format=output_format,
+            prompt_used=prompt_used,
+            error="Image generation failed. Try a different prompt or style.",
+        )
 
     except Exception as e:
         logger.error(f"Image generation error: {e}")
         return ImageGenerateResponse(
             success=False,
             image_data=None,
-            format=request.output_format.value,
-            prompt_used=request.prompt,
+            format=error_format,
+            prompt_used=request.prompt or "",
             error=str(e),
         )
 

@@ -24,7 +24,7 @@ def enhance_content_node(state: WorkflowState) -> WorkflowState:
     """
     log_node_start(
         "enhance_content",
-        step_number=resolve_step_number(state, "enhance_content", 6),
+        step_number=resolve_step_number(state, "enhance_content", 4),
         total_steps=resolve_total_steps(state, 9),
     )
     

@@ -23,9 +23,14 @@ def summarize_sources_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
         resolve_total_steps,
     )
 
+    if state.get("metadata", {}).get("skip_source_processing") and state.get(
+        "metadata", {}
+    ).get("skip_source_reason") == "not_required":
+        return state
+
     log_node_start(
         "summarize_sources",
-        step_number=resolve_step_number(state, "summarize_sources", 2),
+        step_number=resolve_step_number(state, "summarize_sources", 5),
         total_steps=resolve_total_steps(state, 9),
     )
 

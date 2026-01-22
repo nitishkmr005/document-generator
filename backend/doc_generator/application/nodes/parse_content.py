@@ -35,7 +35,7 @@ def parse_document_content_node(state: WorkflowState) -> WorkflowState:
     """
     log_node_start(
         "parse_document_content",
-        step_number=resolve_step_number(state, "parse_document_content", 4),
+        step_number=resolve_step_number(state, "parse_document_content", 2),
         total_steps=resolve_total_steps(state, 9),
     )
     

@@ -9,7 +9,6 @@ Handles:
 import json
 import os
 import re
-from typing import Any
 
 from loguru import logger
 
@@ -44,46 +43,20 @@ def generate_mindmap_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
     logger.info(f"Generating mind map: mode={mode}")
 
     try:
-        # Configure LLM
-        from ...infrastructure.llm import LLMService
-
-        provider_name = provider if provider != "google" else "gemini"
-
-        # Set API key in environment
-        key_mapping = {
-            "gemini": "GOOGLE_API_KEY",
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-        }
-        env_var = key_mapping.get(provider_name)
-        if env_var and api_key:
-            os.environ[env_var] = api_key
-
-        llm_service = LLMService(provider=provider_name, model=model)
-
         source_count = state.get("metadata", {}).get("source_count", 1)
-
-        # Build prompt based on mode
-        prompt = _build_mindmap_prompt(raw_content, mode, source_count)
-
-        # Generate mind map
-        response = llm_service.generate(prompt)
-        if not response:
+        tree = generate_mindmap_tree(
+            content=raw_content,
+            mode=mode,
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            source_count=source_count,
+        )
+        if not tree:
             state["errors"] = state.get("errors", []) + [
-                "LLM returned empty response for mind map generation"
+                "Failed to build mind map"
             ]
             return state
-
-        # Parse response
-        mindmap_json = _extract_json(response)
-        if not mindmap_json:
-            state["errors"] = state.get("errors", []) + [
-                "Failed to parse mind map response"
-            ]
-            return state
-
-        # Build tree structure
-        tree = _build_tree_structure(mindmap_json, mode, source_count)
 
         state["mindmap_tree"] = tree
         state["mindmap_mode"] = mode
@@ -98,6 +71,45 @@ def generate_mindmap_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
         ]
 
     return state
+
+
+def generate_mindmap_tree(
+    content: str,
+    mode: str,
+    provider: str,
+    model: str,
+    api_key: str,
+    source_count: int,
+) -> dict | None:
+    """Generate a mind map tree from content."""
+    if not content:
+        return None
+
+    from ...infrastructure.llm import LLMService
+
+    provider_name = provider if provider != "google" else "gemini"
+
+    key_mapping = {
+        "gemini": "GOOGLE_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }
+    env_var = key_mapping.get(provider_name)
+    if env_var and api_key:
+        os.environ[env_var] = api_key
+
+    llm_service = LLMService(provider=provider_name, model=model)
+
+    prompt = _build_mindmap_prompt(content, mode, source_count)
+    response = llm_service.generate(prompt)
+    if not response:
+        return None
+
+    mindmap_json = _extract_json(response)
+    if not mindmap_json:
+        return None
+
+    return _build_tree_structure(mindmap_json, mode, source_count)
 
 
 def _build_mindmap_prompt(content: str, mode: str, source_count: int) -> str:
@@ -199,7 +211,7 @@ def _build_tree_structure(data: dict, mode: str, source_count: int) -> dict:
             central_node = {"label": title, "children": []}
 
     # Recursively parse nodes
-    nodes = _parse_node(central_node)
+    nodes = _parse_mindmap_item(central_node)
 
     return {
         "title": title,
@@ -210,7 +222,7 @@ def _build_tree_structure(data: dict, mode: str, source_count: int) -> dict:
     }
 
 
-def _parse_node(node_data: dict) -> dict:
+def _parse_mindmap_item(node_data: dict) -> dict:
     """Recursively parse node data into the expected format."""
     if not node_data:
         return {"label": "Unknown", "children": []}
@@ -219,7 +231,7 @@ def _parse_node(node_data: dict) -> dict:
     children = node_data.get("children", [])
 
     parsed_children = [
-        _parse_node(child) for child in children if isinstance(child, dict)
+        _parse_mindmap_item(child) for child in children if isinstance(child, dict)
     ]
 
     result = {"label": label}

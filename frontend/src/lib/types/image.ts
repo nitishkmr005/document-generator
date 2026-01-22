@@ -3,6 +3,7 @@
  */
 
 import type { StyleCategory } from "@/data/imageStyles";
+import type { Provider, SourceItem } from "@/lib/types/requests";
 
 // Output format for generated images
 export type OutputFormat = "raster" | "svg";
@@ -20,7 +21,10 @@ export interface Region {
 
 // Request for image generation
 export interface ImageGenerateRequest {
-  prompt: string;
+  prompt?: string;
+  sources?: SourceItem[];
+  provider?: Provider;
+  model?: string;
   style_category?: StyleCategory | null;
   style?: string | null;
   output_format: OutputFormat;
