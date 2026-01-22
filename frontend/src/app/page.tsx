@@ -451,14 +451,14 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl max-w-5xl leading-[1.1]">
-            Multiple Sources.{" "}
+            One Source.{" "}
             <span className="bg-gradient-to-r from-cyan-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent animate-gradient">
               Many Formats.
             </span>
           </h1>
 
           <p className="text-lg text-muted-foreground max-w-2xl md:text-xl leading-relaxed">
-            Transform PDFs, URLs, and documents into professional reports,
+            Transform a PDF, URL, document, image, or text into professional reports,
             presentations, mind maps, and more. Bring your own LLM API key
             and watch your content refract into any format.
           </p>
@@ -510,9 +510,9 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold">Upload Any Source</h3>
+              <h3 className="text-xl font-bold">Upload One Source</h3>
               <p className="text-muted-foreground leading-relaxed">
-                PDFs, Word docs, URLs, images, or plain text. Our AI parses and understands it all.
+                A PDF, Word doc, URL, image, or plain text. Our AI parses and understands it all.
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 <span className="px-3 py-1 text-xs font-medium rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300">PDF</span>

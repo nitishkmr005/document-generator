@@ -99,17 +99,28 @@ async def generate_with_session(
         f"format={request.output_format}, session={session_id} ==="
     )
 
-    # Get API keys
+    # 1. Get API keys
+    # Determine the correct API key based on the provider (OpenAI/Anthropic/Gemini)
     api_key = get_api_key_for_provider(request.provider, api_keys)
+    # Image generation might use a different key (or fallback to main provider key)
     image_api_key = api_keys.image or api_keys.google or api_key
 
+    # 2. Initialize Services
+    # - UnifiedService: Orchestrates the generation flow (Extract -> Draft -> Generate)
+    # - CacheService: Checks if we've already generated this exact request before
     service = get_unified_service()
     cache_service = get_cache_service()
 
+    # 3. Define Event Generator
+    # This async generator will yield events (progress, complete, error) one by one.
+    # It is wrapped in an EventSourceResponse for Server-Sent Events (SSE).
     async def event_generator() -> AsyncIterator[dict]:
+        # 3a. Check Cache
+        # If reuse=True, we check if a valid output already exists for this exact request hash.
         if request.cache.reuse:
             cached = cache_service.get(request)
             if cached:
+                # ... (Cache hit logic: resolve paths, read file content for preview, yield CacheHitEvent) ...
                 cached_download_url = cached.get("download_url") or cached.get(
                     "output_path", ""
                 )
@@ -199,10 +210,16 @@ async def generate_with_session(
                 yield {"event": "cache_hit", "data": event.model_dump_json()}
                 return
 
-        # Convert sources to dict format
+        # 3b. New Generation (Cache Miss or Force Regenerate)
+        # Convert Pydantic models to dicts for the service layer
         sources = [s.model_dump() for s in request.sources]
         preferences = request.preferences.model_dump() if request.preferences else {}
 
+        # Call the unified service which handles:
+        # - Content Extraction (web scraping, PDF parsing, etc.)
+        # - Checkpointing (saving extraction state to session)
+        # - Content Drafting (LLM generation)
+        # - Final Document Assembly (PDF/PPTX creation)
         async for event in service.generate_document(
             sources=sources,
             output_format=request.output_format.value,
@@ -216,9 +233,7 @@ async def generate_with_session(
             session_id=session_id,
         ):
             if isinstance(event, CompleteEvent):
-                output_path = (
-                    service.storage.base_output_dir / event.file_path
-                )
+                output_path = service.storage.base_output_dir / event.file_path
                 cache_service.set(
                     request=request,
                     output_path=output_path,
