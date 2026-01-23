@@ -135,6 +135,36 @@ class UnifiedWorkflowState(TypedDict, total=False):
     progress_message: str
     completed: bool
 
+    # === Node Responsibility Map ===
+    #
+    # COMMON NODES:
+    # - validate_sources: Updates `errors`, `metadata` (skip flags).
+    # - resolve_sources: Updates `resolved_sources`, `resolved_file_id`.
+    # - extract_sources: Updates `content_blocks`, `metadata` (source_count).
+    # - merge_sources: Updates `raw_content`, `metadata` (file_id).
+    # - summarize_sources: Updates `summary_content`.
+    #
+    # DOCUMENT NODES:
+    # - doc_detect_format: Updates `input_format`.
+    # - doc_parse_document_content: Updates `raw_content` (if single doc), `metadata` (title/pages).
+    # - doc_transform_content: Updates `structured_content`.
+    # - doc_enhance_content: Updates `enhanced_content` (structure/summary), `structured_content`.
+    # - doc_generate_images: Updates `structured_content.section_images`.
+    # - doc_describe_images: Updates `structured_content.section_images` (descriptions).
+    # - doc_generate_output: Updates `output_path`, `completed`.
+    #
+    # PODCAST NODES:
+    # - podcast_generate_script: Updates `podcast_script`, `podcast_dialogue`, `podcast_title`.
+    # - podcast_synthesize_audio: Updates `podcast_audio_base64`, `podcast_duration_seconds`.
+    #
+    # MINDMAP NODES:
+    # - mindmap_generate: Updates `mindmap_tree`.
+    #
+    # IMAGE NODES:
+    # - build_image_prompt: Updates `image_prompt`.
+    # - image_generate: Updates `image_data`, `image_prompt_used`.
+    # - image_edit: Updates `image_data`, `image_edit_mode`.
+
 
 def get_output_branch(state: UnifiedWorkflowState) -> str:
     """
