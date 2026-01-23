@@ -425,16 +425,16 @@ export default function HomePage() {
             </span>
           </div>
 
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl max-w-5xl leading-[1.1]">
-            One Source.{" "}
-            <span className="bg-gradient-to-r from-cyan-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent animate-gradient">
-              Many Formats.
+          <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl max-w-5xl leading-[1.05]">
+            <span className="block">Your AI Workspace</span>
+            <span className="block bg-gradient-to-r from-cyan-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent animate-gradient">
+              for Content Transformation
             </span>
           </h1>
 
           <p className="text-lg text-muted-foreground max-w-2xl md:text-xl leading-relaxed">
             Transform a PDF, URL, document, image, or text into professional reports,
-            presentations, mind maps, and more. Bring your own LLM API key
+            presentations, mind maps, podcasts, and more. Bring your own LLM API key
             and watch your content refract into any format.
           </p>
 
