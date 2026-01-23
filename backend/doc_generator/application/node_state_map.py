@@ -15,6 +15,7 @@ detailed_node_map = {
         "validate_sources": {
             "description": "Validates inputs and checks if existing content can be reused from session.",
             "next_node": "resolve_sources",
+            "tech_stack_used": ["Pydantic", "LangGraph"],
             "updates": {
                 "errors": "[SYSTEM] Validation errors (e.g., no sources provided)",
                 "metadata.skip_source_processing": "[SYSTEM] Boolean flag. True if valid content already exists in session (checkpoint hit).",
@@ -32,6 +33,7 @@ detailed_node_map = {
         "resolve_sources": {
             "description": "Resolves uploaded files to disk paths and normalizes URLs.",
             "next_node": "extract_sources",
+            "tech_stack_used": ["pathlib", "validators"],
             "updates": {
                 "resolved_sources": [
                     {
@@ -57,6 +59,12 @@ detailed_node_map = {
         "extract_sources": {
             "description": "Extracts raw text/content from PDFs, URLs, images, etc.",
             "next_node": "merge_sources",
+            "tech_stack_used": [
+                "PyMuPDF (fitz)",
+                "MarkItDown",
+                "Firecrawl",
+                "Gemini Vision",
+            ],
             "updates": {
                 "content_blocks": [
                     {
@@ -87,6 +95,7 @@ detailed_node_map = {
         "merge_sources": {
             "description": "Merges all extracted blocks into a single markdown string.",
             "next_node": "summarize_sources",
+            "tech_stack_used": ["python-standard-lib"],
             "updates": {
                 "raw_content": "[SYSTEM] Combined markdown text of all sources. CHECKPOINTED KEY for reuse.",
                 "metadata.file_id": "[SYSTEM] File ID for caching purposes",
@@ -98,6 +107,7 @@ detailed_node_map = {
         "summarize_sources": {
             "description": "Generates a condensed summary of the raw content.",
             "next_node": "Likely a ROUTER (split by output_type)",
+            "tech_stack_used": ["LangChain", "Gemini/OpenAI"],
             "updates": {
                 "summary_content": "[LLM] Concise summary of raw_content. Used for context-limited prompts (e.g., image gen, mindmap)."
             },
@@ -113,6 +123,7 @@ detailed_node_map = {
         "doc_detect_format": {
             "description": "Detects input format (mostly for legacy single-file flows).",
             "next_node": "doc_parse_document_content",
+            "tech_stack_used": ["python-magic", "mimetypes"],
             "updates": {
                 "input_format": "[SYSTEM] Detected mime-type or extension (e.g., 'application/pdf')"
             },
@@ -121,6 +132,7 @@ detailed_node_map = {
         "doc_parse_document_content": {
             "description": "Parses specific doc types (redundant with extract_sources but kept for legacy).",
             "next_node": "doc_transform_content",
+            "tech_stack_used": ["PyMuPDF", "python-docx"],
             "updates": {
                 # Mostly redundant now, updates same fields as extract/merge in legacy path
                 "metadata.num_pages": "[SYSTEM] Page count if PDF",
@@ -131,6 +143,7 @@ detailed_node_map = {
         "doc_transform_content": {
             "description": "Structures raw text into a coherent document with sections.",
             "next_node": "doc_enhance_content",
+            "tech_stack_used": ["LangChain", "PydanticOutputParser"],
             "updates": {
                 "structured_content": {
                     "title": "[LLM] Generated document title",
@@ -165,6 +178,7 @@ detailed_node_map = {
         "doc_enhance_content": {
             "description": "Adds executive summaries or slide content if requested.",
             "next_node": "doc_generate_images",
+            "tech_stack_used": ["LangChain", "Gemini/OpenAI"],
             "updates": {
                 "enhanced_content": {
                     "executive_summary": "[LLM] High-level summary",
@@ -187,6 +201,7 @@ detailed_node_map = {
         "doc_generate_images": {
             "description": "Generates relevant images for document sections.",
             "next_node": "doc_describe_images",
+            "tech_stack_used": ["Gemini Imagen 3", "LangChain"],
             "updates": {
                 "structured_content.section_images": [
                     {
@@ -215,6 +230,7 @@ detailed_node_map = {
         "doc_generate_output": {
             "description": "Renders final file (PDF/PPTX) to disk.",
             "next_node": "doc_validate_output",
+            "tech_stack_used": ["WeasyPrint (PDF)", "python-pptx"],
             "updates": {
                 "output_path": "[SYSTEM] Absolute path to final generated file",
                 "completed": "[SYSTEM] True",
@@ -232,6 +248,7 @@ detailed_node_map = {
         "podcast_generate_script": {
             "description": "Converts content into a dialogue script.",
             "next_node": "podcast_synthesize_audio",
+            "tech_stack_used": ["LangChain", "Pydantic"],
             "updates": {
                 "podcast_script": "[LLM] Full conversation text",
                 "podcast_title": "[LLM] Catchy episode title",
@@ -257,6 +274,7 @@ detailed_node_map = {
         "podcast_synthesize_audio": {
             "description": "Converts script to Audio (TTS).",
             "next_node": "END",
+            "tech_stack_used": ["Gemini Audio API", "pydub"],
             "updates": {
                 "podcast_audio_base64": "[SYSTEM] Base64 encoded MP3/WAV file",
                 "podcast_duration_seconds": "[SYSTEM] Length of audio in seconds",
@@ -274,6 +292,7 @@ detailed_node_map = {
         "mindmap_generate": {
             "description": "Converts content into a hierarchical tree structure.",
             "next_node": "END",
+            "tech_stack_used": ["LangChain", "Pydantic"],
             "updates": {
                 "mindmap_tree": {
                     "root": {
@@ -305,6 +324,7 @@ detailed_node_map = {
         "build_image_prompt": {
             "description": "Creates a detailed image prompt from simple user input or text content.",
             "next_node": "image_generate",
+            "tech_stack_used": ["LangChain"],
             "updates": {
                 "image_prompt": "[LLM] Detailed, descriptive prompt optimized for image models"
             },
@@ -316,6 +336,7 @@ detailed_node_map = {
         "image_generate": {
             "description": "Generates visual asset.",
             "next_node": "END",
+            "tech_stack_used": ["Gemini Imagen 3"],
             "updates": {
                 "image_data": "[SYSTEM] Base64 encoded image or SVG code",
                 "image_prompt_used": "[SYSTEM] The final prompt actually sent to the model",
