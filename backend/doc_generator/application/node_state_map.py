@@ -24,7 +24,7 @@ detailed_node_map = {
                 "sources": "List of URLs, text, or file IDs from user",
                 "output_type": "Target format (pdf, podcast, etc.)",
             },
-            "example": {
+            "example_output": {
                 "errors": [],
                 "metadata": {"skip_source_processing": True, "reused_content": True},
             },
@@ -43,7 +43,7 @@ detailed_node_map = {
                 ],
                 "resolved_file_id": "[SYSTEM] ID of main uploaded file (if single file mode)",
             },
-            "example": {
+            "example_output": {
                 "resolved_sources": [
                     {
                         "type": "url",
@@ -68,7 +68,7 @@ detailed_node_map = {
                 ],
                 "metadata.source_count": "[SYSTEM] Total number of valid sources processed",
             },
-            "example": {
+            "example_output": {
                 "content_blocks": [
                     {
                         "type": "text",
@@ -91,7 +91,7 @@ detailed_node_map = {
                 "raw_content": "[SYSTEM] Combined markdown text of all sources. CHECKPOINTED KEY for reuse.",
                 "metadata.file_id": "[SYSTEM] File ID for caching purposes",
             },
-            "example": {
+            "example_output": {
                 "raw_content": "# Web Article\nContent...\n\n---\n\n(Image Description: A chart showing growth)\n\n---\n\nSome user pasted text"
             },
         },
@@ -101,7 +101,7 @@ detailed_node_map = {
             "updates": {
                 "summary_content": "[LLM] Concise summary of raw_content. Used for context-limited prompts (e.g., image gen, mindmap)."
             },
-            "example": {
+            "example_output": {
                 "summary_content": "The article discusses recent economic growth trends, highlighted by..."
             },
         },
@@ -116,7 +116,7 @@ detailed_node_map = {
             "updates": {
                 "input_format": "[SYSTEM] Detected mime-type or extension (e.g., 'application/pdf')"
             },
-            "example": {"input_format": "text/markdown"},
+            "example_output": {"input_format": "text/markdown"},
         },
         "doc_parse_document_content": {
             "description": "Parses specific doc types (redundant with extract_sources but kept for legacy).",
@@ -126,7 +126,7 @@ detailed_node_map = {
                 "metadata.num_pages": "[SYSTEM] Page count if PDF",
                 "metadata.title": "[SYSTEM] Title from file metadata",
             },
-            "example": {"metadata": {"title": "Q3 Report", "num_pages": 5}},
+            "example_output": {"metadata": {"title": "Q3 Report", "num_pages": 5}},
         },
         "doc_transform_content": {
             "description": "Structures raw text into a coherent document with sections.",
@@ -148,7 +148,7 @@ detailed_node_map = {
                 "request_data.preferences.audience": "Target audience (e.g., 'expert', 'child')",
                 "request_data.preferences.tone": "Writing tone",
             },
-            "example": {
+            "example_output": {
                 "structured_content": {
                     "title": "Annual Review",
                     "introduction": "This year was...",
@@ -178,7 +178,7 @@ detailed_node_map = {
                     }
                 ],
             },
-            "example": {
+            "example_output": {
                 "enhanced_content": {
                     "executive_summary": "Overall growth was positive."
                 }
@@ -200,7 +200,7 @@ detailed_node_map = {
             "frontend_input": {
                 "request_data.preferences.image_style": "Style (e.g., 'minimalist', 'watercolor')"
             },
-            "example": {
+            "example_output": {
                 "structured_content": {
                     "section_images": [
                         {
@@ -219,7 +219,7 @@ detailed_node_map = {
                 "output_path": "[SYSTEM] Absolute path to final generated file",
                 "completed": "[SYSTEM] True",
             },
-            "example": {
+            "example_output": {
                 "output_path": "/app/data/output/report_123.pdf",
                 "completed": True,
             },
@@ -246,7 +246,7 @@ detailed_node_map = {
                 "request_data.style": "Podcast style (e.g., 'interview', 'monologue')",
                 "request_data.speakers": "List of speaker definitions (names, voices)",
             },
-            "example": {
+            "example_output": {
                 "podcast_title": "Tech Talk Daily",
                 "podcast_dialogue": [
                     {"speaker": "Host", "text": "Welcome back everyone!"},
@@ -261,7 +261,7 @@ detailed_node_map = {
                 "podcast_audio_base64": "[SYSTEM] Base64 encoded MP3/WAV file",
                 "podcast_duration_seconds": "[SYSTEM] Length of audio in seconds",
             },
-            "example": {
+            "example_output": {
                 "podcast_audio_base64": "UklGRi...",
                 "podcast_duration_seconds": 120.5,
             },
@@ -285,7 +285,7 @@ detailed_node_map = {
             "frontend_input": {
                 "request_data.mode": "Detail level (e.g., 'summarize', 'detailed')"
             },
-            "example": {
+            "example_output": {
                 "mindmap_tree": {
                     "root": {
                         "label": "Project Plan",
@@ -309,7 +309,7 @@ detailed_node_map = {
                 "image_prompt": "[LLM] Detailed, descriptive prompt optimized for image models"
             },
             "frontend_input": {"request_data.prompt": "User's rough idea (optional)"},
-            "example": {
+            "example_output": {
                 "image_prompt": "A futuristic city skyline at sunset, cyberpunk style, neon lights, high resolution"
             },
         },
@@ -323,7 +323,7 @@ detailed_node_map = {
             "frontend_input": {
                 "request_data.style": "Visual style (e.g., 'cyberpunk', 'sketch')"
             },
-            "example": {
+            "example_output": {
                 "image_data": "iVBORw0KGgo...",
                 "image_prompt_used": "A futuristic city skyline...",
             },
