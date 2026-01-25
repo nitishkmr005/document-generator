@@ -322,8 +322,41 @@ class PDFGenerator:
         # Track last section title to prevent duplicate consecutive banners
         last_section_title_normalized = ""
 
+        # Keep headings with their first paragraph when possible to avoid orphan banners.
+        pending_heading: list | None = None
+        pending_heading_wants_lead = False
+
+        page_break_keywords = {
+            "code examples",
+            "implementation roadmap",
+            "risk analysis",
+            "next steps",
+            "decision tree",
+        }
+
+        def flush_pending_heading() -> None:
+            nonlocal pending_heading, pending_heading_wants_lead
+            if pending_heading:
+                story.extend(pending_heading)
+                pending_heading = None
+                pending_heading_wants_lead = False
+
+        def queue_heading(flowables: list, wants_lead: bool = True) -> None:
+            nonlocal pending_heading, pending_heading_wants_lead
+            flush_pending_heading()
+            pending_heading = flowables
+            pending_heading_wants_lead = wants_lead
+
+        def should_page_break(title_text: str) -> bool:
+            normalized = self._strip_heading_number(title_text).lower()
+            return any(keyword in normalized for keyword in page_break_keywords)
+
         # Parse and add markdown content with inline media
         for kind, content_item in parse_markdown_lines(markdown_content):
+            # Flush pending headings before non-paragraph content.
+            if pending_heading and kind != "para":
+                flush_pending_heading()
+
             if kind == "spacer":
                 story.append(Spacer(1, 12))
 
@@ -334,10 +367,11 @@ class PDFGenerator:
                     skipped_cover_h1 = True
                     continue
                 # Major section - add divider before
-                story.extend(make_section_divider(self.styles))
-                story.append(
+                heading_flow = make_section_divider(self.styles)
+                heading_flow.append(
                     Paragraph(inline_md(content_item), self.styles["Heading2Custom"])
                 )
+                queue_heading(heading_flow, wants_lead=True)
 
             elif kind == "h2":
                 # Normalize the section title to detect duplicates
@@ -354,9 +388,10 @@ class PDFGenerator:
                 section_id, next_section_id = self._resolve_section_id(
                     content_item, next_section_id
                 )
-                story.append(Spacer(1, 16))
-                story.append(make_banner(content_item, self.styles))
-                story.append(Spacer(1, 12))
+                if should_page_break(content_item):
+                    story.append(PageBreak())
+                heading_flow = [Spacer(1, 16), make_banner(content_item, self.styles), Spacer(1, 12)]
+                queue_heading(heading_flow, wants_lead=True)
 
                 # Check for Gemini-generated section image
                 img_info = section_images.get(section_id) or section_image_lookup.get(
@@ -383,14 +418,20 @@ class PDFGenerator:
                         logger.debug(f"Embedded section image for: {content_item}")
 
             elif kind == "h3":
-                story.append(
-                    Paragraph(inline_md(content_item), self.styles["Heading3Custom"])
-                )
+                heading_flow = [
+                    Spacer(1, 10),
+                    Paragraph(inline_md(content_item), self.styles["Heading3Custom"]),
+                    Spacer(1, 6),
+                ]
+                queue_heading(heading_flow, wants_lead=True)
 
             elif kind.startswith("h"):
-                story.append(
-                    Paragraph(inline_md(content_item), self.styles["Heading3Custom"])
-                )
+                heading_flow = [
+                    Spacer(1, 10),
+                    Paragraph(inline_md(content_item), self.styles["Heading3Custom"]),
+                    Spacer(1, 6),
+                ]
+                queue_heading(heading_flow, wants_lead=True)
 
             elif kind == "visual_marker":
                 marker_title = content_item.get("title", "diagram")
@@ -458,10 +499,25 @@ class PDFGenerator:
                 story.append(Spacer(1, 12))
 
             else:  # para
-                if content_item.strip():
-                    story.append(
-                        Paragraph(inline_md(content_item), self.styles["BodyCustom"])
-                    )
+                if not content_item.strip():
+                    continue
+
+                paragraph_style = (
+                    self.styles["LeadParagraph"]
+                    if pending_heading_wants_lead
+                    else self.styles["BodyCustom"]
+                )
+                paragraph = Paragraph(inline_md(content_item), paragraph_style)
+
+                if pending_heading:
+                    story.append(KeepTogether([*pending_heading, paragraph]))
+                    pending_heading = None
+                    pending_heading_wants_lead = False
+                else:
+                    story.append(paragraph)
+
+        # Flush any trailing heading that did not receive a paragraph.
+        flush_pending_heading()
 
         # Build PDF with custom canvas
         element_count = len(story)

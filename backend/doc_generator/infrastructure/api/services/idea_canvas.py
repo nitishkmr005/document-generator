@@ -931,6 +931,15 @@ CODE REQUIREMENTS:
 - Each code block should be complete and runnable
 - Include comments in code to explain key parts
 
+READABILITY RULES (VERY IMPORTANT):
+- Start each major section with a 1-2 sentence overview paragraph
+- Prefer short paragraphs (2-4 sentences) over large text walls
+- Use bullet lists for decisions, requirements, risks, and next steps
+- Use tables where helpful (e.g., MVP scope, roadmap, metrics, tradeoffs)
+- Keep bullet points concise (ideally one line each)
+- Split large code examples into smaller focused snippets with ### subheadings
+- Avoid repeating the same heading or section twice
+
 Make the document actionable, specific, and tailored to the decisions made during the exploration session."""
 
         user_prompt = f"""Based on the following idea exploration session, generate a comprehensive {doc_type} document.

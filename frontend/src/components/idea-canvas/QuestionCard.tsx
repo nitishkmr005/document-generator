@@ -228,7 +228,7 @@ export function QuestionCard({
   );
 
   return (
-    <Card className="w-full max-w-lg shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <Card className="w-full max-w-none border-amber-100/80 dark:border-amber-900/40 shadow-[0_20px_45px_-25px_rgba(245,158,11,0.25)] animate-in fade-in slide-in-from-bottom-4 duration-300">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg leading-relaxed">
           {question.question}
@@ -313,4 +313,3 @@ export function QuestionCard({
     </Card>
   );
 }
-

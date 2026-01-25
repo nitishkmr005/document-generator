@@ -636,6 +636,17 @@ def make_code_block(
     lines = code.splitlines() or [""]
     show_line_numbers = code_settings.get("show_line_numbers", True)
 
+    # Heuristic language detection for better code headers when language tags are missing.
+    detected_language = language or "code"
+    if detected_language == "python":
+        code_lower = code.lower()
+        if re.search(r"\b(select|insert|update|delete|create table|alter table)\b", code_lower):
+            detected_language = "sql"
+        elif re.search(r"^\s*(sudo|apt|pip|npm|docker|kubectl|curl|export)\b", code_lower, re.M):
+            detected_language = "bash"
+        elif code.strip().startswith("{") and ":" in code:
+            detected_language = "json"
+
     # Calculate line height
     leading = styles["CodeBlock"].leading or (styles["CodeBlock"].fontSize * 1.2)
     max_lines = code_settings.get("max_lines_per_page", 50)
@@ -648,29 +659,37 @@ def make_code_block(
 
         if show_line_numbers:
             # Add line numbers to each line
-            line_num_color = code_settings.get("line_number_color", "#888888")
             numbered_lines = []
             for idx, line in enumerate(chunk_lines, start=i + 1):
                 # Format: line number (right-aligned, 4 chars) + separator + code
                 line_num = f"{idx:4d}"
-                # Preformatted displays text as-is, no escaping needed
-                numbered_lines.append(f"{line_num} │ {line}")
+                # Use ASCII separator to avoid font/encoding issues in PDFs.
+                numbered_lines.append(f"{line_num} | {line}")
 
             chunk = "\n".join(numbered_lines)
         else:
             chunk = "\n".join(chunk_lines)
 
         block = Preformatted(chunk, styles["CodeBlock"])
-        table = Table([[block]], colWidths=[6.9 * inch])
+        header_label = f"{detected_language.upper()} Code"
+        if i > 0:
+            header_label += " (continued)"
+        header = Paragraph(header_label, styles.get("CodeHeader", styles["BodyText"]))
+
+        table = Table([[header], [block]], colWidths=[6.9 * inch])
         table.setStyle(
             TableStyle(
                 [
-                    ("BACKGROUND", (0, 0), (-1, -1), PALETTE["code"]),
+                    ("BACKGROUND", (0, 0), (-1, 0), PALETTE["panel"]),
+                    ("BACKGROUND", (0, 1), (-1, -1), PALETTE["code"]),
                     ("BOX", (0, 0), (-1, -1), 0.8, PALETTE["line"]),
+                    ("LINEBELOW", (0, 0), (-1, 0), 0.6, PALETTE["line"]),
                     ("LEFTPADDING", (0, 0), (-1, -1), 8),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                    ("TOPPADDING", (0, 0), (-1, -1), 6),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, 0), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 3),
+                    ("TOPPADDING", (0, 1), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
                 ]
             )
         )
@@ -1114,7 +1133,7 @@ def create_custom_styles() -> dict:
             fontName="Helvetica-Bold",
             fontSize=18,
             leading=26,
-            textColor=PALETTE["accent"],
+            textColor=PALETTE["accent_dark"],
             spaceBefore=20,
             spaceAfter=10,
         )
@@ -1127,9 +1146,9 @@ def create_custom_styles() -> dict:
             parent=styles["BodyText"],
             fontName="Helvetica",
             fontSize=12,
-            leading=20,
-            textColor=PALETTE["muted"],
-            spaceAfter=12,
+            leading=19,
+            textColor=PALETTE["ink"],
+            spaceAfter=10,
             alignment=0,  # Left align for better readability
         )
     )
@@ -1140,10 +1159,10 @@ def create_custom_styles() -> dict:
             name="LeadParagraph",
             parent=styles["BodyText"],
             fontName="Helvetica",
-            fontSize=14,
-            leading=24,
+            fontSize=13,
+            leading=22,
             textColor=PALETTE["ink"],
-            spaceAfter=16,
+            spaceAfter=12,
             alignment=0,
         )
     )
@@ -1155,11 +1174,11 @@ def create_custom_styles() -> dict:
             parent=styles["BodyText"],
             fontName="Helvetica",
             fontSize=11,
-            leading=18,
-            leftIndent=24,
-            bulletIndent=12,
-            spaceAfter=6,
-            textColor=PALETTE["muted"],
+            leading=17,
+            leftIndent=22,
+            bulletIndent=10,
+            spaceAfter=4,
+            textColor=PALETTE["ink"],
         )
     )
 
@@ -1246,6 +1265,19 @@ def create_custom_styles() -> dict:
             textColor=PALETTE["ink"],
             leftIndent=16,
             spaceAfter=8,
+        )
+    )
+
+    # Code header - Small label above code blocks
+    styles.add(
+        ParagraphStyle(
+            name="CodeHeader",
+            parent=styles["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=12,
+            textColor=PALETTE["accent_dark"],
+            spaceAfter=2,
         )
     )
 

@@ -483,6 +483,93 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
     });
   }, [approaches]);
 
+  const snapshotThemes = useMemo(() => {
+    if (!questionHistory.length) return [];
+
+    const shorten = (value: string, max = 92) =>
+      value.length > max ? `${value.slice(0, max - 1)}...` : value;
+
+    const normalizeQuestion = (value: string) => {
+      const cleaned = value.replace(/\s+/g, " ").trim();
+      const withoutQuestionMark = cleaned.endsWith("?")
+        ? cleaned.slice(0, -1)
+        : cleaned;
+      return shorten(withoutQuestionMark, 72);
+    };
+
+    const normalizeAnswer = (value: string | string[]) => {
+      const text = Array.isArray(value) ? value.join(", ") : value;
+      return shorten(text.replace(/\s+/g, " ").trim(), 104);
+    };
+
+    const themeDefs = [
+      {
+        key: "problem",
+        label: "Problem",
+        keywords: ["problem", "purpose", "goal", "why", "solve", "pain", "main task", "use case"],
+      },
+      {
+        key: "users",
+        label: "Users",
+        keywords: ["user", "audience", "customer", "persona", "stakeholder", "who"],
+      },
+      {
+        key: "inputs",
+        label: "Inputs",
+        keywords: ["input", "data", "source", "document", "file", "knowledge", "context", "information"],
+      },
+      {
+        key: "outputs",
+        label: "Outputs",
+        keywords: ["output", "result", "deliver", "response", "answer", "experience", "interface", "voice", "channel"],
+      },
+      {
+        key: "constraints",
+        label: "Constraints",
+        keywords: ["constraint", "limit", "budget", "timeline", "deadline", "scale", "performance", "latency", "security", "privacy", "compliance", "risk"],
+      },
+      {
+        key: "success",
+        label: "Success",
+        keywords: ["success", "metric", "kpi", "measure", "validation", "quality", "accuracy", "target", "benchmark"],
+      },
+      {
+        key: "details",
+        label: "Key Detail",
+        keywords: [],
+      },
+    ] as const;
+
+    const classifyTheme = (questionText: string) => {
+      const lower = questionText.toLowerCase();
+      const match = themeDefs.find(
+        (theme) =>
+          theme.key !== "details" &&
+          theme.keywords.some((keyword) => lower.includes(keyword))
+      );
+      return match?.key ?? "details";
+    };
+
+    const captured = new Map<string, { label: string; question: string; answer: string }>();
+    for (let i = questionHistory.length - 1; i >= 0; i -= 1) {
+      const item = questionHistory[i];
+      const themeKey = classifyTheme(item.question.question);
+      if (captured.has(themeKey)) continue;
+      const themeMeta = themeDefs.find((theme) => theme.key === themeKey);
+      captured.set(themeKey, {
+        label: themeMeta?.label ?? "Key Detail",
+        question: normalizeQuestion(item.question.question),
+        answer: normalizeAnswer(item.answer),
+      });
+      if (captured.size >= 5) break;
+    }
+
+    return themeDefs
+      .map((theme) => captured.get(theme.key))
+      .filter((item): item is { label: string; question: string; answer: string } => Boolean(item))
+      .slice(0, 5);
+  }, [questionHistory]);
+
   // ============================================================================
   // VIEW 1: Initial Form View
   // ============================================================================
@@ -1090,17 +1177,35 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
         </div>
       </div>
 
-      <div className="h-[calc(100vh-3.5rem)] flex">
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col lg:flex-row">
         {/* Left Panel - Questions */}
-        <div className="w-[480px] border-r bg-white dark:bg-slate-900 flex flex-col">
-          <div className="flex-1 overflow-y-auto p-8">
+        <div className="w-full lg:flex-[0_0_70%] border-b lg:border-b-0 lg:border-r bg-gradient-to-b from-white to-amber-50/30 dark:from-slate-900 dark:to-slate-900 flex flex-col">
+          <div className="px-6 lg:px-8 pt-5 pb-4 border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+            <div className="mx-auto w-full max-w-4xl">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span className="font-medium text-foreground/80">Exploration Progress</span>
+                <span>
+                  {Math.max(activeQuestionNumber, 1)} / ~{estimatedTotalQuestions}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500"
+                  style={{ width: `${Math.max(progressFraction * 100, 6)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 lg:p-10">
             {currentQuestion ? (
-              <QuestionCard
-                question={currentQuestion}
-                onAnswer={handleCanvasAnswer}
-                onSkip={currentQuestion.allow_skip ? () => handleCanvasAnswer("Skipped") : undefined}
-                isAnswering={canvasState === "answering"}
-              />
+              <div className="mx-auto w-full max-w-4xl">
+                <QuestionCard
+                  question={currentQuestion}
+                  onAnswer={handleCanvasAnswer}
+                  onSkip={currentQuestion.allow_skip ? () => handleCanvasAnswer("Skipped") : undefined}
+                  isAnswering={canvasState === "answering"}
+                />
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full">
                 <div className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
@@ -1111,65 +1216,81 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
         </div>
 
         {/* Right Panel - Progress Visualization */}
-        <div className="flex-1 flex flex-col items-center justify-center p-12 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-slate-900 dark:to-amber-950/20">
-          <div className="max-w-md text-center">
-            {/* Visual Progress Indicator */}
-            <div className="relative mb-8">
-              <div className="w-32 h-32 mx-auto relative">
-                {/* Outer ring */}
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="6"
-                    className="text-amber-100 dark:text-amber-900/30"
-                  />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    className="text-amber-500"
-                    strokeDasharray={progressDasharray}
-                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
-                  />
-                </svg>
-                {/* Center content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-amber-600 dark:text-amber-400">{Math.max(activeQuestionNumber, 1)}</span>
-                  <span className="text-xs text-muted-foreground">of ~{estimatedTotalQuestions}</span>
+        <div className="w-full lg:flex-[0_0_30%] min-h-[300px] lg:min-h-0 border-t lg:border-t-0 bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-white dark:from-slate-900 dark:via-slate-900 dark:to-amber-950/20 p-6 lg:p-10 flex items-center justify-center">
+          <div className="w-full max-w-xl lg:max-w-none">
+            <div className="relative rounded-3xl border border-amber-200/70 dark:border-amber-800/40 bg-white/90 dark:bg-slate-900/90 shadow-[0_20px_60px_-30px_rgba(245,158,11,0.35)] p-6 lg:p-9 text-center overflow-hidden">
+              <div className="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-gradient-to-br from-amber-200/60 to-orange-200/40 blur-3xl" />
+              {/* Visual Progress Indicator */}
+              <div className="relative mb-9">
+                <div className="w-36 h-36 mx-auto relative">
+                  {/* Outer ring */}
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      className="text-amber-100 dark:text-amber-900/30"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      className="text-amber-500"
+                      strokeDasharray={progressDasharray}
+                      style={{ transition: "stroke-dasharray 0.5s ease" }}
+                    />
+                  </svg>
+                  {/* Center content */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-bold text-amber-600 dark:text-amber-400">{Math.max(activeQuestionNumber, 1)}</span>
+                    <span className="text-xs text-muted-foreground">of ~{estimatedTotalQuestions}</span>
+                  </div>
                 </div>
+              </div>
+
+              <h2 className="text-xl font-semibold mb-2.5">Understanding Your Idea</h2>
+              <p className="text-muted-foreground text-sm mb-7">
+                Answer the questions to help us understand your idea better.
+                Once we have enough context, we will generate implementation approaches.
+              </p>
+
+              <div className="mt-6 text-left rounded-2xl border border-amber-200/70 dark:border-amber-800/40 bg-white/95 dark:bg-slate-800/95 p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    Idea Snapshot
+                  </h4>
+                  <span className="text-[11px] text-muted-foreground">
+                    {questionHistory.length} captured
+                  </span>
+                </div>
+                {snapshotThemes.length > 0 ? (
+                  <div className="space-y-3">
+                    {snapshotThemes.map((item, i) => (
+                      <div key={`${item.label}-${i}`} className="rounded-xl border border-amber-100/80 dark:border-amber-900/40 bg-amber-50/40 dark:bg-slate-900/40 p-3 text-sm">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                            {item.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1">{item.question}</p>
+                        <p className="text-foreground leading-snug break-words">{item.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Your answers will appear here as we learn more about the idea.
+                  </p>
+                )}
               </div>
             </div>
-
-            <h2 className="text-xl font-semibold mb-2">Understanding Your Idea</h2>
-            <p className="text-muted-foreground text-sm mb-6">
-              Answer the questions to help us understand your idea better.
-              Once we have enough context, we will generate implementation approaches.
-            </p>
-
-            {/* Question History Preview */}
-            {questionHistory.length > 0 && (
-              <div className="mt-8 p-4 rounded-xl bg-white dark:bg-slate-800 border border-amber-200/50 dark:border-amber-800/30 text-left">
-                <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Recent Answers</h4>
-                <div className="space-y-2">
-                  {questionHistory.slice(-3).map((item, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm">
-                      <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-foreground truncate">{Array.isArray(item.answer) ? item.answer.join(', ') : item.answer}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
