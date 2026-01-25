@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Approach, RefinementTarget } from "@/lib/types/idea-canvas";
 import { ApproachPanel } from "./ApproachPanel";
@@ -20,7 +20,18 @@ export function ApproachTabs({
   refinementTarget,
   isLoading = false,
 }: ApproachTabsProps) {
-  const [activeTab, setActiveTab] = useState(approaches[0]?.id || "");
+  const [activeTabState, setActiveTabState] = useState(approaches[0]?.id || "");
+
+  const activeTab = useMemo(() => {
+    if (!approaches.length) return "";
+    const stillExists = approaches.some((approach) => approach.id === activeTabState);
+    return stillExists ? activeTabState : approaches[0].id;
+  }, [approaches, activeTabState]);
+
+  const tierLabels = useMemo(
+    () => ["Basic", "Intermediate", "Advanced", "Frontier"],
+    []
+  );
 
   if (isLoading) {
     return (
@@ -49,16 +60,21 @@ export function ApproachTabs({
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-      <div className="px-4 pt-3 shrink-0">
-        <TabsList className="w-full grid grid-cols-4 h-10 bg-muted/50">
-          {approaches.map((approach) => (
+    <Tabs value={activeTab} onValueChange={setActiveTabState} className="h-full flex flex-col">
+      <div className="px-4 pt-4 shrink-0">
+        <TabsList className="w-full grid grid-cols-4 h-14 bg-muted/40 border">
+          {approaches.map((approach, index) => (
             <TabsTrigger
               key={approach.id}
               value={approach.id}
-              className="text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
             >
-              {approach.name}
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {tierLabels[index] || `Tier ${index + 1}`}
+                </span>
+                <span className="text-xs font-semibold">{approach.name}</span>
+              </div>
             </TabsTrigger>
           ))}
         </TabsList>

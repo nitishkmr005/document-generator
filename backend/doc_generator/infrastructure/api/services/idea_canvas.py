@@ -598,9 +598,11 @@ MERMAID RULES:
 - Use flowchart TD (top-down) or LR (left-right) for architecture
 - Use sequenceDiagram for interactions
 - Use graph for simple flows
-- Escape special characters properly
-- Keep diagrams clear and readable
-- Use descriptive node labels
+- Always use simple node IDs like A, B, C, A1, B2 (letters/numbers only)
+- Put all human-readable text inside brackets, not in the node ID
+- Keep labels SHORT (2-4 words) and avoid parentheses, commas, and colons
+- Avoid subgraphs, pipes, and complex shapes; use plain rectangles
+- Keep diagrams clear, readable, and presentation-friendly
 
 TASK RULES:
 - 4-8 tasks per approach

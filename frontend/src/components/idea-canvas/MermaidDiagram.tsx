@@ -34,20 +34,118 @@ export function MermaidDiagram({
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
-      theme: "neutral",
+      theme: "base",
       securityLevel: "loose",
       fontFamily: "inherit",
+      themeVariables: {
+        primaryColor: "#f59e0b",
+        primaryTextColor: "#111827",
+        primaryBorderColor: "#d97706",
+        lineColor: "#9ca3af",
+        secondaryColor: "#ecfeff",
+        tertiaryColor: "#fff7ed",
+        fontFamily: "inherit",
+      },
     });
+  }, []);
+
+  const sanitizeMermaidCode = useCallback((raw: string): string => {
+    const normalized = raw.replace(/\r\n/g, "\n").trim();
+    if (!normalized) return normalized;
+
+    const firstLine = normalized.split("\n")[0].trim();
+    const hasKnownPrefix = /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey)\b/i.test(firstLine);
+    let nextCode = hasKnownPrefix ? normalized : `flowchart TD\n${normalized}`;
+
+    const flowPrefix = nextCode.split("\n")[0].trim();
+    const isFlowchart = /^(flowchart|graph)\b/i.test(flowPrefix);
+
+    if (!isFlowchart) return nextCode;
+
+    // Clean up common syntax pitfalls from LLM output.
+    nextCode = nextCode
+      .replace(/[–—]/g, "-")
+      .replace(/--\s*>/g, "-->")
+      .replace(/\s+\|\s+/g, " - ")
+      .replace(/^\s*[-*]\s+/gm, "    ");
+
+    const sanitizeLabel = (label: string) =>
+      label
+        .replace(/[()[\]{}]/g, "")
+        .replace(/[|]/g, "-")
+        .replace(/[,;:]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 36);
+
+    nextCode = nextCode.replace(/\[([^\]]+)\]/g, (_match, label) => {
+      const cleaned = sanitizeLabel(label);
+      return `[${cleaned || "Node"}]`;
+    });
+
+    // Ensure node ids are simple tokens (no spaces or punctuation).
+    const idMap = new Map<string, string>();
+    const idRegex = /(^|\s)([A-Za-z0-9][A-Za-z0-9 _-]*)\s*\[[^\]]+\]/gm;
+    let match: RegExpExecArray | null;
+    let idCounter = 1;
+    while ((match = idRegex.exec(nextCode)) !== null) {
+      const original = match[2].trim();
+      if (!original || idMap.has(original)) continue;
+      const safe = original.replace(/[^A-Za-z0-9_]/g, "_");
+      const safeId = safe || `N${idCounter++}`;
+      idMap.set(original, safeId);
+    }
+
+    if (idMap.size === 0) return nextCode;
+
+    const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const replacements = Array.from(idMap.entries()).sort((a, b) => b[0].length - a[0].length);
+    for (const [original, safe] of replacements) {
+      const pattern = new RegExp(`(^|[^A-Za-z0-9_])${escapeRegex(original)}(?=[^A-Za-z0-9_]|$)`, "g");
+      nextCode = nextCode.replace(pattern, (_m, prefix) => `${prefix}${safe}`);
+    }
+
+    return nextCode;
   }, []);
 
   const renderToContainer = useCallback(async (container: HTMLDivElement, idSuffix: string) => {
     if (!container || !code) return;
 
+    let rendered = false;
+    let lastError: unknown = null;
+
     try {
-      setError(null);
-      const id = `mermaid-${idSuffix}-${Date.now()}`;
-      const { svg } = await mermaid.render(id, code);
-      container.innerHTML = svg;
+      const attemptRender = async (diagramCode: string) => {
+        const id = `mermaid-${idSuffix}-${Date.now()}`;
+        const { svg } = await mermaid.render(id, diagramCode);
+        container.innerHTML = svg;
+      };
+
+      try {
+        setError(null);
+        await attemptRender(code);
+        rendered = true;
+      } catch (err) {
+        lastError = err;
+      }
+
+      try {
+        const sanitized = sanitizeMermaidCode(code);
+        if (!rendered && sanitized) {
+          const id = `mermaid-${idSuffix}-sanitized-${Date.now()}`;
+          const { svg } = await mermaid.render(id, sanitized);
+          container.innerHTML = svg;
+          rendered = true;
+        }
+      } catch (err) {
+        lastError = lastError || err;
+      }
+
+      if (!rendered) {
+        const err = lastError;
+        setError(err instanceof Error ? err.message : "Failed to render diagram");
+        return;
+      }
 
       // Add click handlers to nodes
       if (onElementClick) {
@@ -71,10 +169,11 @@ export function MermaidDiagram({
           (element as HTMLElement).style.outlineOffset = "2px";
         }
       }
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to render diagram");
     }
-  }, [code, onElementClick, highlightedElement]);
+  }, [code, onElementClick, highlightedElement, sanitizeMermaidCode]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -83,9 +182,28 @@ export function MermaidDiagram({
   }, [renderToContainer]);
 
   useEffect(() => {
-    if (isFullscreen && fullscreenContainerRef.current) {
-      renderToContainer(fullscreenContainerRef.current, "fullscreen");
-    }
+    if (!isFullscreen) return;
+    let cancelled = false;
+    let rafId = 0;
+    let attempts = 0;
+
+    const tryRender = () => {
+      if (cancelled) return;
+      if (fullscreenContainerRef.current) {
+        renderToContainer(fullscreenContainerRef.current, "fullscreen");
+        return;
+      }
+      if (attempts < 10) {
+        attempts += 1;
+        rafId = window.requestAnimationFrame(tryRender);
+      }
+    };
+
+    rafId = window.requestAnimationFrame(tryRender);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(rafId);
+    };
   }, [isFullscreen, renderToContainer]);
 
   const handleCopy = useCallback(async () => {

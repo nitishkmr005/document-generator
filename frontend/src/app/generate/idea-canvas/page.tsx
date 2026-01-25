@@ -1,20 +1,27 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IdeaCanvasForm, IdeaCanvas, QuestionCard, ApproachTabs, IdeaSummary } from "@/components/idea-canvas";
+import { IdeaCanvasForm, QuestionCard, ApproachTabs } from "@/components/idea-canvas";
 import { MindMapViewer } from "@/components/mindmap";
 import { useIdeaCanvas } from "@/hooks/useIdeaCanvas";
 import { useAuth } from "@/hooks/useAuth";
+import { useApiKeys } from "@/hooks/useApiKeys";
 import { AuthModal } from "@/components/auth/AuthModal";
-import { StartCanvasRequest, CanvasPhase, RefinementTarget } from "@/lib/types/idea-canvas";
+import { ApiKeysModal } from "@/components/studio";
+import { StartCanvasRequest, RefinementTarget } from "@/lib/types/idea-canvas";
 import { generateCanvasReport, generateCanvasMindmap, CanvasMindmapResult, generateApproaches, Approach } from "@/lib/api/idea-canvas";
 import { generateImage, downloadImage } from "@/lib/api/image";
 
 export default function IdeaCanvasPage() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+
+  // API Keys from shared store
+  const apiKeys = useApiKeys();
 
   const {
     state: canvasState,
@@ -28,10 +35,8 @@ export default function IdeaCanvasPage() {
     apiKey: canvasApiKey,
     imageApiKey: canvasImageApiKey,
     includeReportImage,
-    canGoBack,
     start: startCanvas,
     answer: submitCanvasAnswer,
-    goBack: goBackCanvas,
     reset: resetCanvas,
   } = useIdeaCanvas();
 
@@ -61,8 +66,25 @@ export default function IdeaCanvasPage() {
   // Approach generation state
   const [approaches, setApproaches] = useState<Approach[]>([]);
   const [isGeneratingApproaches, setIsGeneratingApproaches] = useState(false);
-  const [phase, setPhase] = useState<CanvasPhase>('understanding');
   const [refinementTarget, setRefinementTarget] = useState<RefinementTarget | null>(null);
+  const [workspaceTab, setWorkspaceTab] = useState("approaches");
+
+  const resetLocalState = useCallback(() => {
+    setReportData(null);
+    setReportError(null);
+    setIsGeneratingReport(false);
+    setMarkdownCopied(false);
+    setGeneratedImage(null);
+    setIsGeneratingImage(false);
+    setImageGenError(null);
+    setCanvasMindMap(null);
+    setCanvasMindMapError(null);
+    setIsGeneratingCanvasMindMap(false);
+    setApproaches([]);
+    setRefinementTarget(null);
+    setExitedToSummary(false);
+    setWorkspaceTab("approaches");
+  }, []);
 
   const handleExitToSummary = useCallback(() => {
     setExitedToSummary(true);
@@ -75,9 +97,10 @@ export default function IdeaCanvasPage() {
       imageApiKey: string | null,
       includeImage: boolean
     ) => {
+      resetLocalState();
       startCanvas(request, contentApiKey, imageApiKey, includeImage, user?.id);
     },
-    [startCanvas, user?.id]
+    [resetLocalState, startCanvas, user?.id]
   );
 
   const handleCanvasAnswer = useCallback(
@@ -118,7 +141,6 @@ export default function IdeaCanvasPage() {
         apiKey: canvasApiKey,
       });
       setApproaches(result.approaches);
-      setPhase('approaches');
     } catch (err) {
       console.error('Failed to generate approaches:', err);
     } finally {
@@ -128,12 +150,6 @@ export default function IdeaCanvasPage() {
 
   const handleElementClick = useCallback((target: RefinementTarget) => {
     setRefinementTarget(target);
-    setPhase('refining');
-  }, []);
-
-  const handleCancelRefinement = useCallback(() => {
-    setRefinementTarget(null);
-    setPhase('approaches');
   }, []);
 
   const generateImageFromReportContent = useCallback(
@@ -188,10 +204,6 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
   const handleGenerateReport = useCallback(async () => {
     if (!canvasSessionId || !canvasApiKey) {
       setReportError("No active canvas session");
-      return;
-    }
-    if (includeReportImage && !canvasImageApiKey) {
-      setReportError("Missing image API key for report image");
       return;
     }
 
@@ -318,19 +330,168 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
   }, [canvasState, approaches.length, isGeneratingApproaches, handleGenerateApproaches]);
 
   const isCanvasStarting = canvasState === "starting";
-  const isCanvasAnswering = canvasState === "answering";
 
   // Check if canvas is in workspace mode
   const isCanvasWorkspace =
     canvasState === "suggest_complete" || reportData || exitedToSummary;
 
-  // Form view - show when idle or starting
+  const answeredCount = questionHistory.length;
+  const activeQuestionNumber = currentQuestion ? answeredCount + 1 : answeredCount;
+  const estimatedTotalQuestions = Math.max(activeQuestionNumber + 2, 8);
+  const progressFraction = Math.min(activeQuestionNumber / estimatedTotalQuestions, 1);
+  const progressDasharray = `${Math.round(progressFraction * 283)} 283`;
+
+  const modalLayer = (
+    <>
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <ApiKeysModal
+        isOpen={showApiKeyModal}
+        onOpenChange={setShowApiKeyModal}
+        provider={apiKeys.provider}
+        contentModel={apiKeys.contentModel}
+        onProviderChange={apiKeys.setProvider}
+        onContentModelChange={apiKeys.setContentModel}
+        contentApiKey={apiKeys.contentApiKey}
+        onContentApiKeyChange={apiKeys.setContentApiKey}
+        enableImageGeneration={apiKeys.enableImageGeneration}
+        onEnableImageGenerationChange={apiKeys.setEnableImageGeneration}
+        allowImageGenerationToggle={true}
+        requireImageKey={false}
+        imageModel={apiKeys.imageModel}
+        onImageModelChange={apiKeys.setImageModel}
+        imageApiKey={apiKeys.imageApiKey}
+        onImageApiKeyChange={apiKeys.setImageApiKey}
+        canClose={true}
+      />
+    </>
+  );
+
+  const renderMarkdownAsHtml = useCallback((md: string): string => {
+    const escapeHtml = (value: string) =>
+      value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const isTableSeparator = (line: string) =>
+      /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(line);
+    const parseRow = (line: string) => {
+      let trimmed = line.trim();
+      if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+      if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+      return trimmed.split("|").map((cell) => cell.trim());
+    };
+
+    const tableBlocks: string[] = [];
+    const lines = md.split("\n");
+    const outputLines: string[] = [];
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const nextLine = lines[i + 1];
+      if (line && nextLine && line.includes("|") && isTableSeparator(nextLine)) {
+        const headerCells = parseRow(line);
+        const alignHints = parseRow(nextLine);
+        const aligns = headerCells.map((_, idx) => {
+          const hint = (alignHints[idx] || "").trim();
+          if (hint.startsWith(":") && hint.endsWith(":")) return "center";
+          if (hint.endsWith(":")) return "right";
+          return "left";
+        });
+        const bodyRows: string[][] = [];
+        i += 2;
+        while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {
+          bodyRows.push(parseRow(lines[i]));
+          i += 1;
+        }
+
+        const headerHtml = headerCells
+          .map((cell, idx) => {
+            const align = aligns[idx] || "left";
+            return `<th class="border border-border bg-muted/40 px-2 py-1 text-left align-top" style="text-align:${align}">${escapeHtml(cell)}</th>`;
+          })
+          .join("");
+        const bodyHtml = bodyRows
+          .map((row) => {
+            const cells = headerCells.map((_, idx) => {
+              const align = aligns[idx] || "left";
+              const cell = row[idx] || "";
+              return `<td class="border border-border px-2 py-1 align-top" style="text-align:${align}">${escapeHtml(cell)}</td>`;
+            });
+            return `<tr>${cells.join("")}</tr>`;
+          })
+          .join("");
+        const tableHtml = `<div class="overflow-x-auto my-4"><table class="w-full border-collapse text-sm"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+        const token = `__TABLE_BLOCK_${tableBlocks.length}__`;
+        tableBlocks.push(tableHtml);
+        outputLines.push(token);
+        continue;
+      }
+      outputLines.push(line);
+      i += 1;
+    }
+
+    let html = escapeHtml(outputLines.join("\n"))
+      .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-5 mb-2">$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-6 mb-3">$1</h1>')
+      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-muted/60 p-3 rounded-lg overflow-x-auto my-3 text-sm"><code>$2</code></pre>')
+      .replace(/`([^`]+)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm">$1</code>')
+      .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
+      .replace(/^• (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
+      .replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal">$1</li>')
+      .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-amber-300/60 pl-4 italic text-muted-foreground my-2">$1</blockquote>')
+      .replace(/^---$/gm, '<hr class="my-4 border-border"/>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-amber-700 underline underline-offset-2" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\n\n/g, '</p><p class="my-2">')
+      .replace(/\n/g, "<br/>");
+
+    html = html.replace(/__TABLE_BLOCK_(\d+)__/g, (_match, idx) => {
+      const table = tableBlocks[Number(idx)];
+      return table || "";
+    });
+    html = html.replace(/<p class="my-2">\s*(<div class="overflow-x-auto[\s\S]*?<\/div>)\s*<\/p>/g, "$1");
+
+    return `<div class="max-w-none text-sm leading-6"><p class="my-2">${html}</p></div>`;
+  }, []);
+
+  const reportMarkdownHtml = useMemo(() => {
+    if (!reportData?.markdown_content) return "";
+    return renderMarkdownAsHtml(reportData.markdown_content);
+  }, [reportData, renderMarkdownAsHtml]);
+
+  const orderedApproaches = useMemo(() => {
+    if (!approaches.length) return [];
+    const indexMap = new Map<string, number>();
+    approaches.forEach((approach, index) => {
+      indexMap.set(approach.id, index);
+    });
+
+    const rankApproach = (name: string) => {
+      const lower = name.toLowerCase();
+      if (/(simple|minimal|mvp|basic|starter)/.test(lower)) return 0;
+      if (/(standard|balanced|pragmatic|core|typical)/.test(lower)) return 1;
+      if (/(scale|scalable|enterprise|advanced|robust)/.test(lower)) return 2;
+      if (/(modern|innovative|frontier|ai-native|reactive|cutting)/.test(lower)) return 3;
+      return 1;
+    };
+
+    return [...approaches].sort((a, b) => {
+      const rankDiff = rankApproach(a.name) - rankApproach(b.name);
+      if (rankDiff !== 0) return rankDiff;
+      return (indexMap.get(a.id) || 0) - (indexMap.get(b.id) || 0);
+    });
+  }, [approaches]);
+
+  // ============================================================================
+  // VIEW 1: Initial Form View
+  // ============================================================================
   if (canvasState === "idle" || canvasState === "starting") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <div className="min-h-screen bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-amber-950/20">
+        {modalLayer}
 
-        <header className="border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-40">
+        <header className="border-b border-amber-200/50 dark:border-amber-900/30 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
           <div className="container mx-auto px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <a href="/generate" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
@@ -339,44 +500,62 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
                 </svg>
                 Back to Studio
               </a>
-              <div className="h-6 w-px bg-border" />
-              <span className="font-bold text-lg">Idea Canvas</span>
+              <div className="h-6 w-px bg-amber-200 dark:bg-amber-800" />
+              <span className="font-bold text-lg bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                Idea Canvas
+              </span>
             </div>
-            {!authLoading && !isAuthenticated && (
-              <Button size="sm" onClick={() => setShowAuthModal(true)}>
-                Sign In
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowApiKeyModal(true)}>
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                API Keys
               </Button>
-            )}
+              {!authLoading && !isAuthenticated && (
+                <Button size="sm" variant="outline" onClick={() => setShowAuthModal(true)}>
+                  Sign In
+                </Button>
+              )}
+            </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-sm font-medium bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 mb-4">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        <main className="container mx-auto px-4 py-12">
+          <div className="max-w-xl mx-auto">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/25 mb-6">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
                 </svg>
-                Guided Exploration
               </div>
-              <h1 className="text-3xl font-bold mb-2">Idea Canvas</h1>
-              <p className="text-muted-foreground">
-                Explore your idea through guided Q&A and get implementation specs
+              <h1 className="text-3xl font-bold mb-3">Explore Your Idea</h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Guided Q&A to deeply understand your idea, then get implementation approaches and specs.
               </p>
             </div>
 
-            <IdeaCanvasForm onSubmit={handleCanvasSubmit} isStarting={isCanvasStarting} />
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-amber-500/5 border border-amber-100 dark:border-amber-900/30 p-8">
+              <IdeaCanvasForm
+                onSubmit={handleCanvasSubmit}
+                isStarting={isCanvasStarting}
+                onConfigureKeys={() => setShowApiKeyModal(true)}
+              />
+            </div>
           </div>
         </main>
       </div>
     );
   }
 
-  // Error view
+  // ============================================================================
+  // VIEW 2: Error View
+  // ============================================================================
   if (canvasState === "error") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
-        <header className="border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-40">
+      <div className="min-h-screen bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-amber-950/20">
+        {modalLayer}
+        <header className="border-b border-amber-200/50 dark:border-amber-900/30 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
           <div className="container mx-auto px-4 h-14 flex items-center">
             <a href="/generate" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,15 +566,23 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-12">
           <div className="max-w-md mx-auto">
-            <div className="flex flex-col items-center justify-center min-h-[400px] p-8 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
-              <svg className="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <h3 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Something went wrong</h3>
-              <p className="text-sm text-red-600 dark:text-red-300 text-center mb-4">{canvasError}</p>
-              <Button variant="outline" onClick={resetCanvas}>
+            <div className="flex flex-col items-center justify-center p-10 rounded-3xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+              <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-900/50 flex items-center justify-center mb-6">
+                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-red-800 dark:text-red-200 mb-2">Something went wrong</h3>
+              <p className="text-sm text-red-600 dark:text-red-300 text-center mb-6">{canvasError}</p>
+              <Button
+                onClick={() => {
+                  resetLocalState();
+                  resetCanvas();
+                }}
+                className="bg-red-600 hover:bg-red-700"
+              >
                 Try Again
               </Button>
             </div>
@@ -405,386 +592,474 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
     );
   }
 
-  // Canvas workspace view (suggest_complete or has report)
+  // ============================================================================
+  // VIEW 3: Workspace View (After Q&A Complete)
+  // ============================================================================
   if (isCanvasWorkspace) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
-        <header className="border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-40">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        {modalLayer}
+        <header className="border-b bg-white dark:bg-slate-900 sticky top-0 z-40">
           <div className="container mx-auto px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <a href="/generate" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                Back to Studio
+                Back
               </a>
               <div className="h-6 w-px bg-border" />
-              <span className="font-bold">Idea Canvas</span>
+              <span className="font-semibold text-amber-600 dark:text-amber-400">Idea Canvas</span>
+              <span className="text-sm text-muted-foreground truncate max-w-[300px]">
+                {canvas?.idea}
+              </span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                resetCanvas();
-                setReportData(null);
-                setExitedToSummary(false);
-                setCanvasMindMap(null);
-                setCanvasMindMapError(null);
-                setApproaches([]);
-                setPhase('understanding');
-                setRefinementTarget(null);
-              }}
-            >
-              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              New Canvas
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowApiKeyModal(true)}>
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                API Keys
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  resetLocalState();
+                  resetCanvas();
+                }}
+              >
+                New Canvas
+              </Button>
+            </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-4">
-          <div className="h-[calc(100vh-7rem)] flex gap-4">
-            {/* Left Panel: Approaches, Mind Map & Decision Tree */}
-            <div className="w-1/2 flex flex-col rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
-              <Tabs defaultValue="approaches" className="flex flex-col h-full">
-                <div className="px-5 py-3 border-b border-border/60 bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-900/50 dark:to-slate-800/30 flex items-center justify-between">
-                  <TabsList className="bg-white/50 dark:bg-slate-800/50">
-                    <TabsTrigger value="approaches" className="text-xs gap-1.5">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <main className="container mx-auto px-4 py-6">
+          <div className="rounded-2xl border bg-white dark:bg-slate-900 h-[calc(100vh-8rem)] flex flex-col overflow-hidden">
+            <Tabs value={workspaceTab} onValueChange={setWorkspaceTab} className="flex flex-col h-full">
+              <div className="px-5 py-4 border-b bg-gradient-to-r from-amber-50 via-white to-emerald-50/80 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 space-y-3">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      Approaches
-                      {isGeneratingApproaches && (
-                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      )}
-                    </TabsTrigger>
-                    <TabsTrigger value="mindmap" className="text-xs gap-1.5">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
-                      Mind Map
-                      {isGeneratingCanvasMindMap && (
-                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      )}
-                    </TabsTrigger>
-                    <TabsTrigger value="tree" className="text-xs gap-1.5">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                      </svg>
-                      Decision Tree
-                    </TabsTrigger>
-                  </TabsList>
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-border/60 shadow-sm">
-                    <svg className="w-3.5 h-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-xs font-medium">{canvas?.question_count || 0} questions</span>
+                    </div>
+                    <div>
+                      <h2 className="font-semibold">Idea Workspace</h2>
+                      <p className="text-xs text-muted-foreground">Move from approaches to spec pack to presentation assets</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="px-2.5 py-1 rounded-full border bg-white/80 dark:bg-slate-900">
+                      {questionHistory.length} answers
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full border bg-white/80 dark:bg-slate-900">
+                      {orderedApproaches.length || approaches.length} approaches
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-full border ${
+                      reportData ? "bg-emerald-600 text-white border-emerald-600" : "bg-white/80 dark:bg-slate-900"
+                    }`}>
+                      Report {reportData ? "ready" : "pending"}
+                    </span>
                   </div>
                 </div>
+                <TabsList className="w-full grid grid-cols-4 h-11 bg-muted/40 border">
+                  <TabsTrigger value="approaches" className="font-medium">Approaches</TabsTrigger>
+                  <TabsTrigger value="report" className="font-medium">Report Pack</TabsTrigger>
+                  <TabsTrigger value="visual" className="font-medium">Visual Summary</TabsTrigger>
+                  <TabsTrigger value="mindmap" className="font-medium">Mind Map</TabsTrigger>
+                </TabsList>
+              </div>
 
-                {/* Approaches Tab */}
-                <TabsContent value="approaches" className="flex-1 min-h-0 m-0 flex flex-col">
-                  {isGeneratingApproaches ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8">
-                      <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-                      <p className="text-sm text-muted-foreground">Generating implementation approaches...</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">This may take a moment</p>
+              <TabsContent value="approaches" className="flex-1 min-h-0 m-0">
+                <div className="h-full flex flex-col">
+                  <div className="px-6 py-4 border-b bg-amber-50/60 dark:bg-amber-950/20 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4 text-amber-600 dark:text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Basic to advanced implementation paths</p>
+                        <p className="text-xs text-muted-foreground">Use the subtabs to compare architectures and tasks tier by tier.</p>
+                      </div>
                     </div>
-                  ) : approaches.length > 0 ? (
-                    <div className="flex-1 min-h-0 flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateApproaches}
+                        disabled={isGeneratingApproaches}
+                      >
+                        {isGeneratingApproaches ? "Regenerating..." : "Regenerate"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    {isGeneratingApproaches ? (
+                      <div className="flex flex-col items-center justify-center h-full p-8">
+                        <div className="w-12 h-12 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
+                        <p className="text-sm text-muted-foreground">Generating approaches...</p>
+                      </div>
+                    ) : orderedApproaches.length > 0 ? (
                       <ApproachTabs
-                        approaches={approaches}
+                        approaches={orderedApproaches}
                         onElementClick={handleElementClick}
                         refinementTarget={refinementTarget || undefined}
                         isLoading={false}
                       />
-                      <div className="px-4 py-3 border-t border-border/60 bg-muted/30 flex justify-end shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleGenerateApproaches}
-                          disabled={isGeneratingApproaches}
-                        >
-                          {isGeneratingApproaches ? 'Regenerating...' : 'Regenerate Approaches'}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                      <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                        <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-medium text-muted-foreground mb-2">Implementation Approaches</h3>
-                      <p className="text-sm text-muted-foreground/70 max-w-xs mb-4">
-                        Generate 4 different implementation approaches with diagrams and task breakdowns
-                      </p>
-                      <Button onClick={handleGenerateApproaches} disabled={isGeneratingApproaches}>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        Generate Approaches
-                      </Button>
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Mind Map Tab */}
-                <TabsContent value="mindmap" className="flex-1 min-h-0 m-0">
-                  {isGeneratingCanvasMindMap ? (
-                    <div className="flex flex-col items-center justify-center h-full p-8">
-                      <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-                      <p className="text-sm text-muted-foreground">Generating mind map from your exploration...</p>
-                    </div>
-                  ) : canvasMindMapError ? (
-                    <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                      <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <p className="text-sm text-red-600 dark:text-red-400 mb-3">{canvasMindMapError}</p>
-                      <Button variant="outline" size="sm" onClick={handleGenerateCanvasMindMap}>
-                        Try Again
-                      </Button>
-                    </div>
-                  ) : canvasMindMap ? (
-                    <MindMapViewer
-                      tree={{
-                        title: canvasMindMap.title,
-                        summary: canvasMindMap.summary,
-                        source_count: canvasMindMap.source_count,
-                        mode: canvasMindMap.mode,
-                        nodes: canvasMindMap.nodes as import("@/lib/types/mindmap").MindMapNode,
-                      }}
-                      onReset={() => setCanvasMindMap(null)}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full p-8">
-                      <Button onClick={handleGenerateCanvasMindMap}>Generate Mind Map</Button>
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Decision Tree Tab */}
-                <TabsContent value="tree" className="flex-1 min-h-0 m-0">
-                  <IdeaCanvas
-                    canvas={canvas}
-                    currentQuestion={null}
-                    progressMessage={null}
-                    isAnswering={false}
-                    onAnswer={() => {}}
-                    onReset={resetCanvas}
-                    isSuggestComplete={true}
-                    hideQuestionCard={true}
-                  />
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            {/* Right Panel: Report */}
-            <div className="w-1/2 flex flex-col rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
-              <div className="px-5 py-4 border-b border-border/60 bg-gradient-to-r from-emerald-50 to-teal-50/50 dark:from-emerald-950/30 dark:to-teal-950/20 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-sm">{reportData ? "Report Ready" : "Exploration Complete"}</h4>
-                    <p className="text-xs text-muted-foreground">{canvasProgressMessage || "Generate your implementation spec"}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  <div className="p-5 flex-1 flex flex-col min-h-0 space-y-5">
-                    {reportError && (
-                      <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400 flex items-center gap-2 shrink-0">
-                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {reportError}
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full p-8">
+                        <Button onClick={handleGenerateApproaches}>Generate Approaches</Button>
                       </div>
                     )}
+                  </div>
+                </div>
+              </TabsContent>
 
-                    {!reportData ? (
-                      <div className="space-y-3">
+              <TabsContent value="report" className="flex-1 min-h-0 m-0">
+                <div className="h-full overflow-auto p-6 space-y-5 bg-slate-50/60 dark:bg-slate-950/40">
+                  {reportError && (
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400">
+                      {reportError}
+                    </div>
+                  )}
+
+                  {!reportData ? (
+                    <div className="max-w-2xl">
+                      <div className="rounded-2xl border bg-white dark:bg-slate-900 p-6 space-y-4 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                            <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">Generate your implementation report pack</h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Create a polished spec document (PDF + Markdown) that is ready to share with teammates.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className="px-2.5 py-1 rounded-full border bg-muted/30">Executive summary</span>
+                          <span className="px-2.5 py-1 rounded-full border bg-muted/30">Architecture guidance</span>
+                          <span className="px-2.5 py-1 rounded-full border bg-muted/30">Task breakdown</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <Button
+                            onClick={handleGenerateReport}
+                            disabled={isGeneratingReport}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            {isGeneratingReport ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                Generating report...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Generate Report Pack
+                              </>
+                            )}
+                          </Button>
+                          <Button onClick={() => handleCanvasAnswer("continue")} variant="outline">
+                            Continue Exploring
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/80 dark:bg-emerald-950/30 p-5 space-y-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300 font-medium mb-1">
+                              Implementation Plan
+                            </p>
+                            <h3 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+                              {reportData.title}
+                            </h3>
+                            <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80 mt-1">
+                              Generated from {questionHistory.length} exploration answers
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleGenerateReport}
+                              disabled={isGeneratingReport}
+                              className="bg-white/80"
+                            >
+                              {isGeneratingReport ? "Refreshing..." : "Regenerate"}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleOpenPdfPreview} disabled={!reportData.pdf_base64}>
+                              Open PDF
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className={`px-2.5 py-1 rounded-full border ${reportData.pdf_base64 ? "bg-white dark:bg-slate-900" : "opacity-70"}`}>
+                            PDF {reportData.pdf_base64 ? "ready" : "pending"}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-full border bg-white dark:bg-slate-900">
+                            Markdown ready
+                          </span>
+                          <span className={`px-2.5 py-1 rounded-full border ${includeReportImage ? "bg-white dark:bg-slate-900" : "opacity-70"}`}>
+                            Visual {includeReportImage ? "enabled" : "off"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                        <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden">
+                          <div className="px-5 py-4 border-b bg-muted/20 dark:bg-slate-800/60 flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium">Markdown Preview</p>
+                              <p className="text-xs text-muted-foreground">Rendered view of your report</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button onClick={handleCopyMarkdown} variant="ghost" size="sm" className="border">
+                                {markdownCopied ? "Copied!" : "Copy Markdown"}
+                              </Button>
+                              <Button onClick={handleDownloadMarkdown} variant="outline" size="sm">
+                                Markdown
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="max-h-[520px] overflow-auto px-5 py-4">
+                            {reportMarkdownHtml ? (
+                              <div dangerouslySetInnerHTML={{ __html: reportMarkdownHtml }} />
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Markdown preview is unavailable.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="rounded-2xl border bg-white dark:bg-slate-900 p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium">Export Pack</p>
+                                <p className="text-xs text-muted-foreground">Download or open the full report</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button onClick={handleDownloadPdf} disabled={!reportData.pdf_base64} size="sm">
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download PDF
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={handleOpenPdfPreview} disabled={!reportData.pdf_base64}>
+                                Open PDF
+                              </Button>
+                              <Button onClick={handleDownloadMarkdown} variant="outline" size="sm">
+                                Markdown
+                              </Button>
+                              <Button onClick={handleCopyMarkdown} variant="ghost" size="sm" className="border">
+                                {markdownCopied ? "Copied!" : "Copy"}
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl border bg-white dark:bg-slate-900 p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium">What this pack includes</p>
+                                <p className="text-xs text-muted-foreground">Use this as a slide-ready outline</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="rounded-lg border p-3 bg-muted/20">
+                                Executive summary
+                              </div>
+                              <div className="rounded-lg border p-3 bg-muted/20">
+                                Architecture guidance
+                              </div>
+                              <div className="rounded-lg border p-3 bg-muted/20">
+                                Implementation roadmap
+                              </div>
+                              <div className="rounded-lg border p-3 bg-muted/20">
+                                Risks and tradeoffs
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="visual" className="flex-1 min-h-0 m-0">
+                <div className="h-full overflow-auto p-6 bg-slate-50/60 dark:bg-slate-950/40">
+                  {!reportData ? (
+                    <div className="max-w-2xl">
+                      <div className="rounded-2xl border bg-white dark:bg-slate-900 p-6 space-y-4">
+                        <h3 className="font-semibold">Visual summary needs the report pack first</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Generate the report pack to create an infographic-style summary that looks great in slides.
+                        </p>
                         <Button
                           onClick={handleGenerateReport}
                           disabled={isGeneratingReport}
-                          className="w-full h-12 text-base shadow-sm hover:shadow-md transition-all"
-                          size="lg"
+                          className="bg-emerald-600 hover:bg-emerald-700"
                         >
-                          {isGeneratingReport ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                              Generating Report Pack...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              Generate Report Pack
-                            </>
-                          )}
-                        </Button>
-                        <Button onClick={() => handleCanvasAnswer("continue")} variant="outline" className="w-full h-10">
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                          </svg>
-                          Continue Exploring
+                          {isGeneratingReport ? "Generating..." : "Generate Report Pack"}
                         </Button>
                       </div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-3 gap-2 shrink-0">
-                          <Button onClick={handleDownloadPdf} disabled={!reportData?.pdf_base64} className="h-10 text-sm">
-                            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                            PDF
-                          </Button>
-                          <Button onClick={handleDownloadMarkdown} variant="outline" className="h-10 text-sm">
-                            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            Markdown
+                    </div>
+                  ) : includeReportImage ? (
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <h3 className="font-semibold">Slide-ready visual summary</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Use this as a hero visual in presentations or project briefs.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateImageFromReportContent(reportData.title, reportData.markdown_content)}
+                            disabled={isGeneratingImage}
+                          >
+                            {isGeneratingImage ? "Generating..." : "Regenerate"}
                           </Button>
                           <Button
+                            size="sm"
+                            disabled={!generatedImage}
                             onClick={() => {
                               if (generatedImage) {
                                 downloadImage(
                                   generatedImage.data,
-                                  `${reportData?.title.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "infographic"}`,
+                                  `${reportData.title.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "infographic"}`,
                                   generatedImage.format as "png" | "svg"
                                 );
                               }
                             }}
-                            disabled={!includeReportImage || !generatedImage || isGeneratingImage}
-                            variant="outline"
-                            className="h-10 text-sm"
                           >
-                            {isGeneratingImage ? (
-                              <>
-                                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin mr-1.5" />
-                                Image...
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                Image
-                              </>
-                            )}
+                            Download
                           </Button>
                         </div>
+                      </div>
 
-                        {imageGenError && <p className="text-xs text-red-600 shrink-0">{imageGenError}</p>}
-
-                        <Tabs defaultValue="image" className="flex-1 flex flex-col min-h-0">
-                          <TabsList className="w-full grid grid-cols-3 h-9 shrink-0">
-                            <TabsTrigger value="image" className="text-xs">Image</TabsTrigger>
-                            <TabsTrigger value="pdf" className="text-xs">PDF</TabsTrigger>
-                            <TabsTrigger value="markdown" className="text-xs">Markdown</TabsTrigger>
-                          </TabsList>
-
-                          <TabsContent value="image" className="mt-3 rounded-lg border border-border/60 overflow-auto bg-white dark:bg-slate-900">
-                            {isGeneratingImage ? (
-                              <div className="flex items-center justify-center flex-1 min-h-[200px] text-muted-foreground">
-                                <div className="flex flex-col items-center gap-3">
-                                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                  <span className="text-sm">Generating visual summary...</span>
-                                </div>
-                              </div>
-                            ) : generatedImage ? (
-                              <img
-                                src={`data:image/${generatedImage.format};base64,${generatedImage.data}`}
-                                alt="Generated infographic"
-                                className="w-full h-auto"
-                              />
-                            ) : imageGenError ? (
-                              <div className="flex items-center justify-center flex-1 min-h-[200px] text-red-600 text-sm">
-                                {imageGenError}
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-center flex-1 min-h-[200px] text-muted-foreground text-sm">
-                                {includeReportImage ? "Image generation pending..." : "Image disabled for this report."}
-                              </div>
-                            )}
-                          </TabsContent>
-
-                          <TabsContent value="pdf" className="mt-3 rounded-lg border border-border/60 overflow-hidden">
-                            <div className="flex items-center justify-end px-3 py-2 border-b border-border/60 bg-muted/30 shrink-0">
-                              <Button size="sm" variant="ghost" onClick={handleOpenPdfPreview} disabled={!reportData.pdf_base64} className="h-7 text-xs">
-                                <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                Open in New Tab
-                              </Button>
+                      <div className="rounded-2xl border bg-white dark:bg-slate-900 p-4">
+                        <div className="rounded-xl border bg-muted/20 dark:bg-slate-800/60 min-h-[420px] flex items-center justify-center overflow-hidden">
+                          {isGeneratingImage ? (
+                            <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                              <div className="w-10 h-10 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                              <span>Designing your visual...</span>
                             </div>
-                            {reportData.pdf_base64 ? (
-                              <iframe
-                                src={`data:application/pdf;base64,${reportData.pdf_base64}#view=FitH&zoom=page-width`}
-                                className="w-full flex-1 min-h-0 border-0 bg-white"
-                                title="PDF Preview"
-                              />
-                            ) : (
-                              <div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">
-                                PDF generation in progress...
-                              </div>
-                            )}
-                          </TabsContent>
+                          ) : generatedImage ? (
+                            <Image
+                              src={`data:image/${generatedImage.format};base64,${generatedImage.data}`}
+                              alt="Report visual summary"
+                              width={1200}
+                              height={720}
+                              unoptimized
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="text-sm text-muted-foreground text-center px-8">
+                              Generate the visual summary to produce a presentation-friendly infographic.
+                            </div>
+                          )}
+                        </div>
+                        {imageGenError && (
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-3">{imageGenError}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="max-w-2xl">
+                      <div className="rounded-2xl border border-dashed bg-white dark:bg-slate-900 p-6 space-y-2">
+                        <h3 className="font-semibold">Visual summaries are disabled</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Turn on image generation in the API key settings to enable slide-ready visuals.
+                        </p>
+                        <Button variant="outline" onClick={() => setShowApiKeyModal(true)}>
+                          Open API Key Settings
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
-                          <TabsContent value="markdown" className="mt-3 rounded-lg border border-border/60 overflow-hidden">
-                            <div className="flex items-center justify-between px-3 py-2 border-b border-border/60 bg-muted/30 shrink-0">
-                              <span className="text-xs text-muted-foreground font-medium">Markdown Source</span>
-                              <Button size="sm" variant="ghost" onClick={handleCopyMarkdown} disabled={!reportData.markdown_content} className="h-7 text-xs">
-                                {markdownCopied ? (
-                                  <>
-                                    <svg className="w-3.5 h-3.5 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                    Copy
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                            <div className="p-3 flex-1 min-h-0 overflow-y-auto">
-                              <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground leading-relaxed">
-                                {reportData.markdown_content}
-                              </pre>
-                            </div>
-                          </TabsContent>
-                        </Tabs>
-                      </>
+              <TabsContent value="mindmap" className="flex-1 min-h-0 m-0">
+                <div className="h-full flex flex-col">
+                  <div className="px-6 py-4 border-b flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between bg-muted/20 dark:bg-slate-800/40">
+                    <div>
+                      <p className="text-sm font-semibold">Idea mind map</p>
+                      <p className="text-xs text-muted-foreground">See the exploration structure and key branches.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateCanvasMindMap}
+                        disabled={isGeneratingCanvasMindMap}
+                      >
+                        {isGeneratingCanvasMindMap ? "Generating..." : canvasMindMap ? "Regenerate" : "Generate"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    {isGeneratingCanvasMindMap ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : canvasMindMapError ? (
+                      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                        <p className="text-sm text-red-600 mb-3">{canvasMindMapError}</p>
+                        <Button variant="outline" size="sm" onClick={handleGenerateCanvasMindMap}>
+                          Retry
+                        </Button>
+                      </div>
+                    ) : canvasMindMap ? (
+                      <MindMapViewer
+                        tree={{
+                          title: canvasMindMap.title,
+                          summary: canvasMindMap.summary,
+                          source_count: canvasMindMap.source_count,
+                          mode: canvasMindMap.mode,
+                          nodes: canvasMindMap.nodes as import("@/lib/types/mindmap").MindMapNode,
+                        }}
+                        onReset={() => setCanvasMindMap(null)}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                        Click Generate to create mind map
+                      </div>
                     )}
                   </div>
-              </div>
-            </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </main>
       </div>
     );
   }
 
-  // Active questioning - Fullscreen mode with new layout
+  // ============================================================================
+  // VIEW 4: Q&A View (Active Questioning)
+  // ============================================================================
   return (
-    <div className="fixed inset-0 z-50 bg-background">
-      <div className="h-14 border-b flex items-center justify-between px-4">
-        <div className="flex items-center gap-3">
+    <div className="fixed inset-0 z-50 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-amber-950/10">
+      {modalLayer}
+      <div className="h-14 border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-6">
+        <div className="flex items-center gap-4">
           <button
             onClick={handleExitToSummary}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -792,92 +1067,110 @@ Style: Hand-drawn, sketch-like, warm colors, clean whiteboard aesthetic with ico
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            Finish & View Summary
+            Finish & Continue
           </button>
           <div className="h-6 w-px bg-border" />
-          <span className="text-sm font-medium">
-            {canvas?.idea.slice(0, 50)}
-            {(canvas?.idea.length || 0) > 50 ? "..." : ""}
+          <span className="font-medium text-amber-600 dark:text-amber-400">
+            {canvas?.idea.slice(0, 40)}{(canvas?.idea.length || 0) > 40 ? "..." : ""}
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-muted-foreground">
-            Questions: <span className="font-medium text-foreground">{canvas?.question_count || 0}</span>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setShowApiKeyModal(true)}>
+            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            API Keys
+          </Button>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/50">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              Question {Math.max(activeQuestionNumber, 1)} of ~{estimatedTotalQuestions}
+            </span>
           </div>
-          {(phase === 'approaches' || phase === 'refining') && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateApproaches}
-              disabled={isGeneratingApproaches}
-            >
-              {isGeneratingApproaches ? 'Regenerating...' : 'Regenerate Approaches'}
-            </Button>
-          )}
         </div>
       </div>
 
       <div className="h-[calc(100vh-3.5rem)] flex">
-        {/* Left Panel - Questions or Summary */}
-        <div className="w-[420px] border-r bg-muted/30 flex flex-col">
-          {phase === 'approaches' || phase === 'refining' ? (
-            <IdeaSummary
-              idea={canvas?.idea || ''}
-              questionHistory={questionHistory}
-            />
-          ) : (
-            <>
-              {questionHistory.length > 0 && (
-                <div className="px-6 pt-4 pb-2 border-b flex items-center justify-end">
-                  <span className="text-xs text-muted-foreground">
-                    Q{questionHistory.length + 1} of ~{Math.max(questionHistory.length + 3, 8)}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex-1 overflow-y-auto p-6">
-                {currentQuestion ? (
-                  <QuestionCard
-                    question={currentQuestion}
-                    onAnswer={handleCanvasAnswer}
-                    onSkip={currentQuestion.allow_skip ? () => handleCanvasAnswer("Skipped") : undefined}
-                    isAnswering={isCanvasAnswering}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground">{canvasProgressMessage || "Loading next question..."}</p>
-                    </div>
-                  </div>
-                )}
+        {/* Left Panel - Questions */}
+        <div className="w-[480px] border-r bg-white dark:bg-slate-900 flex flex-col">
+          <div className="flex-1 overflow-y-auto p-8">
+            {currentQuestion ? (
+              <QuestionCard
+                question={currentQuestion}
+                onAnswer={handleCanvasAnswer}
+                onSkip={currentQuestion.allow_skip ? () => handleCanvasAnswer("Skipped") : undefined}
+                isAnswering={canvasState === "answering"}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full">
+                <div className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-sm text-muted-foreground">{canvasProgressMessage || "Loading..."}</p>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Right Panel - Empty during Q&A, Approaches after */}
-        <div className="flex-1 bg-card">
-          {phase === 'approaches' || phase === 'refining' ? (
-            <ApproachTabs
-              approaches={approaches}
-              onElementClick={handleElementClick}
-              refinementTarget={refinementTarget || undefined}
-              isLoading={isGeneratingApproaches}
-            />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-6">
-                <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        {/* Right Panel - Progress Visualization */}
+        <div className="flex-1 flex flex-col items-center justify-center p-12 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-slate-900 dark:to-amber-950/20">
+          <div className="max-w-md text-center">
+            {/* Visual Progress Indicator */}
+            <div className="relative mb-8">
+              <div className="w-32 h-32 mx-auto relative">
+                {/* Outer ring */}
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="45"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    className="text-amber-100 dark:text-amber-900/30"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="45"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    className="text-amber-500"
+                    strokeDasharray={progressDasharray}
+                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                  />
                 </svg>
+                {/* Center content */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-amber-600 dark:text-amber-400">{Math.max(activeQuestionNumber, 1)}</span>
+                  <span className="text-xs text-muted-foreground">of ~{estimatedTotalQuestions}</span>
+                </div>
               </div>
-              <h3 className="text-xl font-medium text-muted-foreground mb-2">Implementation Approaches</h3>
-              <p className="text-sm text-muted-foreground/70 max-w-sm">
-                Answer the questions to explore your idea. Once complete, you will see 4 different implementation approaches with diagrams and task breakdowns.
-              </p>
             </div>
-          )}
+
+            <h2 className="text-xl font-semibold mb-2">Understanding Your Idea</h2>
+            <p className="text-muted-foreground text-sm mb-6">
+              Answer the questions to help us understand your idea better.
+              Once we have enough context, we will generate implementation approaches.
+            </p>
+
+            {/* Question History Preview */}
+            {questionHistory.length > 0 && (
+              <div className="mt-8 p-4 rounded-xl bg-white dark:bg-slate-800 border border-amber-200/50 dark:border-amber-800/30 text-left">
+                <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Recent Answers</h4>
+                <div className="space-y-2">
+                  {questionHistory.slice(-3).map((item, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-foreground truncate">{Array.isArray(item.answer) ? item.answer.join(', ') : item.answer}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
