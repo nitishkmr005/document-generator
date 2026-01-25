@@ -14,8 +14,12 @@ from ..schemas.idea_canvas import (
     CanvasProgressEvent,
     CanvasQuestionEvent,
     CanvasReadyEvent,
+    GenerateApproachesRequest,
+    GenerateApproachesResponse,
     GenerateReportRequest,
     GenerateReportResponse,
+    RefineApproachRequest,
+    RefineApproachResponse,
     StartCanvasRequest,
 )
 from ..services.idea_canvas import get_idea_canvas_service
@@ -288,3 +292,105 @@ async def generate_canvas_mindmap(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post(
+    "/canvas/approaches",
+    summary="Generate implementation approaches",
+    description=(
+        "Generate 4 different implementation approaches based on the Q&A session. "
+        "Each approach includes a mermaid diagram and task table."
+    ),
+    response_model=GenerateApproachesResponse,
+)
+async def generate_approaches(
+    request: GenerateApproachesRequest,
+    api_keys: APIKeys = Depends(extract_api_keys),
+):
+    """Generate 4 implementation approaches from a canvas session.
+
+    Args:
+        request: Request with session_id
+        api_keys: API keys from headers
+
+    Returns:
+        4 approaches with mermaid diagrams and tasks
+    """
+    logger.info(f"=== Generating Approaches: session={request.session_id} ===")
+
+    service = get_idea_canvas_service()
+
+    session = service.get_session(request.session_id)
+    if not session:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=404, detail=f"Session not found: {request.session_id}"
+        )
+
+    api_key = get_api_key_for_provider(session.provider, api_keys)
+
+    try:
+        result = service.generate_approaches(request.session_id, api_key)
+        return GenerateApproachesResponse(approaches=result["approaches"])
+    except Exception as e:
+        logger.error(f"Failed to generate approaches: {e}")
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/canvas/refine",
+    summary="Refine a specific approach",
+    description=(
+        "Refine a specific approach based on user feedback about a diagram element or task."
+    ),
+    response_model=RefineApproachResponse,
+)
+async def refine_approach(
+    request: RefineApproachRequest,
+    api_keys: APIKeys = Depends(extract_api_keys),
+):
+    """Refine a specific approach based on user feedback.
+
+    Args:
+        request: Refinement request with element details
+        api_keys: API keys from headers
+
+    Returns:
+        Updated approach
+    """
+    logger.info(
+        f"=== Refining Approach: session={request.session_id}, "
+        f"approach={request.approach_index}, element={request.element_id} ==="
+    )
+
+    service = get_idea_canvas_service()
+
+    session = service.get_session(request.session_id)
+    if not session:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=404, detail=f"Session not found: {request.session_id}"
+        )
+
+    api_key = get_api_key_for_provider(session.provider, api_keys)
+
+    try:
+        result = service.refine_approach(
+            session_id=request.session_id,
+            api_key=api_key,
+            approach_index=request.approach_index,
+            element_id=request.element_id,
+            element_type=request.element_type,
+            refinement_answer=request.refinement_answer,
+            current_approach=request.current_approach.model_dump(by_alias=True),
+        )
+        return RefineApproachResponse(approach=result)
+    except Exception as e:
+        logger.error(f"Failed to refine approach: {e}")
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=500, detail=str(e))
