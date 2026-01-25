@@ -47,6 +47,7 @@ export function ApproachPanel({
         <div className="h-[calc(100%-2.5rem)]">
           <MermaidDiagram
             code={approach.mermaidCode}
+            title={approach.name}
             onElementClick={handleDiagramClick}
             highlightedElement={
               isHighlightedApproach && refinementTarget?.elementType === "diagram"
