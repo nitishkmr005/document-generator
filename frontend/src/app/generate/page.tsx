@@ -20,6 +20,8 @@ import type { StudioOutputType } from "@/components/studio";
 import type { CombinedOutputType } from "@/components/studio/OutputTypeSelector";
 import { MindMapProgress } from "@/components/mindmap";
 import { generateImage } from "@/lib/api/image";
+import { generateDocument } from "@/lib/api/generate";
+import { isCompleteEvent, isCacheHitEvent } from "@/lib/types/responses";
 import { StyleCategory } from "@/data/imageStyles";
 import {
   Provider,
@@ -27,6 +29,8 @@ import {
   ImageStyle,
   SourceItem,
   OutputFormat,
+  DEFAULT_PREFERENCES,
+  DEFAULT_CACHE_OPTIONS,
 } from "@/lib/types/requests";
 import { MindMapMode } from "@/lib/types/mindmap";
 import type { OutputFormat as ImageOutputFormat } from "@/lib/types/image";
@@ -138,6 +142,12 @@ export default function GeneratePage() {
     generate,
     reset: resetGeneration,
   } = useGeneration();
+
+  // Secondary generation state (for combined output types)
+  const [secondaryPdfBase64, setSecondaryPdfBase64] = useState<string | null>(null);
+  const [secondaryMarkdownContent, setSecondaryMarkdownContent] = useState<string | null>(null);
+  const [secondaryDownloadUrl, setSecondaryDownloadUrl] = useState<string | null>(null);
+  const [isSecondaryGenerating, setIsSecondaryGenerating] = useState(false);
 
   const {
     state: mindMapState,
@@ -332,6 +342,12 @@ export default function GeneratePage() {
     const sources = buildSources();
 
     if (isContentType) {
+      // Clear secondary generation state
+      setSecondaryPdfBase64(null);
+      setSecondaryMarkdownContent(null);
+      setSecondaryDownloadUrl(null);
+
+      // Primary generation
       generate(
         {
           output_format: getApiOutputFormat(outputType),
@@ -353,6 +369,65 @@ export default function GeneratePage() {
         enableImageGeneration ? effectiveImageKey : undefined,
         user?.id
       );
+
+      // Secondary generation for combined types
+      if (combinedOutputType) {
+        setIsSecondaryGenerating(true);
+
+        // Determine secondary format
+        let secondaryFormat: OutputFormat;
+        if (combinedOutputType === "article") {
+          // Article: Primary is PDF, secondary is Markdown
+          secondaryFormat = "markdown";
+        } else {
+          // Presentation: Primary is PPTX, secondary is PDF from PPTX
+          secondaryFormat = "pdf_from_pptx";
+        }
+
+        // Build request for secondary generation
+        const secondaryRequest = {
+          output_format: secondaryFormat,
+          sources,
+          provider,
+          model: contentModel,
+          image_model: imageModel,
+          preferences: {
+            ...DEFAULT_PREFERENCES,
+            audience,
+            image_style: imageStyle,
+            temperature: 0.4,
+            max_tokens: 12000,
+            max_slides: 25,
+            max_summary_points: 5,
+            enable_image_generation: enableImageGeneration,
+          },
+          cache: DEFAULT_CACHE_OPTIONS,
+        };
+
+        // Trigger secondary generation in parallel
+        generateDocument({
+          request: secondaryRequest,
+          apiKey: contentApiKey,
+          imageApiKey: enableImageGeneration ? effectiveImageKey : undefined,
+          userId: user?.id,
+          onEvent: (event) => {
+            if (isCompleteEvent(event) || isCacheHitEvent(event)) {
+              if (combinedOutputType === "article") {
+                setSecondaryMarkdownContent(event.markdown_content || null);
+              } else {
+                setSecondaryPdfBase64(event.pdf_base64 || null);
+              }
+              setSecondaryDownloadUrl(event.download_url || null);
+              setIsSecondaryGenerating(false);
+            }
+          },
+          onError: () => {
+            setIsSecondaryGenerating(false);
+          },
+        }).catch(() => {
+          setIsSecondaryGenerating(false);
+        });
+      }
     } else if (isMindMap) {
       generateMindMap(
         {
@@ -387,6 +462,7 @@ export default function GeneratePage() {
     isPodcast,
     isImageType,
     outputType,
+    combinedOutputType,
     provider,
     contentModel,
     imageModel,
@@ -435,6 +511,11 @@ export default function GeneratePage() {
     setImageGenState("idle");
     setImageGenError(null);
     setGeneratedImageData(null);
+    // Clear secondary generation state
+    setSecondaryPdfBase64(null);
+    setSecondaryMarkdownContent(null);
+    setSecondaryDownloadUrl(null);
+    setIsSecondaryGenerating(false);
   }, [resetGeneration, resetMindMap, resetPodcast]);
 
   // Download handler
@@ -943,6 +1024,9 @@ export default function GeneratePage() {
                   userId={user?.id}
                   imageApiKey={effectiveImageKey}
                   combinedOutputType={combinedOutputType}
+                  secondaryPdfBase64={secondaryPdfBase64}
+                  secondaryMarkdownContent={secondaryMarkdownContent}
+                  isSecondaryGenerating={isSecondaryGenerating}
                 />
               )}
             </div>

@@ -50,6 +50,10 @@ interface StudioRightPanelProps {
   imageApiKey?: string;
   // Combined output type for dual preview
   combinedOutputType?: CombinedOutputType | null;
+  // Secondary generation data (for combined types)
+  secondaryPdfBase64?: string | null;
+  secondaryMarkdownContent?: string | null;
+  isSecondaryGenerating?: boolean;
 }
 
 export function StudioRightPanel({
@@ -71,12 +75,16 @@ export function StudioRightPanel({
   userId,
   imageApiKey,
   combinedOutputType,
+  secondaryPdfBase64,
+  secondaryMarkdownContent,
+  isSecondaryGenerating,
 }: StudioRightPanelProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [markdownView, setMarkdownView] = useState<"preview" | "raw">("preview");
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+  const [secondaryPdfObjectUrl, setSecondaryPdfObjectUrl] = useState<string | null>(null);
   // For dual output preview
   const [dualPreviewTab, setDualPreviewTab] = useState<"primary" | "secondary">("primary");
   
@@ -192,16 +200,17 @@ export function StudioRightPanel({
     return `<div class="prose prose-sm dark:prose-invert max-w-none"><p class="my-2">${html}</p></div>`;
   };
 
-  const handleCopyMarkdown = async () => {
-    if (!markdownContent) return;
+  const handleCopyMarkdown = async (content?: string | null) => {
+    const textToCopy = content || markdownContent;
+    if (!textToCopy) return;
     try {
-      await navigator.clipboard.writeText(markdownContent);
+      await navigator.clipboard.writeText(textToCopy);
       setMarkdownCopied(true);
       setTimeout(() => setMarkdownCopied(false), 1500);
     } catch {
       // Fallback for older browsers
       const textarea = document.createElement("textarea");
-      textarea.value = markdownContent;
+      textarea.value = textToCopy;
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
       document.body.appendChild(textarea);
@@ -248,9 +257,42 @@ export function StudioRightPanel({
     };
   }, [pdfBase64]);
 
-  const handleOpenPdfInNewTab = () => {
-    if (!pdfPreviewUrl) return;
-    window.open(pdfPreviewUrl, "_blank", "noopener,noreferrer");
+  // Effect for secondary PDF object URL (for presentation combined type)
+  useEffect(() => {
+    if (!secondaryPdfBase64) {
+      setSecondaryPdfObjectUrl((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+      return;
+    }
+
+    const byteCharacters = atob(secondaryPdfBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    setSecondaryPdfObjectUrl((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev);
+      }
+      return url;
+    });
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [secondaryPdfBase64]);
+
+  const handleOpenPdfInNewTab = (url?: string | null) => {
+    const targetUrl = url || pdfPreviewUrl;
+    if (!targetUrl) return;
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleDownloadImage = (data?: string | null, format?: string) => {
@@ -519,7 +561,9 @@ export function StudioRightPanel({
     // Dual preview for Article (PDF + Markdown)
     if (combinedOutputType === "article" && state === "success") {
       const hasPdf = pdfBase64 || pdfPreviewUrl;
-      const hasMd = markdownContent;
+      // Use secondaryMarkdownContent for the markdown tab
+      const hasMd = secondaryMarkdownContent;
+      const effectiveMarkdownContent = secondaryMarkdownContent || "";
 
       if (hasPdf || hasMd) {
         return (
@@ -566,7 +610,7 @@ export function StudioRightPanel({
                   <Button
                     size="sm"
                     variant={markdownCopied ? "outline" : "ghost"}
-                    onClick={handleCopyMarkdown}
+                    onClick={() => handleCopyMarkdown(effectiveMarkdownContent)}
                     className={`h-7 text-xs ${markdownCopied ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300' : ''}`}
                   >
                     {markdownCopied ? "Copied!" : "Copy"}
@@ -574,7 +618,7 @@ export function StudioRightPanel({
                 )}
                 {dualPreviewTab === "primary" && hasPdf && (
                   <>
-                    <Button size="sm" variant="ghost" onClick={handleOpenPdfInNewTab} className="h-7 text-xs">
+                    <Button size="sm" variant="ghost" onClick={() => handleOpenPdfInNewTab()} className="h-7 text-xs">
                       Open
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setIsFullscreen(true)} className="h-7 text-xs">
@@ -643,13 +687,21 @@ export function StudioRightPanel({
                     {markdownView === "preview" ? (
                       <div
                         className="text-sm leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml(markdownContent) }}
+                        dangerouslySetInnerHTML={{ __html: renderMarkdownAsHtml(effectiveMarkdownContent) }}
                       />
                     ) : (
                       <pre className="text-sm font-mono whitespace-pre-wrap text-muted-foreground leading-relaxed">
-                        {markdownContent}
+                        {effectiveMarkdownContent}
                       </pre>
                     )}
+                  </div>
+                ) : isSecondaryGenerating ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                      <div className="w-8 h-8 border-3 border-amber-200 dark:border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">Generating Markdown...</p>
+                    <p className="text-xs text-muted-foreground mt-1">The secondary format is being created</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -677,7 +729,9 @@ export function StudioRightPanel({
 
     // Dual preview for Presentation (PPTX + PDF)
     if (combinedOutputType === "presentation" && state === "success") {
-      const hasPdf = pdfBase64 || pdfPreviewUrl;
+      // Use secondaryPdfBase64 and secondaryPdfObjectUrl for the PDF preview tab
+      const hasPdf = secondaryPdfBase64 || secondaryPdfObjectUrl;
+      const effectivePdfPreviewUrl = secondaryPdfObjectUrl;
       const hasPptx = downloadUrl;
 
       if (hasPdf || hasPptx) {
@@ -724,9 +778,9 @@ export function StudioRightPanel({
                 )}
               </div>
               <div className="flex gap-2">
-                {dualPreviewTab === "secondary" && hasPdf && (
+                {dualPreviewTab === "secondary" && hasPdf && effectivePdfPreviewUrl && (
                   <>
-                    <Button size="sm" variant="ghost" onClick={handleOpenPdfInNewTab} className="h-7 text-xs">
+                    <Button size="sm" variant="ghost" onClick={() => handleOpenPdfInNewTab(effectivePdfPreviewUrl)} className="h-7 text-xs">
                       Open
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setIsFullscreen(true)} className="h-7 text-xs">
@@ -766,12 +820,20 @@ export function StudioRightPanel({
                 </div>
               )}
               {dualPreviewTab === "secondary" && (
-                hasPdf && pdfPreviewUrl ? (
+                hasPdf && effectivePdfPreviewUrl ? (
                   <iframe
-                    src={`${pdfPreviewUrl}#view=FitH&zoom=page-width`}
+                    src={`${effectivePdfPreviewUrl}#view=FitH&zoom=page-width`}
                     className="w-full h-full border-0"
                     title="PDF Preview"
                   />
+                ) : isSecondaryGenerating ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                      <div className="w-8 h-8 border-3 border-amber-200 dark:border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">Generating PDF Preview...</p>
+                    <p className="text-xs text-muted-foreground mt-1">Converting PPTX to PDF for preview</p>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center p-8">
                     <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
@@ -780,7 +842,7 @@ export function StudioRightPanel({
                       </svg>
                     </div>
                     <p className="text-sm text-muted-foreground">PDF preview not available</p>
-                    <p className="text-xs text-muted-foreground mt-1">The backend needs to generate a PDF version for preview</p>
+                    <p className="text-xs text-muted-foreground mt-1">The secondary generation may have failed</p>
                   </div>
                 )
               )}
@@ -1080,13 +1142,13 @@ export function StudioRightPanel({
               )}
             </div>
             <div className="flex gap-2">
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant={markdownCopied ? "outline" : "ghost"}
-                onClick={handleCopyMarkdown} 
+                onClick={() => handleCopyMarkdown()}
                 className={`h-7 text-xs transition-all duration-300 ${
-                  markdownCopied 
-                    ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' 
+                  markdownCopied
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
                     : ''
                 }`}
               >
@@ -1151,7 +1213,7 @@ export function StudioRightPanel({
               {metadata?.slides && ` • ${metadata.slides} slides`}
             </span>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={handleOpenPdfInNewTab} className="h-7 text-xs">
+              <Button size="sm" variant="ghost" onClick={() => handleOpenPdfInNewTab()} className="h-7 text-xs">
                 <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
@@ -1227,25 +1289,32 @@ export function StudioRightPanel({
       </div>
 
       {/* Fullscreen Modal */}
-      {isFullscreen && pdfPreviewUrl && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="relative w-full h-full max-w-6xl bg-white rounded-lg overflow-hidden">
-            <div className="absolute top-4 right-4 z-10 flex gap-2">
-              <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(false)}>
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Close
-              </Button>
+      {isFullscreen && (() => {
+        // Determine which PDF URL to use for fullscreen based on combined type and tab
+        let fullscreenUrl = pdfPreviewUrl;
+        if (combinedOutputType === "presentation" && dualPreviewTab === "secondary" && secondaryPdfObjectUrl) {
+          fullscreenUrl = secondaryPdfObjectUrl;
+        }
+        return fullscreenUrl ? (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div className="relative w-full h-full max-w-6xl bg-white rounded-lg overflow-hidden">
+              <div className="absolute top-4 right-4 z-10 flex gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(false)}>
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Close
+                </Button>
+              </div>
+              <iframe
+                src={`${fullscreenUrl}#view=FitH`}
+                className="w-full h-full border-0"
+                title="PDF Fullscreen"
+              />
             </div>
-            <iframe
-              src={`${pdfPreviewUrl}#view=FitH`}
-              className="w-full h-full border-0"
-              title="PDF Fullscreen"
-            />
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
     </>
   );
 }
