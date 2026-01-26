@@ -37,6 +37,7 @@ export interface UsePodcastGenerationResult {
   generate: (
     request: PodcastRequest,
     apiKey: string,
+    geminiApiKey?: string,
     userId?: string
   ) => Promise<void>;
   reset: () => void;
@@ -89,13 +90,14 @@ export function usePodcastGeneration(): UsePodcastGenerationResult {
   }, []);
 
   const generate = useCallback(
-    async (request: PodcastRequest, apiKey: string, userId?: string) => {
+    async (request: PodcastRequest, apiKey: string, geminiApiKey?: string, userId?: string) => {
       reset();
       setState("generating");
 
       const options: GeneratePodcastOptions = {
         request,
         apiKey,
+        geminiApiKey,
         userId,
         onEvent: handleEvent,
         onError: (err) => {

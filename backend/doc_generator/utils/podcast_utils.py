@@ -114,29 +114,60 @@ def synthesize_with_retry(
 
 
 def extract_json(text: str) -> dict[str, Any] | None:
-    """Extract JSON from text."""
-    import re
-
+    """Extract JSON object from text."""
     if not text:
         return None
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
 
-    patterns = [
-        r"```json\s*([\s\S]*?)\s*```",
-        r"```\s*([\s\S]*?)\s*```",
-        r"\{[\s\S]*\}",
-    ]
+    def _parse_candidate(candidate: str) -> dict[str, Any] | None:
+        try:
+            parsed = json.loads(candidate)
+            return parsed if isinstance(parsed, dict) else None
+        except json.JSONDecodeError:
+            return None
 
-    for pattern in patterns:
-        match = re.search(pattern, text)
-        if match:
-            try:
-                json_str = match.group(1) if "```" in pattern else match.group(0)
-                return json.loads(json_str)
-            except (json.JSONDecodeError, IndexError):
-                continue
+    direct = _parse_candidate(text)
+    if direct is not None:
+        return direct
+
+    cleaned = text.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+
+    cleaned_parsed = _parse_candidate(cleaned)
+    if cleaned_parsed is not None:
+        return cleaned_parsed
+
+    start_idx = cleaned.find("{")
+    if start_idx == -1:
+        return None
+
+    brace_count = 0
+    in_string = False
+    escape_next = False
+
+    for i in range(start_idx, len(cleaned)):
+        ch = cleaned[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\":
+            escape_next = True
+            continue
+        if ch == '"' and not escape_next:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            brace_count += 1
+        elif ch == "}":
+            brace_count -= 1
+            if brace_count == 0:
+                return _parse_candidate(cleaned[start_idx : i + 1])
 
     return None

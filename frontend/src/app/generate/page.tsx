@@ -449,7 +449,8 @@ export default function GeneratePage() {
           speakers: podcastSpeakers,
           duration_minutes: podcastDuration,
         },
-        effectivePodcastKey,  // Use Gemini content key or separate podcast Gemini key
+        contentApiKey,
+        effectivePodcastKey,
         user?.id
       );
     }
