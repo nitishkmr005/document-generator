@@ -1,10 +1,38 @@
 """Pydantic request and response models for FAQ generation."""
 
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .requests import Provider, SourceItem
+
+
+class FAQAnswerFormat(str, Enum):
+    CONCISE = "concise"
+    BULLETED = "bulleted"
+
+
+class FAQDetailLevel(str, Enum):
+    SHORT = "short"
+    MEDIUM = "medium"
+    DEEP = "deep"
+
+
+class FAQMode(str, Enum):
+    BALANCED = "balanced"
+    ONBOARDING = "onboarding"
+    HOW_TO_USE = "how_to_use"
+    TROUBLESHOOTING = "troubleshooting"
+    TECHNICAL_DEEP_DIVE = "technical_deep_dive"
+
+
+class FAQAudiencePersona(str, Enum):
+    GENERAL_READER = "general_reader"
+    DEVELOPER = "developer"
+    BUSINESS = "business"
+    COMPLIANCE = "compliance"
+    SUPPORT = "support"
 
 
 class FAQRequest(BaseModel):
@@ -15,6 +43,11 @@ class FAQRequest(BaseModel):
         min_length=1,
         max_length=1,
     )
+    faq_count: int = Field(default=10, ge=3, le=30)
+    answer_format: FAQAnswerFormat = FAQAnswerFormat.CONCISE
+    detail_level: FAQDetailLevel = FAQDetailLevel.MEDIUM
+    mode: FAQMode = FAQMode.BALANCED
+    audience: FAQAudiencePersona = FAQAudiencePersona.GENERAL_READER
     provider: Provider = Provider.GEMINI
     model: str = "gemini-2.5-flash"
 
@@ -25,6 +58,11 @@ class FAQRequest(BaseModel):
                     "sources": [
                         {"type": "url", "url": "https://example.com/article"}
                     ],
+                    "faq_count": 10,
+                    "answer_format": "concise",
+                    "detail_level": "medium",
+                    "mode": "balanced",
+                    "audience": "general_reader",
                     "provider": "gemini",
                     "model": "gemini-2.5-flash",
                 }

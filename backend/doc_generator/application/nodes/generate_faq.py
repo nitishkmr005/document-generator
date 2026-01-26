@@ -49,6 +49,11 @@ def generate_faq_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
     request_data = state.get("request_data", {})
     provider = request_data.get("provider", "gemini")
     model = request_data.get("model", "gemini-2.5-flash")
+    faq_count = int(request_data.get("faq_count", 10))
+    answer_format = request_data.get("answer_format", "concise")
+    detail_level = request_data.get("detail_level", "medium")
+    mode = request_data.get("mode", "balanced")
+    audience = request_data.get("audience", "general_reader")
     api_key = state.get("api_key", "")
 
     log_metric("Provider", provider)
@@ -69,7 +74,14 @@ def generate_faq_node(state: UnifiedWorkflowState) -> UnifiedWorkflowState:
             os.environ[env_var] = api_key
 
         llm_service = LLMService(provider=provider_name, model=model)
-        prompt = build_faq_extraction_prompt(raw_content)
+        prompt = build_faq_extraction_prompt(
+            raw_content,
+            faq_count=faq_count,
+            answer_format=answer_format,
+            detail_level=detail_level,
+            mode=mode,
+            audience=audience,
+        )
         response = llm_service.generate(prompt)
 
         faq_data = safe_json_parse(response)

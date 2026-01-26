@@ -397,6 +397,11 @@ async def generate_faq_with_session(
         async for event in service.generate_faq(
             sources=sources,
             api_key=api_key,
+            faq_count=request.faq_count,
+            answer_format=request.answer_format.value,
+            detail_level=request.detail_level.value,
+            mode=request.mode.value,
+            audience=request.audience.value,
             provider=request.provider.value,
             model=request.model,
             user_id=api_keys.user_id,

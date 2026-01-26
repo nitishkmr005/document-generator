@@ -2,8 +2,28 @@
 
 import type { Provider, SourceItem } from "./requests";
 
+export type FAQAnswerFormat = "concise" | "bulleted";
+export type FAQDetailLevel = "short" | "medium" | "deep";
+export type FAQMode =
+  | "balanced"
+  | "onboarding"
+  | "how_to_use"
+  | "troubleshooting"
+  | "technical_deep_dive";
+export type FAQAudiencePersona =
+  | "general_reader"
+  | "developer"
+  | "business"
+  | "compliance"
+  | "support";
+
 export interface FAQRequest {
   sources: SourceItem[];
+  faq_count: number;
+  answer_format: FAQAnswerFormat;
+  detail_level: FAQDetailLevel;
+  mode: FAQMode;
+  audience: FAQAudiencePersona;
   provider: Provider;
   model: string;
 }

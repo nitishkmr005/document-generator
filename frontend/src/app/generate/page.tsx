@@ -37,6 +37,7 @@ import {
 import { MindMapMode } from "@/lib/types/mindmap";
 import type { OutputFormat as ImageOutputFormat } from "@/lib/types/image";
 import { PodcastStyle, SpeakerConfig, DEFAULT_SPEAKERS } from "@/lib/types/podcast";
+import { FAQAnswerFormat, FAQDetailLevel, FAQMode, FAQAudiencePersona } from "@/lib/types/faq";
 
 // Map studio output types to API output formats
 function getApiOutputFormat(studioType: StudioOutputType): OutputFormat {
@@ -130,6 +131,13 @@ export default function GeneratePage() {
   const effectivePodcastKey = provider === "gemini" ? contentApiKey : podcastGeminiApiKey;
   // Podcast is actually enabled when: enabled toggle is on AND has the right key
   const isPodcastActuallyEnabled = provider === "gemini" ? hasGeminiKey : (enablePodcast && podcastGeminiApiKey.trim().length > 0);
+
+  // FAQ generation specific state
+  const [faqCount, setFaqCount] = useState(10);
+  const [faqAnswerFormat, setFaqAnswerFormat] = useState<FAQAnswerFormat>("concise");
+  const [faqDetailLevel, setFaqDetailLevel] = useState<FAQDetailLevel>("medium");
+  const [faqMode, setFaqMode] = useState<FAQMode>("balanced");
+  const [faqAudience, setFaqAudience] = useState<FAQAudiencePersona>("general_reader");
 
   // Generation hooks
   const {
@@ -472,6 +480,11 @@ export default function GeneratePage() {
       generateFAQ(
         {
           sources,
+          faq_count: faqCount,
+          answer_format: faqAnswerFormat,
+          detail_level: faqDetailLevel,
+          mode: faqMode,
+          audience: faqAudience,
           provider,
           model: contentModel,
         },
@@ -507,6 +520,11 @@ export default function GeneratePage() {
     podcastSpeakers,
     podcastDuration,
     isFaq,
+    faqCount,
+    faqAnswerFormat,
+    faqDetailLevel,
+    faqMode,
+    faqAudience,
     generateFAQ,
     generate,
     generateMindMap,
@@ -962,6 +980,11 @@ export default function GeneratePage() {
                     podcastStyle={podcastStyle}
                     podcastSpeakers={podcastSpeakers}
                     podcastDuration={podcastDuration}
+                    faqCount={faqCount}
+                    faqAnswerFormat={faqAnswerFormat}
+                    faqDetailLevel={faqDetailLevel}
+                    faqMode={faqMode}
+                    faqAudience={faqAudience}
                     onProviderChange={setProvider}
                     onContentModelChange={setContentModel}
                     onImageModelChange={setImageModel}
@@ -978,6 +1001,11 @@ export default function GeneratePage() {
                     onPodcastStyleChange={setPodcastStyle}
                     onPodcastSpeakersChange={setPodcastSpeakers}
                     onPodcastDurationChange={setPodcastDuration}
+                    onFaqCountChange={setFaqCount}
+                    onFaqAnswerFormatChange={setFaqAnswerFormat}
+                    onFaqDetailLevelChange={setFaqDetailLevel}
+                    onFaqModeChange={setFaqMode}
+                    onFaqAudienceChange={setFaqAudience}
                   />
                 </div>
               </div>

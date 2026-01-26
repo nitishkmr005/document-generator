@@ -512,6 +512,11 @@ class UnifiedGenerationService:
         self,
         sources: list[dict],
         api_key: str,
+        faq_count: int = 10,
+        answer_format: str = "concise",
+        detail_level: str = "medium",
+        mode: str = "balanced",
+        audience: str = "general_reader",
         provider: str = "gemini",
         model: str = "gemini-2.5-flash",
         user_id: Optional[str] = None,
@@ -533,6 +538,11 @@ class UnifiedGenerationService:
         """
         request_data = {
             "sources": sources,
+            "faq_count": faq_count,
+            "answer_format": answer_format,
+            "detail_level": detail_level,
+            "mode": mode,
+            "audience": audience,
             "provider": provider,
             "model": model,
         }

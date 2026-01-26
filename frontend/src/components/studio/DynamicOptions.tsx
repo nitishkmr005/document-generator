@@ -23,6 +23,12 @@ import {
   VOICE_OPTIONS,
   DEFAULT_SPEAKERS 
 } from "@/lib/types/podcast";
+import {
+  FAQAnswerFormat,
+  FAQDetailLevel,
+  FAQMode,
+  FAQAudiencePersona,
+} from "@/lib/types/faq";
 
 interface ModelOption {
   value: string;
@@ -122,6 +128,33 @@ const mindMapModeOptions: {
   },
 ];
 
+const faqAnswerFormatOptions: { value: FAQAnswerFormat; label: string }[] = [
+  { value: "concise", label: "Concise" },
+  { value: "bulleted", label: "Bulleted" },
+];
+
+const faqDetailLevelOptions: { value: FAQDetailLevel; label: string }[] = [
+  { value: "short", label: "Short" },
+  { value: "medium", label: "Medium" },
+  { value: "deep", label: "Deep" },
+];
+
+const faqModeOptions: { value: FAQMode; label: string }[] = [
+  { value: "balanced", label: "Balanced" },
+  { value: "onboarding", label: "Onboarding" },
+  { value: "how_to_use", label: "How to use" },
+  { value: "troubleshooting", label: "Troubleshooting" },
+  { value: "technical_deep_dive", label: "Technical Deep Dive" },
+];
+
+const faqAudienceOptions: { value: FAQAudiencePersona; label: string }[] = [
+  { value: "general_reader", label: "General Reader" },
+  { value: "developer", label: "Developer" },
+  { value: "business", label: "Business" },
+  { value: "compliance", label: "Compliance" },
+  { value: "support", label: "Support" },
+];
+
 interface DynamicOptionsProps {
   outputType: StudioOutputType;
   provider: Provider;
@@ -145,6 +178,12 @@ interface DynamicOptionsProps {
   podcastStyle?: PodcastStyle;
   podcastSpeakers?: SpeakerConfig[];
   podcastDuration?: number;
+  // FAQ specific
+  faqCount: number;
+  faqAnswerFormat: FAQAnswerFormat;
+  faqDetailLevel: FAQDetailLevel;
+  faqMode: FAQMode;
+  faqAudience: FAQAudiencePersona;
   onProviderChange: (provider: Provider) => void;
   onContentModelChange: (model: string) => void;
   onImageModelChange: (model: string) => void;
@@ -163,6 +202,12 @@ interface DynamicOptionsProps {
   onPodcastStyleChange?: (style: PodcastStyle) => void;
   onPodcastSpeakersChange?: (speakers: SpeakerConfig[]) => void;
   onPodcastDurationChange?: (duration: number) => void;
+  // FAQ callbacks
+  onFaqCountChange: (count: number) => void;
+  onFaqAnswerFormatChange: (format: FAQAnswerFormat) => void;
+  onFaqDetailLevelChange: (level: FAQDetailLevel) => void;
+  onFaqModeChange: (mode: FAQMode) => void;
+  onFaqAudienceChange: (audience: FAQAudiencePersona) => void;
 }
 
 export function DynamicOptions({
@@ -186,6 +231,11 @@ export function DynamicOptions({
   podcastStyle = "conversational",
   podcastSpeakers = DEFAULT_SPEAKERS,
   podcastDuration = 3,
+  faqCount,
+  faqAnswerFormat,
+  faqDetailLevel,
+  faqMode,
+  faqAudience,
   onProviderChange,
   onContentModelChange,
   onImageModelChange,
@@ -202,6 +252,11 @@ export function DynamicOptions({
   onPodcastSpeakersChange,
   onPodcastDurationChange,
   onImageOutputFormatChange,
+  onFaqCountChange,
+  onFaqAnswerFormatChange,
+  onFaqDetailLevelChange,
+  onFaqModeChange,
+  onFaqAudienceChange,
 }: DynamicOptionsProps) {
   const isContentType = ["article_pdf", "article_markdown", "slide_deck_pdf", "presentation_pptx"].includes(outputType);
   const isImageType = outputType === "image_generate";
@@ -447,6 +502,117 @@ export function DynamicOptions({
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* FAQ Options */}
+      {isFaq && (
+        <div className="space-y-5">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold">FAQ Settings</div>
+            <p className="text-xs text-muted-foreground">
+              Control the number, depth, and audience tone for your FAQs.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="faq-count" className="text-xs">Number of FAQs</Label>
+              <Input
+                id="faq-count"
+                type="number"
+                min={3}
+                max={30}
+                step={1}
+                value={faqCount}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (Number.isNaN(next)) return;
+                  const clamped = Math.max(3, Math.min(30, next));
+                  onFaqCountChange(clamped);
+                }}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="faq-answer-format" className="text-xs">Answer format</Label>
+              <Select
+                value={faqAnswerFormat}
+                onValueChange={(v) => onFaqAnswerFormatChange(v as FAQAnswerFormat)}
+              >
+                <SelectTrigger id="faq-answer-format" className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {faqAnswerFormatOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="faq-detail-level" className="text-xs">Detail level</Label>
+              <Select
+                value={faqDetailLevel}
+                onValueChange={(v) => onFaqDetailLevelChange(v as FAQDetailLevel)}
+              >
+                <SelectTrigger id="faq-detail-level" className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {faqDetailLevelOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="faq-mode" className="text-xs">FAQ mode</Label>
+              <Select
+                value={faqMode}
+                onValueChange={(v) => onFaqModeChange(v as FAQMode)}
+              >
+                <SelectTrigger id="faq-mode" className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {faqModeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="faq-audience" className="text-xs">Audience persona</Label>
+            <Select
+              value={faqAudience}
+              onValueChange={(v) => onFaqAudienceChange(v as FAQAudiencePersona)}
+            >
+              <SelectTrigger id="faq-audience" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {faqAudienceOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       )}
