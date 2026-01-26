@@ -102,6 +102,12 @@ def describe_images_node(state: WorkflowState) -> WorkflowState:
     )
     
     structured_content = state.get("structured_content", {})
+    metadata = state.get("metadata", {})
+    if metadata.get("enable_image_generation") is False:
+        log_node_end(
+            "describe_images", success=True, details="Image embedding disabled"
+        )
+        return state
     section_images = structured_content.get("section_images", {})
     
     if not section_images:
@@ -112,7 +118,6 @@ def describe_images_node(state: WorkflowState) -> WorkflowState:
     
     markdown = structured_content.get("markdown", "")
     settings = get_settings()
-    metadata = state.get("metadata", {})
     api_keys = metadata.get("api_keys", {})
     content_api_key = api_keys.get("content")
     image_api_key = api_keys.get("image")
