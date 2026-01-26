@@ -6,6 +6,7 @@ from loguru import logger
 
 from ...domain.models import WorkflowState
 from ...infrastructure.llm import get_llm_service
+from ...infrastructure.llm.service import LLMService
 from ...infrastructure.settings import get_settings
 from ...infrastructure.logging_utils import (
     log_node_start,
@@ -39,9 +40,34 @@ def enhance_content_node(state: WorkflowState) -> WorkflowState:
     output_format = state.get("output_format", "pdf")
     log_metric("Output Format", output_format.upper())
     
-    llm = state.get("llm_service") or get_llm_service()
-    require_slide_llm = output_format in ("pptx", "pdf_from_pptx")
+    settings = get_settings()
     metadata = state.get("metadata", {})
+    api_keys = metadata.get("api_keys", {})
+    content_key = api_keys.get("content") if isinstance(api_keys, dict) else None
+    provider = metadata.get("provider") or settings.llm.content_provider
+    model = metadata.get("model") or settings.llm.content_model
+
+    if provider == "google":
+        provider = "gemini"
+
+    llm = state.get("llm_service")
+    if llm is None or not llm.is_available():
+        if content_key:
+            llm = LLMService(
+                api_key=content_key,
+                model=model,
+                provider=provider,
+                max_summary_points=settings.llm.max_summary_points,
+                max_slides=settings.llm.max_slides,
+                max_tokens_summary=settings.llm.max_tokens_summary,
+                max_tokens_slides=settings.llm.max_tokens_slides,
+                temperature_summary=settings.llm.temperature_summary,
+                temperature_slides=settings.llm.temperature_slides,
+            )
+        else:
+            llm = get_llm_service()
+        state["llm_service"] = llm
+    require_slide_llm = output_format in ("pptx", "pdf_from_pptx")
     if require_slide_llm:
         metadata["require_slide_llm"] = True
         state["metadata"] = metadata
@@ -83,7 +109,6 @@ def enhance_content_node(state: WorkflowState) -> WorkflowState:
     # Generate slide structure for PPTX and PDF-from-PPTX
     if output_format in ("pptx", "pdf_from_pptx") and not structured.get("slides"):
         log_subsection("Generating Slide Structure")
-        settings = get_settings()
         max_slides = metadata.get("max_slides")
         max_attempts = max(1, int(metadata.get("slide_generation_retries", 0) or settings.generator.max_retries))
         slides = []
