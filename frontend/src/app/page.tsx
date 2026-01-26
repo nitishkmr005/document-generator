@@ -366,12 +366,6 @@ export default function HomePage() {
     isNew?: boolean;
   }> = [
     {
-      icon: "01",
-      title: "Idea Canvas",
-      desc: "Interactive Q&A that builds a visual decision tree and outputs a complete implementation spec.",
-      tags: ["Voice Agent", "Mind Map"]
-    },
-    {
       icon: "02",
       title: "Mind Map Studio",
       desc: "Generate beautiful mind maps from any content with an interactive viewer.",
