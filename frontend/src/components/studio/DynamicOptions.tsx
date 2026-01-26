@@ -532,7 +532,7 @@ export function DynamicOptions({
                   const clamped = Math.max(3, Math.min(30, next));
                   onFaqCountChange(clamped);
                 }}
-                className="h-8 text-xs"
+                className="h-8 text-xs w-full"
               />
             </div>
 
@@ -542,7 +542,7 @@ export function DynamicOptions({
                 value={faqAnswerFormat}
                 onValueChange={(v) => onFaqAnswerFormatChange(v as FAQAnswerFormat)}
               >
-                <SelectTrigger id="faq-answer-format" className="h-8 text-xs">
+                <SelectTrigger id="faq-answer-format" className="h-8 text-xs w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -563,7 +563,7 @@ export function DynamicOptions({
                 value={faqDetailLevel}
                 onValueChange={(v) => onFaqDetailLevelChange(v as FAQDetailLevel)}
               >
-                <SelectTrigger id="faq-detail-level" className="h-8 text-xs">
+                <SelectTrigger id="faq-detail-level" className="h-8 text-xs w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -582,7 +582,7 @@ export function DynamicOptions({
                 value={faqMode}
                 onValueChange={(v) => onFaqModeChange(v as FAQMode)}
               >
-                <SelectTrigger id="faq-mode" className="h-8 text-xs">
+                <SelectTrigger id="faq-mode" className="h-8 text-xs w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -602,7 +602,7 @@ export function DynamicOptions({
               value={faqAudience}
               onValueChange={(v) => onFaqAudienceChange(v as FAQAudiencePersona)}
             >
-              <SelectTrigger id="faq-audience" className="h-8 text-xs">
+              <SelectTrigger id="faq-audience" className="h-8 text-xs w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
